@@ -1,4 +1,4 @@
-import { Type, RotateCcw } from "lucide-react";
+import { Type, RotateCcw, Lightbulb, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fontOptions } from "@shared/schema";
+import { fontOptions, baseTemplates } from "@shared/schema";
 import { useEditorStore } from "@/lib/editor-store";
 
 export function TextControls() {
@@ -27,6 +27,46 @@ export function TextControls() {
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0 space-y-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Base Template</Label>
+          <Select
+            value={letterSettings.templateId || "none"}
+            onValueChange={(value) => setLetterSettings({ templateId: value })}
+          >
+            <SelectTrigger data-testid="select-template" className="h-10">
+              <SelectValue placeholder="Select template" />
+            </SelectTrigger>
+            <SelectContent>
+              {baseTemplates.map((template) => (
+                <SelectItem
+                  key={template.id}
+                  value={template.id}
+                  data-testid={`template-option-${template.id}`}
+                >
+                  <div className="flex flex-col">
+                    <span>{template.name}</span>
+                    <span className="text-xs text-muted-foreground">{template.description}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {letterSettings.templateId && letterSettings.templateId !== "none" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                window.open(`/api/templates/${letterSettings.templateId}/download`, "_blank");
+              }}
+              data-testid="button-download-template"
+            >
+              <Download className="h-3 w-3 mr-2" />
+              Download Template STL
+            </Button>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="text-input" className="text-sm font-medium">
             Letter / Text
@@ -170,6 +210,52 @@ export function TextControls() {
           )}
         </div>
 
+        <div className="space-y-3 pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-primary" />
+              <Label htmlFor="diffuser-toggle" className="text-sm font-medium">
+                Light Diffuser Bevel
+              </Label>
+            </div>
+            <Switch
+              id="diffuser-toggle"
+              data-testid="switch-diffuser"
+              checked={letterSettings.lightDiffuserBevel || false}
+              onCheckedChange={(checked) =>
+                setLetterSettings({ lightDiffuserBevel: checked })
+              }
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Adds angled edges to help diffuse LED light evenly
+          </p>
+
+          {letterSettings.lightDiffuserBevel && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">
+                  Diffuser Angle
+                </Label>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {letterSettings.diffuserBevelAngle || 45}°
+                </span>
+              </div>
+              <Slider
+                data-testid="slider-diffuser-angle"
+                value={[letterSettings.diffuserBevelAngle || 45]}
+                onValueChange={([value]) =>
+                  setLetterSettings({ diffuserBevelAngle: value })
+                }
+                min={15}
+                max={60}
+                step={5}
+                className="py-1"
+              />
+            </div>
+          )}
+        </div>
+
         <Button
           variant="outline"
           size="sm"
@@ -183,6 +269,9 @@ export function TextControls() {
               bevelEnabled: true,
               bevelThickness: 2,
               bevelSize: 1,
+              templateId: "none",
+              lightDiffuserBevel: false,
+              diffuserBevelAngle: 45,
             })
           }
           data-testid="button-reset-text"

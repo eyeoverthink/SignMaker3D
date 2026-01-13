@@ -847,19 +847,46 @@ export function generateSignageParts(
       textWidth = text.length * fontSize * 0.7;
     }
 
-    const channelY = wiringSettings.channelType === "back" 
+    const channelY = (wiringSettings.channelType === "back" || wiringSettings.channelType === "ws2812b")
       ? -fontSize * 0.4 
       : 0;
 
-    const channelTriangles = generateCylinderTriangles(
-      wiringSettings.channelDiameter / 2,
-      textWidth * 0.9,
-      16,
-      0,
-      channelY,
-      -geometrySettings.backingThickness / 2,
-      true
-    );
+    let channelTriangles: Triangle[];
+    
+    if (wiringSettings.channelType === "ws2812b") {
+      const channelWidth = wiringSettings.channelWidth || 12;
+      const channelHeight = Math.min(wiringSettings.channelDepth || 4, geometrySettings.backingThickness - 1);
+      channelTriangles = generateBoxTriangles(
+        textWidth * 0.9,
+        channelWidth,
+        channelHeight,
+        0,
+        channelY,
+        -(geometrySettings.backingThickness - channelHeight / 2)
+      );
+    } else if (wiringSettings.channelType === "filament") {
+      const channelDiameter = wiringSettings.channelDiameter || 10;
+      const clampedDiameter = Math.min(channelDiameter, geometrySettings.backingThickness * 0.9);
+      channelTriangles = generateCylinderTriangles(
+        clampedDiameter / 2,
+        textWidth * 0.9,
+        16,
+        0,
+        channelY,
+        -(geometrySettings.backingThickness - clampedDiameter / 2),
+        true
+      );
+    } else {
+      channelTriangles = generateCylinderTriangles(
+        wiringSettings.channelDiameter / 2,
+        textWidth * 0.9,
+        16,
+        0,
+        channelY,
+        -geometrySettings.backingThickness / 2,
+        true
+      );
+    }
 
     const existingLetters = parts.find(p => p.name === "letters" || p.name === "stencil_backing");
     if (existingLetters) {

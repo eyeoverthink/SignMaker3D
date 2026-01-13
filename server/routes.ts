@@ -9,12 +9,15 @@ import {
   mountingSettingsSchema,
   insertProjectSchema,
   fontOptions,
+  baseTemplates,
   defaultGeometrySettings,
   defaultWiringSettings,
   defaultMountingSettings,
 } from "@shared/schema";
 import { z } from "zod";
 import archiver from "archiver";
+import path from "path";
+import fs from "fs";
 
 const exportRequestSchema = z.object({
   letterSettings: letterSettingsSchema,
@@ -30,6 +33,36 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.get("/api/fonts", (_req, res) => {
     res.json(fontOptions);
+  });
+
+  app.get("/api/templates", (_req, res) => {
+    res.json(baseTemplates);
+  });
+
+  app.get("/api/templates/:id/download", (req, res) => {
+    const templateId = req.params.id;
+    const format = (req.query.format as string) || "stl";
+    
+    const templateFiles: Record<string, string> = {
+      "hex-base": "hex-light-base_1768296418145.stl",
+      "triangle-base": "triangle-base_1768296478797.stl",
+      "wall-hanging": "wallhanging-lid_1768296478798.stl",
+      "control-box": "control-base_1768296478796.stl",
+    };
+    
+    const fileName = templateFiles[templateId];
+    if (!fileName) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    
+    const filePath = path.join(process.cwd(), "server/templates", fileName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Template file not found" });
+    }
+    
+    res.setHeader("Content-Disposition", `attachment; filename="${templateId}.${format}"`);
+    res.setHeader("Content-Type", "application/octet-stream");
+    fs.createReadStream(filePath).pipe(res);
   });
 
   app.get("/api/projects", async (_req, res) => {

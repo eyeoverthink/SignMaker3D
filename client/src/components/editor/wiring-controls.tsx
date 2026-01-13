@@ -1,4 +1,4 @@
-import { Cable, Circle } from "lucide-react";
+import { Cable, Circle, Lightbulb } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,8 @@ const channelDescriptions: Record<WiringChannelType, string> = {
   none: "No wiring channel",
   center: "Channel runs through the center",
   back: "Channel on the back surface",
+  ws2812b: "WS2812B LED strip channel (10-12mm wide)",
+  filament: "Filament/neon light channel",
   custom: "Custom channel placement",
 };
 
@@ -70,60 +72,138 @@ export function WiringControls() {
 
         {wiringSettings.channelType !== "none" && (
           <>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Channel Diameter</Label>
-                <span className="text-sm font-mono text-muted-foreground">
-                  {wiringSettings.channelDiameter}mm
-                </span>
+            {(wiringSettings.channelType === "center" || wiringSettings.channelType === "back" || wiringSettings.channelType === "custom") && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Channel Diameter</Label>
+                  <span className="text-sm font-mono text-muted-foreground">
+                    {wiringSettings.channelDiameter}mm
+                  </span>
+                </div>
+                <Slider
+                  data-testid="slider-channel-diameter"
+                  value={[wiringSettings.channelDiameter]}
+                  onValueChange={([value]) =>
+                    setWiringSettings({ channelDiameter: value })
+                  }
+                  min={3}
+                  max={20}
+                  step={0.5}
+                  className="py-2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Fits wires up to{" "}
+                  {(wiringSettings.channelDiameter * 0.8).toFixed(1)}mm
+                </p>
               </div>
-              <Slider
-                data-testid="slider-channel-diameter"
-                value={[wiringSettings.channelDiameter]}
-                onValueChange={([value]) =>
-                  setWiringSettings({ channelDiameter: value })
-                }
-                min={3}
-                max={20}
-                step={0.5}
-                className="py-2"
-              />
-              <p className="text-xs text-muted-foreground">
-                Fits wires up to{" "}
-                {(wiringSettings.channelDiameter * 0.8).toFixed(1)}mm
-              </p>
-            </div>
+            )}
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Channel Depth</Label>
-                <span className="text-sm font-mono text-muted-foreground">
-                  {wiringSettings.channelDepth}mm
-                </span>
+            {wiringSettings.channelType === "ws2812b" && (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Strip Width</Label>
+                    <span className="text-sm font-mono text-muted-foreground">
+                      {wiringSettings.channelWidth || 12}mm
+                    </span>
+                  </div>
+                  <Slider
+                    data-testid="slider-channel-width"
+                    value={[wiringSettings.channelWidth || 12]}
+                    onValueChange={([value]) =>
+                      setWiringSettings({ channelWidth: value })
+                    }
+                    min={8}
+                    max={20}
+                    step={0.5}
+                    className="py-2"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    WS2812B strips are typically 10-12mm wide
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Strip Thickness</Label>
+                    <span className="text-sm font-mono text-muted-foreground">
+                      {wiringSettings.channelDepth}mm
+                    </span>
+                  </div>
+                  <Slider
+                    data-testid="slider-channel-depth"
+                    value={[wiringSettings.channelDepth]}
+                    onValueChange={([value]) =>
+                      setWiringSettings({ channelDepth: value })
+                    }
+                    min={2}
+                    max={10}
+                    step={0.5}
+                    className="py-2"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Typical LED strip thickness: 3-5mm
+                  </p>
+                </div>
+              </>
+            )}
+
+            {wiringSettings.channelType === "filament" && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Tube Diameter</Label>
+                  <span className="text-sm font-mono text-muted-foreground">
+                    {wiringSettings.channelDiameter}mm
+                  </span>
+                </div>
+                <Slider
+                  data-testid="slider-filament-diameter"
+                  value={[wiringSettings.channelDiameter]}
+                  onValueChange={([value]) =>
+                    setWiringSettings({ channelDiameter: value })
+                  }
+                  min={5}
+                  max={20}
+                  step={0.5}
+                  className="py-2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Filament/neon tubes are typically 8-15mm diameter
+                </p>
               </div>
-              <Slider
-                data-testid="slider-channel-depth"
-                value={[wiringSettings.channelDepth]}
-                onValueChange={([value]) =>
-                  setWiringSettings({ channelDepth: value })
-                }
-                min={0}
-                max={100}
-                step={1}
-                className="py-2"
-              />
-            </div>
+            )}
+
+            {(wiringSettings.channelType === "center" || wiringSettings.channelType === "back" || wiringSettings.channelType === "custom") && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Channel Depth</Label>
+                  <span className="text-sm font-mono text-muted-foreground">
+                    {wiringSettings.channelDepth}mm
+                  </span>
+                </div>
+                <Slider
+                  data-testid="slider-channel-depth"
+                  value={[wiringSettings.channelDepth]}
+                  onValueChange={([value]) =>
+                    setWiringSettings({ channelDepth: value })
+                  }
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="py-2"
+                />
+              </div>
+            )}
 
             <div className="p-3 bg-muted/50 rounded-md">
               <div className="flex items-start gap-2">
-                <Cable className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <Lightbulb className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <div className="text-xs text-muted-foreground">
                   <p className="font-medium text-foreground mb-1">
-                    Wire Routing Tips
+                    LED Channel Tips
                   </p>
                   <ul className="space-y-0.5 list-disc list-inside">
-                    <li>LED strips typically need 8-12mm channels</li>
-                    <li>Neon flex usually requires 10-15mm</li>
+                    <li>WS2812B strips: 10-12mm wide channels</li>
+                    <li>Filament/neon: 8-15mm round channels</li>
                     <li>Leave extra room for connectors</li>
                   </ul>
                 </div>

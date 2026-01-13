@@ -17,11 +17,21 @@ export const fontOptions = [
 
 export type FontOption = typeof fontOptions[number];
 
-export const wiringChannelTypes = ["none", "center", "back", "custom"] as const;
+export const wiringChannelTypes = ["none", "center", "back", "ws2812b", "filament", "custom"] as const;
 export type WiringChannelType = typeof wiringChannelTypes[number];
 
 export const mountingHolePatterns = ["none", "2-point", "4-corner", "6-point", "custom"] as const;
 export type MountingHolePattern = typeof mountingHolePatterns[number];
+
+export const baseTemplates = [
+  { id: "none", name: "Custom Text Only", description: "Generate letters from your text" },
+  { id: "hex-base", name: "Hex Light Base", description: "Hexagonal LED panel base" },
+  { id: "triangle-base", name: "Triangle Base", description: "Triangular LED panel base" },
+  { id: "wall-hanging", name: "Wall Hanging", description: "Wall-mountable sign with lid" },
+  { id: "control-box", name: "Control Box", description: "Electronics housing for LED controller" },
+] as const;
+
+export type BaseTemplate = typeof baseTemplates[number];
 
 export const exportFormats = ["stl", "obj", "3mf"] as const;
 export type ExportFormat = typeof exportFormats[number];
@@ -52,6 +62,9 @@ export const letterSettingsSchema = z.object({
   bevelEnabled: z.boolean(),
   bevelThickness: z.number().min(0).max(10),
   bevelSize: z.number().min(0).max(5),
+  templateId: z.string().optional(),
+  lightDiffuserBevel: z.boolean().optional(),
+  diffuserBevelAngle: z.number().min(15).max(60).optional(),
 });
 
 export type LetterSettings = z.infer<typeof letterSettingsSchema>;
@@ -60,6 +73,8 @@ export const wiringSettingsSchema = z.object({
   channelType: z.enum(wiringChannelTypes),
   channelDiameter: z.number().min(3).max(20),
   channelDepth: z.number().min(0).max(100),
+  channelWidth: z.number().min(5).max(30).optional(),
+  ledCount: z.number().min(1).max(100).optional(),
 });
 
 export type WiringSettings = z.infer<typeof wiringSettingsSchema>;
@@ -98,12 +113,17 @@ export const defaultLetterSettings: LetterSettings = {
   bevelEnabled: true,
   bevelThickness: 2,
   bevelSize: 1,
+  templateId: "none",
+  lightDiffuserBevel: false,
+  diffuserBevelAngle: 45,
 };
 
 export const defaultWiringSettings: WiringSettings = {
   channelType: "none",
   channelDiameter: 6,
-  channelDepth: 15,
+  channelDepth: 4,
+  channelWidth: 12,
+  ledCount: 10,
 };
 
 export const defaultMountingSettings: MountingSettings = {
