@@ -110,18 +110,22 @@ export function SettingsPanel() {
                 <p className="text-sm text-muted-foreground mb-3">
                   Upload handwriting or drawing
                 </p>
-                <label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    data-testid="input-image-upload"
-                  />
-                  <Button variant="outline" size="sm" asChild>
-                    <span>Choose Image</span>
-                  </Button>
-                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="image-upload-input"
+                  data-testid="input-image-upload"
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => document.getElementById('image-upload-input')?.click()}
+                  data-testid="button-choose-image"
+                >
+                  Choose Image
+                </Button>
               </div>
               
               <p className="text-xs text-muted-foreground">

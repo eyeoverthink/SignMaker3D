@@ -58,6 +58,9 @@ export type GeometrySettings = z.infer<typeof geometrySettingsSchema>;
 export const neonTubeSizes = ["8mm", "10mm", "12mm", "15mm", "custom"] as const;
 export type NeonTubeSize = typeof neonTubeSizes[number];
 
+export const lightTypes = ["led_strip", "filament"] as const;
+export type LightType = typeof lightTypes[number];
+
 export const tubeSettingsSchema = z.object({
   neonTubeSize: z.enum(neonTubeSizes).optional(),
   neonTubeDiameter: z.number().min(6).max(20),
@@ -69,6 +72,7 @@ export const tubeSettingsSchema = z.object({
   enableOverlay: z.boolean(),
   overlayThickness: z.number().min(1).max(5),
   continuousPath: z.boolean(),
+  channelType: z.enum(lightTypes).optional(),
 });
 
 export type TubeSettings = z.infer<typeof tubeSettingsSchema>;
@@ -236,6 +240,7 @@ export const defaultTubeSettings: TubeSettings = {
   enableOverlay: true,
   overlayThickness: 2,
   continuousPath: true,
+  channelType: "filament",
 };
 
 export { users, insertUserSchema } from "./users";
