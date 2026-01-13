@@ -839,8 +839,13 @@ export function generateNeonSignV2(
   
   if (inputMode === "draw" || inputMode === "image") {
     // Use sketch paths directly
-    for (const sketch of sketchPaths) {
-      if (sketch.points.length < 2) continue;
+    console.log(`[V2 Generator] Processing ${sketchPaths.length} sketch paths for ${inputMode} mode`);
+    for (let i = 0; i < sketchPaths.length; i++) {
+      const sketch = sketchPaths[i];
+      if (sketch.points.length < 2) {
+        console.log(`[V2 Generator] Skipping path ${i}: only ${sketch.points.length} points`);
+        continue;
+      }
       
       const path2D: number[][] = sketch.points.map(p => [p.x, p.y]);
       
@@ -849,8 +854,11 @@ export function generateNeonSignV2(
       allSmoothPaths.push(smoothPath);
       
       // Create U-channel with hollow interior for LED insertion
-      allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
+      const channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight);
+      console.log(`[V2 Generator] Path ${i}: ${sketch.points.length} points -> ${smoothPath.length} smooth points -> ${channelTriangles.length} triangles`);
+      allTriangles.push(...channelTriangles);
     }
+    console.log(`[V2 Generator] Total base triangles: ${allTriangles.length}`);
     fileSlug = inputMode === "draw" ? "freehand" : "traced";
   } else {
     // Use Hershey single-stroke fonts
