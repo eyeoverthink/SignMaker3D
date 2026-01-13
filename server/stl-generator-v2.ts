@@ -1,8 +1,11 @@
+// STL Generator V2 - Proper swept tube geometry using Hershey single-stroke fonts
+// This creates watertight meshes suitable for 3D printing
+// Unlike regular fonts (which define filled outlines), Hershey fonts define STROKE PATHS
+// which is exactly what neon signs need
+
 import type { LetterSettings, TubeSettings, TwoPartSystem, SketchPath } from "@shared/schema";
 import { defaultTwoPartSystem } from "@shared/schema";
-import opentype from "opentype.js";
-import path from "path";
-import fs from "fs";
+import { getTextStrokePaths, interpolatePath } from "./hershey-fonts";
 
 interface Vector3 {
   x: number;
@@ -17,250 +20,186 @@ interface Triangle {
   v3: Vector3;
 }
 
-interface ExportedPart {
+export interface ExportedPart {
   filename: string;
   content: Buffer;
   partType: string;
   material: string;
 }
 
-const fontCache: Map<string, opentype.Font> = new Map();
+// Vector math utilities
+function normalize(v: Vector3): Vector3 {
+  const len = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+  if (len < 0.0001) return { x: 0, y: 0, z: 1 };
+  return { x: v.x / len, y: v.y / len, z: v.z / len };
+}
 
-const fontFileMap: Record<string, string> = {
-  "inter": "Inter-Bold.ttf",
-  "roboto": "Roboto-Bold.ttf",
-  "poppins": "Poppins-Bold.ttf",
-  "montserrat": "Montserrat-Bold.ttf",
-  "open-sans": "OpenSans-Bold.ttf",
-  "playfair": "PlayfairDisplay-Bold.ttf",
-  "merriweather": "Merriweather-Bold.ttf",
-  "lora": "Lora-Bold.ttf",
-  "space-grotesk": "SpaceGrotesk-Bold.ttf",
-  "outfit": "Outfit-Bold.ttf",
-  "architects-daughter": "ArchitectsDaughter-Regular.ttf",
-  "oxanium": "Oxanium-Bold.ttf",
-};
-
-function loadFontSync(fontId: string = "roboto"): opentype.Font {
-  if (fontCache.has(fontId)) {
-    return fontCache.get(fontId)!;
-  }
-  
-  const fontFileName = fontFileMap[fontId] || "Roboto-Bold.ttf";
-  const fontPath = path.join(process.cwd(), "server/fonts", fontFileName);
-  
-  const parseBuffer = (buf: Buffer): opentype.Font => {
-    const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-    return opentype.parse(arrayBuffer);
+function cross(a: Vector3, b: Vector3): Vector3 {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x
   };
-  
-  if (!fs.existsSync(fontPath)) {
-    const fallbackPath = path.join(process.cwd(), "server/fonts/Roboto-Bold.ttf");
-    const buffer = fs.readFileSync(fallbackPath);
-    const font = parseBuffer(buffer);
-    fontCache.set(fontId, font);
-    return font;
-  }
-  
-  const buffer = fs.readFileSync(fontPath);
-  const font = parseBuffer(buffer);
-  fontCache.set(fontId, font);
-  return font;
 }
 
-function getGlyphStrokes(text: string, fontSize: number, fontId: string): number[][][] {
-  const font = loadFontSync(fontId);
-  const strokes: number[][][] = [];
-  
-  let xOffset = 0;
-  
-  for (let charIdx = 0; charIdx < text.length; charIdx++) {
-    const char = text[charIdx];
-    if (char === ' ') {
-      xOffset += fontSize * 0.3;
-      continue;
-    }
-    
-    const glyph = font.charToGlyph(char);
-    const glyphPath = glyph.getPath(xOffset, 0, fontSize);
-    
-    let currentStroke: number[] = [];
-    
-    for (const cmd of glyphPath.commands) {
-      switch (cmd.type) {
-        case 'M':
-          if (currentStroke.length >= 4) {
-            strokes.push([currentStroke]);
-          }
-          currentStroke = [cmd.x, cmd.y];
-          break;
-        case 'L':
-          currentStroke.push(cmd.x, cmd.y);
-          break;
-        case 'Q': {
-          const lx = currentStroke[currentStroke.length - 2];
-          const ly = currentStroke[currentStroke.length - 1];
-          for (let t = 0.25; t <= 1; t += 0.25) {
-            const mt = 1 - t;
-            currentStroke.push(
-              mt * mt * lx + 2 * mt * t * cmd.x1 + t * t * cmd.x,
-              mt * mt * ly + 2 * mt * t * cmd.y1 + t * t * cmd.y
-            );
-          }
-          break;
-        }
-        case 'C': {
-          const cx = currentStroke[currentStroke.length - 2];
-          const cy = currentStroke[currentStroke.length - 1];
-          for (let t = 0.2; t <= 1; t += 0.2) {
-            const mt = 1 - t;
-            currentStroke.push(
-              mt*mt*mt*cx + 3*mt*mt*t*cmd.x1 + 3*mt*t*t*cmd.x2 + t*t*t*cmd.x,
-              mt*mt*mt*cy + 3*mt*mt*t*cmd.y1 + 3*mt*t*t*cmd.y2 + t*t*t*cmd.y
-            );
-          }
-          break;
-        }
-        case 'Z':
-          if (currentStroke.length >= 4) {
-            strokes.push([currentStroke]);
-          }
-          currentStroke = [];
-          break;
-      }
-    }
-    
-    if (currentStroke.length >= 4) {
-      strokes.push([currentStroke]);
-    }
-    
-    xOffset += glyph.advanceWidth ? (glyph.advanceWidth / font.unitsPerEm) * fontSize : fontSize * 0.6;
-  }
-  
-  return strokes;
+function sub(a: Vector3, b: Vector3): Vector3 {
+  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
 }
 
+function add(a: Vector3, b: Vector3): Vector3 {
+  return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+}
+
+function scale(v: Vector3, s: number): Vector3 {
+  return { x: v.x * s, y: v.y * s, z: v.z * s };
+}
+
+function dot(a: Vector3, b: Vector3): number {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+// Generate a circle of points perpendicular to a direction using parallel transport
+function generateCircleRing(
+  center: Vector3,
+  tangent: Vector3,
+  normal: Vector3,
+  radius: number,
+  segments: number
+): Vector3[] {
+  const binormal = cross(tangent, normal);
+  const points: Vector3[] = [];
+  
+  for (let i = 0; i < segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    
+    points.push({
+      x: center.x + (normal.x * cos + binormal.x * sin) * radius,
+      y: center.y + (normal.y * cos + binormal.y * sin) * radius,
+      z: center.z + (normal.z * cos + binormal.z * sin) * radius
+    });
+  }
+  
+  return points;
+}
+
+// Create a swept tube along a path using parallel transport frame
+// This produces watertight meshes with shared vertices between rings
 function createSweptTube(
-  path: number[],
+  path: number[][],  // Array of [x, y] points
   tubeRadius: number,
-  segments: number = 8,
-  closed: boolean = true
+  segments: number = 12,
+  zOffset: number = 0
 ): Triangle[] {
   const triangles: Triangle[] = [];
-  const numPoints = path.length / 2;
   
-  if (numPoints < 2) return triangles;
+  if (path.length < 2) return triangles;
+  
+  // Convert 2D path to 3D (on XY plane at z=zOffset)
+  const path3D: Vector3[] = path.map(([x, y]) => ({ x, y, z: zOffset }));
   
   const rings: Vector3[][] = [];
   
-  for (let i = 0; i < numPoints; i++) {
-    const x = path[i * 2];
-    const y = -path[i * 2 + 1];
+  // Initialize reference frame - perpendicular to first tangent
+  let prevNormal: Vector3 = { x: 0, y: 0, z: 1 };
+  
+  for (let i = 0; i < path3D.length; i++) {
+    const p = path3D[i];
     
-    let dx: number, dy: number;
+    // Calculate tangent direction
+    let tangent: Vector3;
     if (i === 0) {
-      dx = path[2] - path[0];
-      dy = path[3] - path[1];
-    } else if (i === numPoints - 1) {
-      dx = path[i * 2] - path[(i - 1) * 2];
-      dy = path[i * 2 + 1] - path[(i - 1) * 2 + 1];
+      tangent = normalize(sub(path3D[1], path3D[0]));
+    } else if (i === path3D.length - 1) {
+      tangent = normalize(sub(path3D[i], path3D[i - 1]));
     } else {
-      dx = path[(i + 1) * 2] - path[(i - 1) * 2];
-      dy = path[(i + 1) * 2 + 1] - path[(i - 1) * 2 + 1];
+      // Smooth tangent using neighbors
+      const t1 = normalize(sub(path3D[i], path3D[i - 1]));
+      const t2 = normalize(sub(path3D[i + 1], path3D[i]));
+      tangent = normalize(add(t1, t2));
     }
     
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 0.001) continue;
+    // Parallel transport: project previous normal onto plane perpendicular to tangent
+    const projection = scale(tangent, dot(prevNormal, tangent));
+    let normal = sub(prevNormal, projection);
     
-    const tx = dx / len;
-    const ty = dy / len;
-    const nx = -ty;
-    const ny = tx;
-    
-    const ring: Vector3[] = [];
-    for (let s = 0; s < segments; s++) {
-      const angle = (s / segments) * Math.PI * 2;
-      const rx = Math.cos(angle) * tubeRadius;
-      const rz = Math.sin(angle) * tubeRadius;
-      
-      ring.push({
-        x: x + nx * rx,
-        y: y + ny * rx,
-        z: tubeRadius + rz
-      });
+    const normalLen = Math.sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+    if (normalLen < 0.0001) {
+      // Pick arbitrary perpendicular if degenerate
+      if (Math.abs(tangent.z) < 0.9) {
+        normal = normalize(cross(tangent, { x: 0, y: 0, z: 1 }));
+      } else {
+        normal = normalize(cross(tangent, { x: 1, y: 0, z: 0 }));
+      }
+    } else {
+      normal = scale(normal, 1 / normalLen);
     }
+    
+    prevNormal = normal;
+    
+    // Generate ring at this point
+    const ring = generateCircleRing(p, tangent, normal, tubeRadius, segments);
     rings.push(ring);
   }
   
   if (rings.length < 2) return triangles;
   
+  // Connect adjacent rings with triangles
   for (let i = 0; i < rings.length - 1; i++) {
     const ring1 = rings[i];
     const ring2 = rings[i + 1];
     
-    for (let s = 0; s < segments; s++) {
-      const s1 = (s + 1) % segments;
+    for (let j = 0; j < segments; j++) {
+      const j1 = (j + 1) % segments;
       
-      const v1 = ring1[s];
-      const v2 = ring1[s1];
-      const v3 = ring2[s];
-      const v4 = ring2[s1];
+      const v1 = ring1[j];
+      const v2 = ring1[j1];
+      const v3 = ring2[j];
+      const v4 = ring2[j1];
       
-      const n1 = calcNormal(v1, v3, v2);
-      const n2 = calcNormal(v2, v3, v4);
-      
-      triangles.push({ normal: n1, v1, v2: v3, v3: v2 });
-      triangles.push({ normal: n2, v1: v2, v2: v3, v3: v4 });
+      // Two triangles per quad
+      triangles.push({
+        normal: calcNormal(v1, v3, v2),
+        v1: v1,
+        v2: v3,
+        v3: v2
+      });
+      triangles.push({
+        normal: calcNormal(v2, v3, v4),
+        v1: v2,
+        v2: v3,
+        v3: v4
+      });
     }
   }
   
-  if (closed && rings.length > 2) {
-    const firstRing = rings[0];
-    const lastRing = rings[rings.length - 1];
-    
-    for (let s = 0; s < segments; s++) {
-      const s1 = (s + 1) % segments;
-      
-      const v1 = lastRing[s];
-      const v2 = lastRing[s1];
-      const v3 = firstRing[s];
-      const v4 = firstRing[s1];
-      
-      const n1 = calcNormal(v1, v3, v2);
-      const n2 = calcNormal(v2, v3, v4);
-      
-      triangles.push({ normal: n1, v1, v2: v3, v3: v2 });
-      triangles.push({ normal: n2, v1: v2, v2: v3, v3: v4 });
-    }
-  } else {
-    const firstRing = rings[0];
-    const lastRing = rings[rings.length - 1];
-    const firstCenter: Vector3 = {
-      x: firstRing.reduce((s, v) => s + v.x, 0) / segments,
-      y: firstRing.reduce((s, v) => s + v.y, 0) / segments,
-      z: firstRing.reduce((s, v) => s + v.z, 0) / segments
-    };
-    const lastCenter: Vector3 = {
-      x: lastRing.reduce((s, v) => s + v.x, 0) / segments,
-      y: lastRing.reduce((s, v) => s + v.y, 0) / segments,
-      z: lastRing.reduce((s, v) => s + v.z, 0) / segments
-    };
-    
-    for (let s = 0; s < segments; s++) {
-      const s1 = (s + 1) % segments;
-      triangles.push({
-        normal: { x: 0, y: 0, z: -1 },
-        v1: firstCenter,
-        v2: firstRing[s1],
-        v3: firstRing[s]
-      });
-      triangles.push({
-        normal: { x: 0, y: 0, z: 1 },
-        v1: lastCenter,
-        v2: lastRing[s],
-        v3: lastRing[s1]
-      });
-    }
+  // Cap the start (disk facing backward)
+  const firstRing = rings[0];
+  const firstCenter = path3D[0];
+  
+  for (let j = 0; j < segments; j++) {
+    const j1 = (j + 1) % segments;
+    triangles.push({
+      normal: { x: 0, y: 0, z: -1 }, // Will be recalculated
+      v1: firstCenter,
+      v2: firstRing[j1],
+      v3: firstRing[j]
+    });
+  }
+  
+  // Cap the end (disk facing forward)
+  const lastRing = rings[rings.length - 1];
+  const lastCenter = path3D[path3D.length - 1];
+  
+  for (let j = 0; j < segments; j++) {
+    const j1 = (j + 1) % segments;
+    triangles.push({
+      normal: { x: 0, y: 0, z: 1 }, // Will be recalculated
+      v1: lastCenter,
+      v2: lastRing[j],
+      v3: lastRing[j1]
+    });
   }
   
   return triangles;
@@ -291,9 +230,12 @@ function trianglesToSTL(triangles: Triangle[], name: string = "SignCraft"): Buff
   
   let offset = 84;
   for (const tri of triangles) {
-    buffer.writeFloatLE(tri.normal.x, offset); offset += 4;
-    buffer.writeFloatLE(tri.normal.y, offset); offset += 4;
-    buffer.writeFloatLE(tri.normal.z, offset); offset += 4;
+    // Recalculate normal for accuracy
+    const normal = calcNormal(tri.v1, tri.v2, tri.v3);
+    
+    buffer.writeFloatLE(normal.x, offset); offset += 4;
+    buffer.writeFloatLE(normal.y, offset); offset += 4;
+    buffer.writeFloatLE(normal.z, offset); offset += 4;
     
     buffer.writeFloatLE(tri.v1.x, offset); offset += 4;
     buffer.writeFloatLE(tri.v1.y, offset); offset += 4;
@@ -321,55 +263,56 @@ export function generateNeonSignV2(
   sketchPaths: SketchPath[] = [],
   inputMode: "text" | "draw" | "image" = "text"
 ): ExportedPart[] {
-  const tubeRadius = tubeSettings.neonTubeDiameter / 2;
+  const tubeRadius = (tubeSettings.neonTubeDiameter || 12) / 2;
+  const tubeSegments = 16; // Smooth circular cross-section
   let allTriangles: Triangle[] = [];
   let fileSlug = "neon_sign";
   
   if (inputMode === "draw" || inputMode === "image") {
-    for (const path of sketchPaths) {
-      if (path.points.length < 2) continue;
-      const coords: number[] = [];
-      for (const pt of path.points) {
-        coords.push(pt.x, pt.y);
-      }
-      allTriangles.push(...createSweptTube(coords, tubeRadius, 8, path.closed));
+    // Use sketch paths directly
+    for (const sketch of sketchPaths) {
+      if (sketch.points.length < 2) continue;
+      
+      const path2D: number[][] = sketch.points.map(p => [p.x, p.y]);
+      
+      // Interpolate for smoothness
+      const smoothPath = interpolatePath(path2D, tubeRadius * 0.5);
+      
+      allTriangles.push(...createSweptTube(smoothPath, tubeRadius, tubeSegments, tubeRadius));
     }
     fileSlug = inputMode === "draw" ? "freehand" : "traced";
   } else {
+    // Use Hershey single-stroke fonts
     const text = letterSettings.text || "A";
-    const fontSize = 45 * letterSettings.scale;
-    const fontId = letterSettings.fontId || "roboto";
+    const fontSize = 50 * letterSettings.scale;
     
-    const glyphStrokes = getGlyphStrokes(text, fontSize, fontId);
+    // Get stroke paths from Hershey font
+    const { paths, totalWidth, height } = getTextStrokePaths(
+      text,
+      fontSize,
+      fontSize * 0.12 // Letter spacing
+    );
     
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
+    // Center the text
+    const centerX = totalWidth / 2;
+    const centerY = height / 2;
     
-    for (const strokeGroup of glyphStrokes) {
-      for (const stroke of strokeGroup) {
-        for (let i = 0; i < stroke.length; i += 2) {
-          minX = Math.min(minX, stroke[i]);
-          maxX = Math.max(maxX, stroke[i]);
-          minY = Math.min(minY, stroke[i + 1]);
-          maxY = Math.max(maxY, stroke[i + 1]);
-        }
-      }
+    for (const path of paths) {
+      if (path.length < 2) continue;
+      
+      // Center and flip Y (Hershey uses Y-down)
+      const centeredPath: number[][] = path.map(([x, y]) => [
+        x - centerX,
+        centerY - y
+      ]);
+      
+      // Interpolate for smoothness
+      const smoothPath = interpolatePath(centeredPath, tubeRadius * 0.5);
+      
+      allTriangles.push(...createSweptTube(smoothPath, tubeRadius, tubeSegments, tubeRadius));
     }
     
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    
-    for (const strokeGroup of glyphStrokes) {
-      for (const stroke of strokeGroup) {
-        const centeredStroke: number[] = [];
-        for (let i = 0; i < stroke.length; i += 2) {
-          centeredStroke.push(stroke[i] - centerX, stroke[i + 1] - centerY);
-        }
-        allTriangles.push(...createSweptTube(centeredStroke, tubeRadius, 8, true));
-      }
-    }
-    
-    fileSlug = text.replace(/\s/g, "_").substring(0, 20);
+    fileSlug = text.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
   }
   
   if (allTriangles.length === 0) {
