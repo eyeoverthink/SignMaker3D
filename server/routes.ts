@@ -2,7 +2,8 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateSignage, generateMultiPartExport, type ExportedPart } from "./stl-generator";
+import { generateSignage, generateMultiPartExport, generateTwoPartExport, type ExportedPart } from "./stl-generator";
+import { twoPartSystemSchema, defaultTwoPartSystem } from "@shared/schema";
 import {
   letterSettingsSchema,
   geometrySettingsSchema,
@@ -37,12 +38,21 @@ const fontFileMap: Record<string, string> = {
   "oxanium": "Oxanium-Bold.ttf",
 };
 
+const sketchPathSchema = z.object({
+  id: z.string(),
+  points: z.array(z.object({ x: z.number(), y: z.number() })),
+  closed: z.boolean(),
+});
+
 const exportRequestSchema = z.object({
   letterSettings: letterSettingsSchema,
   geometrySettings: geometrySettingsSchema.optional(),
   wiringSettings: wiringSettingsSchema.optional(),
   mountingSettings: mountingSettingsSchema.optional(),
   tubeSettings: tubeSettingsSchema.optional(),
+  twoPartSystem: twoPartSystemSchema.optional(),
+  sketchPaths: z.array(sketchPathSchema).optional(),
+  inputMode: z.enum(["text", "draw", "image"]).optional(),
   format: z.enum(["stl", "obj", "3mf"]).default("stl"),
 });
 
@@ -170,6 +180,74 @@ export async function registerRoutes(
       const wiringSettings = parsed.data.wiringSettings || defaultWiringSettings;
       const mountingSettings = parsed.data.mountingSettings || defaultMountingSettings;
       const tubeSettings = parsed.data.tubeSettings || defaultTubeSettings;
+      const twoPartSystem = parsed.data.twoPartSystem || defaultTwoPartSystem;
+      const sketchPaths = parsed.data.sketchPaths || [];
+      const inputMode = parsed.data.inputMode || "text";
+
+      if (twoPartSystem.enabled && geometrySettings.mode === "outline" && format !== "3mf") {
+        const exportedParts = generateTwoPartExport(
+          letterSettings,
+          tubeSettings,
+          twoPartSystem,
+          format as "stl" | "obj",
+          sketchPaths,
+          inputMode
+        );
+
+        if (exportedParts.length > 0) {
+          const fileSlug = inputMode === "text" 
+            ? letterSettings.text.replace(/\s/g, "_").substring(0, 20)
+            : inputMode === "draw" ? "freehand_drawing" : "traced_image";
+          const zipFilename = `${fileSlug}_2part_neon_sign.zip`;
+          
+          res.setHeader("Content-Type", "application/zip");
+          res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+          res.setHeader("X-Multi-Part-Export", "true");
+          res.setHeader("X-Part-Count", exportedParts.length.toString());
+          res.setHeader("X-Two-Part-System", "true");
+          
+          const archive = archiver("zip", { zlib: { level: 9 } });
+          
+          archive.on("error", (err) => {
+            console.error("Archive error:", err);
+            if (!res.headersSent) {
+              res.status(500).json({ error: "Failed to create archive" });
+            }
+          });
+          
+          res.on("close", () => {
+            archive.abort();
+          });
+          
+          archive.pipe(res);
+          
+          const manifestData = {
+            version: "1.0",
+            type: "two_part_neon_sign",
+            description: "Base holds the light with walls on both sides. Cap snaps on top as diffuser.",
+            parts: exportedParts.map(part => ({
+              filename: part.filename,
+              partType: part.partType,
+              material: part.material,
+              printNotes: part.partType === "base" 
+                ? "Print in opaque material to hold LED/neon light" 
+                : "Print in translucent/diffuser material for light diffusion"
+            })),
+          };
+          
+          for (const part of exportedParts) {
+            if (Buffer.isBuffer(part.content)) {
+              archive.append(part.content, { name: part.filename });
+            } else {
+              archive.append(part.content, { name: part.filename });
+            }
+          }
+          
+          archive.append(JSON.stringify(manifestData, null, 2), { name: "manifest.json" });
+          await archive.finalize();
+          return;
+        }
+      }
 
       const shouldExportSeparate = (geometrySettings.separateFiles && 
         (geometrySettings.mode === "layered" || geometrySettings.mode === "raised")) ||

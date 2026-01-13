@@ -80,8 +80,11 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
+export const inputModes = ["text", "draw", "image"] as const;
+export type InputMode = typeof inputModes[number];
+
 export const letterSettingsSchema = z.object({
-  text: z.string().min(1).max(10),
+  text: z.string().min(0).max(200),
   fontId: z.string(),
   depth: z.number().min(5).max(100),
   scale: z.number().min(0.1).max(10),
@@ -94,6 +97,26 @@ export const letterSettingsSchema = z.object({
 });
 
 export type LetterSettings = z.infer<typeof letterSettingsSchema>;
+
+export const twoPartSystemSchema = z.object({
+  enabled: z.boolean(),
+  baseWallHeight: z.number().min(5).max(40),
+  baseWallThickness: z.number().min(1).max(5),
+  capOverhang: z.number().min(0.5).max(3),
+  capThickness: z.number().min(1).max(5),
+  snapTolerance: z.number().min(0.1).max(0.5),
+});
+
+export type TwoPartSystem = z.infer<typeof twoPartSystemSchema>;
+
+export const defaultTwoPartSystem: TwoPartSystem = {
+  enabled: true,
+  baseWallHeight: 15,
+  baseWallThickness: 2,
+  capOverhang: 1,
+  capThickness: 2,
+  snapTolerance: 0.2,
+};
 
 export const wiringSettingsSchema = z.object({
   channelType: z.enum(wiringChannelTypes),

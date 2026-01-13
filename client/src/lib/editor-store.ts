@@ -5,12 +5,15 @@ import {
   type WiringSettings,
   type MountingSettings,
   type TubeSettings,
+  type TwoPartSystem,
   type SketchPath,
+  type InputMode,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
   defaultMountingSettings,
   defaultTubeSettings,
+  defaultTwoPartSystem,
 } from "@shared/schema";
 
 interface EditorState {
@@ -19,40 +22,52 @@ interface EditorState {
   wiringSettings: WiringSettings;
   mountingSettings: MountingSettings;
   tubeSettings: TubeSettings;
+  twoPartSystem: TwoPartSystem;
   sketchPaths: SketchPath[];
-  activeToolMode: "text" | "sketch";
+  inputMode: InputMode;
+  uploadedImageData: string | null;
+  tracedPaths: SketchPath[];
   showGrid: boolean;
   showWireframe: boolean;
   showMeasurements: boolean;
   isExporting: boolean;
+  isDrawing: boolean;
   setLetterSettings: (settings: Partial<LetterSettings>) => void;
   setGeometrySettings: (settings: Partial<GeometrySettings>) => void;
   setWiringSettings: (settings: Partial<WiringSettings>) => void;
   setMountingSettings: (settings: Partial<MountingSettings>) => void;
   setTubeSettings: (settings: Partial<TubeSettings>) => void;
+  setTwoPartSystem: (settings: Partial<TwoPartSystem>) => void;
   setSketchPaths: (paths: SketchPath[]) => void;
   addSketchPath: (path: SketchPath) => void;
   removeSketchPath: (id: string) => void;
-  setActiveToolMode: (mode: "text" | "sketch") => void;
+  setInputMode: (mode: InputMode) => void;
+  setUploadedImageData: (data: string | null) => void;
+  setTracedPaths: (paths: SketchPath[]) => void;
   setShowGrid: (show: boolean) => void;
   setShowWireframe: (show: boolean) => void;
   setShowMeasurements: (show: boolean) => void;
   setIsExporting: (exporting: boolean) => void;
+  setIsDrawing: (drawing: boolean) => void;
   resetAll: () => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
   letterSettings: defaultLetterSettings,
-  geometrySettings: defaultGeometrySettings,
+  geometrySettings: { ...defaultGeometrySettings, mode: "outline", enableBacking: false },
   wiringSettings: defaultWiringSettings,
   mountingSettings: defaultMountingSettings,
   tubeSettings: defaultTubeSettings,
+  twoPartSystem: defaultTwoPartSystem,
   sketchPaths: [],
-  activeToolMode: "text",
+  inputMode: "text",
+  uploadedImageData: null,
+  tracedPaths: [],
   showGrid: true,
   showWireframe: false,
   showMeasurements: true,
   isExporting: false,
+  isDrawing: false,
   setLetterSettings: (settings) =>
     set((state) => ({
       letterSettings: { ...state.letterSettings, ...settings },
@@ -73,6 +88,10 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       tubeSettings: { ...state.tubeSettings, ...settings },
     })),
+  setTwoPartSystem: (settings) =>
+    set((state) => ({
+      twoPartSystem: { ...state.twoPartSystem, ...settings },
+    })),
   setSketchPaths: (paths) => set({ sketchPaths: paths }),
   addSketchPath: (path) =>
     set((state) => ({
@@ -82,22 +101,29 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       sketchPaths: state.sketchPaths.filter((p) => p.id !== id),
     })),
-  setActiveToolMode: (mode) => set({ activeToolMode: mode }),
+  setInputMode: (mode) => set({ inputMode: mode }),
+  setUploadedImageData: (data) => set({ uploadedImageData: data }),
+  setTracedPaths: (paths) => set({ tracedPaths: paths }),
   setShowGrid: (showGrid) => set({ showGrid }),
   setShowWireframe: (showWireframe) => set({ showWireframe }),
   setShowMeasurements: (showMeasurements) => set({ showMeasurements }),
   setIsExporting: (isExporting) => set({ isExporting }),
+  setIsDrawing: (isDrawing) => set({ isDrawing }),
   resetAll: () =>
     set({
       letterSettings: defaultLetterSettings,
-      geometrySettings: defaultGeometrySettings,
+      geometrySettings: { ...defaultGeometrySettings, mode: "outline", enableBacking: false },
       wiringSettings: defaultWiringSettings,
       mountingSettings: defaultMountingSettings,
       tubeSettings: defaultTubeSettings,
+      twoPartSystem: defaultTwoPartSystem,
       sketchPaths: [],
-      activeToolMode: "text",
+      inputMode: "text",
+      uploadedImageData: null,
+      tracedPaths: [],
       showGrid: true,
       showWireframe: false,
       showMeasurements: true,
+      isDrawing: false,
     }),
 }));

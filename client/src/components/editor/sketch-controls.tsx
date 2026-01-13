@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEditorStore } from "@/lib/editor-store";
 
 export function SketchControls() {
-  const { sketchPaths, removeSketchPath, setSketchPaths, activeToolMode, setActiveToolMode } = useEditorStore();
+  const { sketchPaths, removeSketchPath, setSketchPaths, inputMode, setInputMode } = useEditorStore();
 
   return (
     <Card className="border-0 bg-transparent shadow-none">
@@ -24,20 +24,20 @@ export function SketchControls() {
 
         <div className="flex gap-2">
           <Button
-            variant={activeToolMode === "text" ? "default" : "outline"}
+            variant={inputMode === "text" ? "default" : "outline"}
             size="sm"
             className="flex-1"
-            onClick={() => setActiveToolMode("text")}
+            onClick={() => setInputMode("text")}
             data-testid="button-text-mode"
           >
             <MousePointer2 className="h-4 w-4 mr-2" />
             Text Mode
           </Button>
           <Button
-            variant={activeToolMode === "sketch" ? "default" : "outline"}
+            variant={inputMode === "draw" ? "default" : "outline"}
             size="sm"
             className="flex-1"
-            onClick={() => setActiveToolMode("sketch")}
+            onClick={() => setInputMode("draw")}
             data-testid="button-sketch-mode"
           >
             <Pencil className="h-4 w-4 mr-2" />
@@ -45,14 +45,13 @@ export function SketchControls() {
           </Button>
         </div>
 
-        {activeToolMode === "sketch" && (
+        {inputMode === "draw" && (
           <div className="space-y-3 pt-3 border-t">
             <Label className="text-sm font-medium">Instructions</Label>
             <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-              <li>Click on canvas to add points</li>
-              <li>Click near first point to close shape</li>
-              <li>Closed shapes become tube paths</li>
-              <li>Press Escape to cancel current path</li>
+              <li>Click and drag to draw paths</li>
+              <li>Release to complete a stroke</li>
+              <li>Strokes become neon tube paths</li>
             </ul>
           </div>
         )}

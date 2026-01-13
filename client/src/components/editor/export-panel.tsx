@@ -31,14 +31,19 @@ const geometryModeLabels: Record<string, string> = {
 
 export function ExportPanel() {
   const [format, setFormat] = useState<ExportFormat>("stl");
-  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, tubeSettings, isExporting, setIsExporting } = useEditorStore();
+  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, tubeSettings, twoPartSystem, sketchPaths, inputMode, isExporting, setIsExporting } = useEditorStore();
   const { toast } = useToast();
 
   const handleExport = async () => {
-    if (!letterSettings.text) {
+    const hasTextContent = inputMode === "text" && letterSettings.text.length > 0;
+    const hasDrawContent = (inputMode === "draw" || inputMode === "image") && sketchPaths.length > 0;
+    
+    if (!hasTextContent && !hasDrawContent) {
       toast({
-        title: "No text to export",
-        description: "Please enter at least one letter to export.",
+        title: "Nothing to export",
+        description: inputMode === "text" 
+          ? "Please enter some text to export."
+          : "Please draw something or upload an image first.",
         variant: "destructive",
       });
       return;
@@ -56,6 +61,9 @@ export function ExportPanel() {
           wiringSettings,
           mountingSettings,
           tubeSettings,
+          twoPartSystem,
+          sketchPaths,
+          inputMode,
           format,
         }),
       });
@@ -72,10 +80,14 @@ export function ExportPanel() {
       const a = document.createElement("a");
       a.href = url;
       
+      const baseFilename = inputMode === "text" 
+        ? letterSettings.text.replace(/\s/g, "_").substring(0, 20)
+        : inputMode === "draw" ? "freehand_drawing" : "traced_image";
+      
       if (isMultiPart) {
-        a.download = `${letterSettings.text.replace(/\s/g, "_")}_multipart_${geometrySettings.mode}.zip`;
+        a.download = `${baseFilename}_2part_neon_sign.zip`;
       } else {
-        a.download = `${letterSettings.text.replace(/\s/g, "_")}_signage.${format}`;
+        a.download = `${baseFilename}_signage.${format}`;
       }
       
       document.body.appendChild(a);
@@ -186,12 +198,18 @@ export function ExportPanel() {
                   <span className="text-muted-foreground">Wall height:</span>
                   <span className="font-mono">{tubeSettings.wallHeight}mm</span>
                 </div>
-                {tubeSettings.enableOverlay && (
+                {twoPartSystem.enabled && (
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Multi-part:</span>
-                    <Badge variant="outline" className="text-[10px] border-purple-500/50 text-purple-400">
-                      Base + Overlay Cap
+                    <span className="text-muted-foreground">2-Part System:</span>
+                    <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-400">
+                      Base + Diffuser Cap
                     </Badge>
+                  </div>
+                )}
+                {twoPartSystem.enabled && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Base height:</span>
+                    <span className="font-mono">{twoPartSystem.baseWallHeight}mm</span>
                   </div>
                 )}
               </>
@@ -240,7 +258,7 @@ export function ExportPanel() {
         <Button
           className="w-full"
           onClick={handleExport}
-          disabled={isExporting || !letterSettings.text}
+          disabled={isExporting || (inputMode === "text" ? !letterSettings.text : sketchPaths.length === 0)}
           data-testid="button-export"
         >
           {isExporting ? (

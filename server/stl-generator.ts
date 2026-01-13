@@ -1,5 +1,5 @@
-import type { LetterSettings, WiringSettings, MountingSettings, GeometrySettings, TubeSettings } from "@shared/schema";
-import { defaultTubeSettings } from "@shared/schema";
+import type { LetterSettings, WiringSettings, MountingSettings, GeometrySettings, TubeSettings, TwoPartSystem, SketchPath } from "@shared/schema";
+import { defaultTubeSettings, defaultTwoPartSystem } from "@shared/schema";
 import opentype from "opentype.js";
 import earcut from "earcut";
 import path from "path";
@@ -1210,5 +1210,240 @@ export function generateMultiPartExport(
     });
   }
 
+  return exportedParts;
+}
+
+export function generateTwoPartSystem(
+  contours: number[][],
+  tubeSettings: TubeSettings,
+  twoPartSystem: TwoPartSystem = defaultTwoPartSystem,
+  centerX: number = 0,
+  centerY: number = 0
+): { base: Triangle[]; cap: Triangle[] } {
+  const baseTriangles: Triangle[] = [];
+  const capTriangles: Triangle[] = [];
+  
+  const isFilament = tubeSettings.channelType === "filament";
+  const channelWidth = isFilament 
+    ? tubeSettings.filamentDiameter + tubeSettings.wallThickness * 2
+    : tubeSettings.tubeWidth;
+  const wallHeight = twoPartSystem.baseWallHeight;
+  const wallThickness = twoPartSystem.baseWallThickness;
+  const capThickness = twoPartSystem.capThickness;
+  const capOverhang = twoPartSystem.capOverhang;
+  const snapTolerance = twoPartSystem.snapTolerance;
+  
+  for (const contour of contours) {
+    const numPoints = contour.length / 2;
+    if (numPoints < 3) continue;
+    
+    for (let i = 0; i < numPoints; i++) {
+      const x1 = contour[i * 2] - centerX;
+      const y1 = -(contour[i * 2 + 1] - centerY);
+      const next = (i + 1) % numPoints;
+      const x2 = contour[next * 2] - centerX;
+      const y2 = -(contour[next * 2 + 1] - centerY);
+      
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 0.001) continue;
+      
+      const nx = -dy / len;
+      const ny = dx / len;
+      
+      const halfWidth = channelWidth / 2;
+      const outerHalfWidth = halfWidth + wallThickness;
+      
+      const innerL1 = { x: x1 - nx * halfWidth, y: y1 - ny * halfWidth };
+      const innerR1 = { x: x1 + nx * halfWidth, y: y1 + ny * halfWidth };
+      const innerL2 = { x: x2 - nx * halfWidth, y: y2 - ny * halfWidth };
+      const innerR2 = { x: x2 + nx * halfWidth, y: y2 + ny * halfWidth };
+      
+      const outerL1 = { x: x1 - nx * outerHalfWidth, y: y1 - ny * outerHalfWidth };
+      const outerR1 = { x: x1 + nx * outerHalfWidth, y: y1 + ny * outerHalfWidth };
+      const outerL2 = { x: x2 - nx * outerHalfWidth, y: y2 - ny * outerHalfWidth };
+      const outerR2 = { x: x2 + nx * outerHalfWidth, y: y2 + ny * outerHalfWidth };
+      
+      const bottomLeftWall1: Vector3 = { x: outerL1.x, y: outerL1.y, z: 0 };
+      const bottomLeftWall2: Vector3 = { x: outerL2.x, y: outerL2.y, z: 0 };
+      const topLeftWall1: Vector3 = { x: outerL1.x, y: outerL1.y, z: wallHeight };
+      const topLeftWall2: Vector3 = { x: outerL2.x, y: outerL2.y, z: wallHeight };
+      
+      const bottomLeftInner1: Vector3 = { x: innerL1.x, y: innerL1.y, z: 0 };
+      const bottomLeftInner2: Vector3 = { x: innerL2.x, y: innerL2.y, z: 0 };
+      const topLeftInner1: Vector3 = { x: innerL1.x, y: innerL1.y, z: wallHeight };
+      const topLeftInner2: Vector3 = { x: innerL2.x, y: innerL2.y, z: wallHeight };
+      
+      baseTriangles.push(
+        { normal: { x: -nx, y: -ny, z: 0 }, v1: bottomLeftWall1, v2: bottomLeftWall2, v3: topLeftWall1 },
+        { normal: { x: -nx, y: -ny, z: 0 }, v1: topLeftWall1, v2: bottomLeftWall2, v3: topLeftWall2 }
+      );
+      
+      baseTriangles.push(
+        { normal: { x: nx, y: ny, z: 0 }, v1: bottomLeftInner2, v2: bottomLeftInner1, v3: topLeftInner1 },
+        { normal: { x: nx, y: ny, z: 0 }, v1: bottomLeftInner2, v2: topLeftInner1, v3: topLeftInner2 }
+      );
+      
+      baseTriangles.push(
+        { normal: { x: 0, y: 0, z: 1 }, v1: topLeftWall1, v2: topLeftWall2, v3: topLeftInner1 },
+        { normal: { x: 0, y: 0, z: 1 }, v1: topLeftInner1, v2: topLeftWall2, v3: topLeftInner2 }
+      );
+      
+      const bottomRightWall1: Vector3 = { x: outerR1.x, y: outerR1.y, z: 0 };
+      const bottomRightWall2: Vector3 = { x: outerR2.x, y: outerR2.y, z: 0 };
+      const topRightWall1: Vector3 = { x: outerR1.x, y: outerR1.y, z: wallHeight };
+      const topRightWall2: Vector3 = { x: outerR2.x, y: outerR2.y, z: wallHeight };
+      
+      const bottomRightInner1: Vector3 = { x: innerR1.x, y: innerR1.y, z: 0 };
+      const bottomRightInner2: Vector3 = { x: innerR2.x, y: innerR2.y, z: 0 };
+      const topRightInner1: Vector3 = { x: innerR1.x, y: innerR1.y, z: wallHeight };
+      const topRightInner2: Vector3 = { x: innerR2.x, y: innerR2.y, z: wallHeight };
+      
+      baseTriangles.push(
+        { normal: { x: nx, y: ny, z: 0 }, v1: bottomRightWall2, v2: bottomRightWall1, v3: topRightWall1 },
+        { normal: { x: nx, y: ny, z: 0 }, v1: bottomRightWall2, v2: topRightWall1, v3: topRightWall2 }
+      );
+      
+      baseTriangles.push(
+        { normal: { x: -nx, y: -ny, z: 0 }, v1: bottomRightInner1, v2: bottomRightInner2, v3: topRightInner1 },
+        { normal: { x: -nx, y: -ny, z: 0 }, v1: topRightInner1, v2: bottomRightInner2, v3: topRightInner2 }
+      );
+      
+      baseTriangles.push(
+        { normal: { x: 0, y: 0, z: 1 }, v1: topRightWall2, v2: topRightWall1, v3: topRightInner1 },
+        { normal: { x: 0, y: 0, z: 1 }, v1: topRightWall2, v2: topRightInner1, v3: topRightInner2 }
+      );
+      
+      baseTriangles.push(
+        { normal: { x: 0, y: 0, z: -1 }, v1: bottomLeftWall1, v2: bottomRightWall1, v3: bottomLeftWall2 },
+        { normal: { x: 0, y: 0, z: -1 }, v1: bottomLeftWall2, v2: bottomRightWall1, v3: bottomRightWall2 }
+      );
+      
+      const capHalfWidth = outerHalfWidth + capOverhang;
+      const capInnerHalf = halfWidth - snapTolerance;
+      
+      const capOuterL1: Vector3 = { x: x1 - nx * capHalfWidth, y: y1 - ny * capHalfWidth, z: 0 };
+      const capOuterL2: Vector3 = { x: x2 - nx * capHalfWidth, y: y2 - ny * capHalfWidth, z: 0 };
+      const capOuterR1: Vector3 = { x: x1 + nx * capHalfWidth, y: y1 + ny * capHalfWidth, z: 0 };
+      const capOuterR2: Vector3 = { x: x2 + nx * capHalfWidth, y: y2 + ny * capHalfWidth, z: 0 };
+      
+      const capTopL1: Vector3 = { x: x1 - nx * capHalfWidth, y: y1 - ny * capHalfWidth, z: capThickness };
+      const capTopL2: Vector3 = { x: x2 - nx * capHalfWidth, y: y2 - ny * capHalfWidth, z: capThickness };
+      const capTopR1: Vector3 = { x: x1 + nx * capHalfWidth, y: y1 + ny * capHalfWidth, z: capThickness };
+      const capTopR2: Vector3 = { x: x2 + nx * capHalfWidth, y: y2 + ny * capHalfWidth, z: capThickness };
+      
+      capTriangles.push(
+        { normal: { x: 0, y: 0, z: 1 }, v1: capTopL1, v2: capTopL2, v3: capTopR1 },
+        { normal: { x: 0, y: 0, z: 1 }, v1: capTopR1, v2: capTopL2, v3: capTopR2 }
+      );
+      
+      capTriangles.push(
+        { normal: { x: -nx, y: -ny, z: 0 }, v1: capOuterL1, v2: capOuterL2, v3: capTopL1 },
+        { normal: { x: -nx, y: -ny, z: 0 }, v1: capTopL1, v2: capOuterL2, v3: capTopL2 }
+      );
+      
+      capTriangles.push(
+        { normal: { x: nx, y: ny, z: 0 }, v1: capOuterR2, v2: capOuterR1, v3: capTopR1 },
+        { normal: { x: nx, y: ny, z: 0 }, v1: capOuterR2, v2: capTopR1, v3: capTopR2 }
+      );
+      
+      capTriangles.push(
+        { normal: { x: 0, y: 0, z: -1 }, v1: capOuterL1, v2: capOuterR1, v3: capOuterL2 },
+        { normal: { x: 0, y: 0, z: -1 }, v1: capOuterL2, v2: capOuterR1, v3: capOuterR2 }
+      );
+    }
+  }
+  
+  return { base: baseTriangles, cap: capTriangles };
+}
+
+export function generateTwoPartExport(
+  letterSettings: LetterSettings,
+  tubeSettings: TubeSettings,
+  twoPartSystem: TwoPartSystem,
+  format: "stl" | "obj" = "stl",
+  sketchPaths: SketchPath[] = [],
+  inputMode: "text" | "draw" | "image" = "text"
+): ExportedPart[] {
+  let contours: number[][] = [];
+  let centerX = 0;
+  let centerY = 0;
+  let fileSlug = "neon_sign";
+  
+  if (inputMode === "draw" || inputMode === "image") {
+    if (sketchPaths.length === 0) {
+      return [];
+    }
+    
+    for (const path of sketchPaths) {
+      if (path.points.length < 2) continue;
+      const contour: number[] = [];
+      for (const point of path.points) {
+        contour.push(point.x, -point.y);
+      }
+      contours.push(contour);
+    }
+    
+    if (contours.length === 0) {
+      return [];
+    }
+    
+    const allX = contours.flatMap(c => c.filter((_, i) => i % 2 === 0));
+    const allY = contours.flatMap(c => c.filter((_, i) => i % 2 === 1));
+    centerX = (Math.min(...allX) + Math.max(...allX)) / 2;
+    centerY = (Math.min(...allY) + Math.max(...allY)) / 2;
+    fileSlug = inputMode === "draw" ? "freehand_drawing" : "traced_image";
+  } else {
+    const text = letterSettings.text || "A";
+    const scale = letterSettings.scale;
+    const fontSize = 45 * scale;
+    const fontId = letterSettings.fontId || "roboto";
+    
+    const font = loadFontSync(fontId);
+    const fontPath = font.getPath(text, 0, 0, fontSize);
+    contours = pathToContours(fontPath);
+    
+    if (contours.length === 0) {
+      return [];
+    }
+    
+    const allX = contours.flatMap(c => c.filter((_, i) => i % 2 === 0));
+    const allY = contours.flatMap(c => c.filter((_, i) => i % 2 === 1));
+    centerX = (Math.min(...allX) + Math.max(...allX)) / 2;
+    centerY = (Math.min(...allY) + Math.max(...allY)) / 2;
+    fileSlug = text.replace(/\s/g, "_").substring(0, 20);
+  }
+  
+  const { base, cap } = generateTwoPartSystem(contours, tubeSettings, twoPartSystem, centerX, centerY);
+  
+  const exportedParts: ExportedPart[] = [];
+  
+  if (base.length > 0) {
+    const content = format === "obj"
+      ? trianglesToOBJ(base, "base")
+      : trianglesToSTL(base, "SignCraft 3D - Base");
+    
+    exportedParts.push({
+      filename: `${fileSlug}_base.${format}`,
+      content,
+      partType: "base",
+      material: "opaque",
+    });
+  }
+  
+  if (cap.length > 0) {
+    const content = format === "obj"
+      ? trianglesToOBJ(cap, "cap")
+      : trianglesToSTL(cap, "SignCraft 3D - Diffuser Cap");
+    
+    exportedParts.push({
+      filename: `${fileSlug}_diffuser_cap.${format}`,
+      content,
+      partType: "diffuser_cap",
+      material: "diffuser",
+    });
+  }
+  
   return exportedParts;
 }
