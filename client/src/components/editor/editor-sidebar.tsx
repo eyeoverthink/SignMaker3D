@@ -1,8 +1,9 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Type, Cable, CircleDot, Settings2, Download } from "lucide-react";
+import { Type, Layers, Cable, CircleDot, Settings2, Download } from "lucide-react";
 import { TextControls } from "./text-controls";
+import { GeometryControls } from "./geometry-controls";
 import { WiringControls } from "./wiring-controls";
 import { MountingControls } from "./mounting-controls";
 import { ViewControls } from "./view-controls";
@@ -19,46 +20,54 @@ export function EditorSidebar() {
       </div>
 
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-5 p-1 m-2 bg-muted/50">
+        <TabsList className="grid w-full grid-cols-6 p-1 m-2 bg-muted/50">
           <TabsTrigger
             value="text"
-            className="flex flex-col items-center gap-1 py-2 px-1"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
             data-testid="tab-text"
           >
-            <Type className="h-4 w-4" />
-            <span className="text-[10px]">Text</span>
+            <Type className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Text</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="geometry"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-geometry"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Shape</span>
           </TabsTrigger>
           <TabsTrigger
             value="wiring"
-            className="flex flex-col items-center gap-1 py-2 px-1"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
             data-testid="tab-wiring"
           >
-            <Cable className="h-4 w-4" />
-            <span className="text-[10px]">Wiring</span>
+            <Cable className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Wiring</span>
           </TabsTrigger>
           <TabsTrigger
             value="mounting"
-            className="flex flex-col items-center gap-1 py-2 px-1"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
             data-testid="tab-mounting"
           >
-            <CircleDot className="h-4 w-4" />
-            <span className="text-[10px]">Mount</span>
+            <CircleDot className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Mount</span>
           </TabsTrigger>
           <TabsTrigger
             value="view"
-            className="flex flex-col items-center gap-1 py-2 px-1"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
             data-testid="tab-view"
           >
-            <Settings2 className="h-4 w-4" />
-            <span className="text-[10px]">View</span>
+            <Settings2 className="h-3.5 w-3.5" />
+            <span className="text-[9px]">View</span>
           </TabsTrigger>
           <TabsTrigger
             value="export"
-            className="flex flex-col items-center gap-1 py-2 px-1"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
             data-testid="tab-export"
           >
-            <Download className="h-4 w-4" />
-            <span className="text-[10px]">Export</span>
+            <Download className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Export</span>
           </TabsTrigger>
         </TabsList>
 
@@ -66,6 +75,10 @@ export function EditorSidebar() {
           <div className="p-4">
             <TabsContent value="text" className="mt-0">
               <TextControls />
+            </TabsContent>
+
+            <TabsContent value="geometry" className="mt-0">
+              <GeometryControls />
             </TabsContent>
 
             <TabsContent value="wiring" className="mt-0">

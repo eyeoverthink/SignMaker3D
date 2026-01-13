@@ -26,6 +26,24 @@ export type MountingHolePattern = typeof mountingHolePatterns[number];
 export const exportFormats = ["stl", "obj", "3mf"] as const;
 export type ExportFormat = typeof exportFormats[number];
 
+export const geometryModes = ["raised", "stencil", "layered", "flat"] as const;
+export type GeometryMode = typeof geometryModes[number];
+
+export const materialTypes = ["opaque", "transparent", "diffuser"] as const;
+export type MaterialType = typeof materialTypes[number];
+
+export const geometrySettingsSchema = z.object({
+  mode: z.enum(geometryModes),
+  letterHeight: z.number().min(2).max(50),
+  backingThickness: z.number().min(2).max(30),
+  letterOffset: z.number().min(0).max(20),
+  letterMaterial: z.enum(materialTypes),
+  backingMaterial: z.enum(materialTypes),
+  separateFiles: z.boolean(),
+});
+
+export type GeometrySettings = z.infer<typeof geometrySettingsSchema>;
+
 export const letterSettingsSchema = z.object({
   text: z.string().min(1).max(10),
   fontId: z.string(),
@@ -60,6 +78,7 @@ export const projectSchema = z.object({
   id: z.string(),
   name: z.string(),
   letterSettings: letterSettingsSchema,
+  geometrySettings: geometrySettingsSchema,
   wiringSettings: wiringSettingsSchema,
   mountingSettings: mountingSettingsSchema,
   createdAt: z.string(),
@@ -93,6 +112,16 @@ export const defaultMountingSettings: MountingSettings = {
   holeDepth: 15,
   holeCount: 4,
   insetFromEdge: 8,
+};
+
+export const defaultGeometrySettings: GeometrySettings = {
+  mode: "raised",
+  letterHeight: 15,
+  backingThickness: 5,
+  letterOffset: 0,
+  letterMaterial: "transparent",
+  backingMaterial: "opaque",
+  separateFiles: true,
 };
 
 export { users, insertUserSchema } from "./users";

@@ -1,15 +1,18 @@
 import { create } from "zustand";
 import {
   type LetterSettings,
+  type GeometrySettings,
   type WiringSettings,
   type MountingSettings,
   defaultLetterSettings,
+  defaultGeometrySettings,
   defaultWiringSettings,
   defaultMountingSettings,
 } from "@shared/schema";
 
 interface EditorState {
   letterSettings: LetterSettings;
+  geometrySettings: GeometrySettings;
   wiringSettings: WiringSettings;
   mountingSettings: MountingSettings;
   showGrid: boolean;
@@ -17,6 +20,7 @@ interface EditorState {
   showMeasurements: boolean;
   isExporting: boolean;
   setLetterSettings: (settings: Partial<LetterSettings>) => void;
+  setGeometrySettings: (settings: Partial<GeometrySettings>) => void;
   setWiringSettings: (settings: Partial<WiringSettings>) => void;
   setMountingSettings: (settings: Partial<MountingSettings>) => void;
   setShowGrid: (show: boolean) => void;
@@ -28,6 +32,7 @@ interface EditorState {
 
 export const useEditorStore = create<EditorState>((set) => ({
   letterSettings: defaultLetterSettings,
+  geometrySettings: defaultGeometrySettings,
   wiringSettings: defaultWiringSettings,
   mountingSettings: defaultMountingSettings,
   showGrid: true,
@@ -37,6 +42,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   setLetterSettings: (settings) =>
     set((state) => ({
       letterSettings: { ...state.letterSettings, ...settings },
+    })),
+  setGeometrySettings: (settings) =>
+    set((state) => ({
+      geometrySettings: { ...state.geometrySettings, ...settings },
     })),
   setWiringSettings: (settings) =>
     set((state) => ({
@@ -53,6 +62,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   resetAll: () =>
     set({
       letterSettings: defaultLetterSettings,
+      geometrySettings: defaultGeometrySettings,
       wiringSettings: defaultWiringSettings,
       mountingSettings: defaultMountingSettings,
       showGrid: true,
