@@ -3,7 +3,7 @@ import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Upload, Wand2, Image as ImageIcon } from "lucide-react";
+import { Upload, Wand2, Image as ImageIcon, X } from "lucide-react";
 import type { SketchPath } from "@shared/schema";
 
 export function ImageTracer() {
@@ -228,6 +228,32 @@ export function ImageTracer() {
         </div>
 
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+            data-testid="input-image-file-change"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setUploadedImageData(null)}
+            data-testid="button-clear-image"
+            title="Remove image"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            onClick={openFilePicker}
+            disabled={isProcessing}
+            data-testid="button-change-image"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Change
+          </Button>
           <Button
             variant="outline"
             onClick={traceImage}
