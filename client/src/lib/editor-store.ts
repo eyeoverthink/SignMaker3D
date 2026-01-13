@@ -4,10 +4,13 @@ import {
   type GeometrySettings,
   type WiringSettings,
   type MountingSettings,
+  type TubeSettings,
+  type SketchPath,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
   defaultMountingSettings,
+  defaultTubeSettings,
 } from "@shared/schema";
 
 interface EditorState {
@@ -15,6 +18,9 @@ interface EditorState {
   geometrySettings: GeometrySettings;
   wiringSettings: WiringSettings;
   mountingSettings: MountingSettings;
+  tubeSettings: TubeSettings;
+  sketchPaths: SketchPath[];
+  activeToolMode: "text" | "sketch";
   showGrid: boolean;
   showWireframe: boolean;
   showMeasurements: boolean;
@@ -23,6 +29,11 @@ interface EditorState {
   setGeometrySettings: (settings: Partial<GeometrySettings>) => void;
   setWiringSettings: (settings: Partial<WiringSettings>) => void;
   setMountingSettings: (settings: Partial<MountingSettings>) => void;
+  setTubeSettings: (settings: Partial<TubeSettings>) => void;
+  setSketchPaths: (paths: SketchPath[]) => void;
+  addSketchPath: (path: SketchPath) => void;
+  removeSketchPath: (id: string) => void;
+  setActiveToolMode: (mode: "text" | "sketch") => void;
   setShowGrid: (show: boolean) => void;
   setShowWireframe: (show: boolean) => void;
   setShowMeasurements: (show: boolean) => void;
@@ -35,6 +46,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   geometrySettings: defaultGeometrySettings,
   wiringSettings: defaultWiringSettings,
   mountingSettings: defaultMountingSettings,
+  tubeSettings: defaultTubeSettings,
+  sketchPaths: [],
+  activeToolMode: "text",
   showGrid: true,
   showWireframe: false,
   showMeasurements: true,
@@ -55,6 +69,20 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       mountingSettings: { ...state.mountingSettings, ...settings },
     })),
+  setTubeSettings: (settings) =>
+    set((state) => ({
+      tubeSettings: { ...state.tubeSettings, ...settings },
+    })),
+  setSketchPaths: (paths) => set({ sketchPaths: paths }),
+  addSketchPath: (path) =>
+    set((state) => ({
+      sketchPaths: [...state.sketchPaths, path],
+    })),
+  removeSketchPath: (id) =>
+    set((state) => ({
+      sketchPaths: state.sketchPaths.filter((p) => p.id !== id),
+    })),
+  setActiveToolMode: (mode) => set({ activeToolMode: mode }),
   setShowGrid: (showGrid) => set({ showGrid }),
   setShowWireframe: (showWireframe) => set({ showWireframe }),
   setShowMeasurements: (showMeasurements) => set({ showMeasurements }),
@@ -65,6 +93,9 @@ export const useEditorStore = create<EditorState>((set) => ({
       geometrySettings: defaultGeometrySettings,
       wiringSettings: defaultWiringSettings,
       mountingSettings: defaultMountingSettings,
+      tubeSettings: defaultTubeSettings,
+      sketchPaths: [],
+      activeToolMode: "text",
       showGrid: true,
       showWireframe: false,
       showMeasurements: true,

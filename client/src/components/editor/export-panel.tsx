@@ -26,11 +26,12 @@ const geometryModeLabels: Record<string, string> = {
   stencil: "Cut-Out Stencil",
   layered: "Layered Parts",
   flat: "Flat/Engraved",
+  outline: "Outline / Neon Tube",
 };
 
 export function ExportPanel() {
   const [format, setFormat] = useState<ExportFormat>("stl");
-  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, isExporting, setIsExporting } = useEditorStore();
+  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, tubeSettings, isExporting, setIsExporting } = useEditorStore();
   const { toast } = useToast();
 
   const handleExport = async () => {
@@ -54,6 +55,7 @@ export function ExportPanel() {
           geometrySettings,
           wiringSettings,
           mountingSettings,
+          tubeSettings,
           format,
         }),
       });
@@ -160,6 +162,27 @@ export function ExportPanel() {
               </Badge>
             </div>
             
+            {geometrySettings.mode === "outline" && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Tube channel:</span>
+                  <span className="font-mono">{tubeSettings.channelDepth}mm deep</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Wall height:</span>
+                  <span className="font-mono">{tubeSettings.wallHeight}mm</span>
+                </div>
+                {tubeSettings.enableOverlay && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Multi-part:</span>
+                    <Badge variant="outline" className="text-[10px] border-purple-500/50 text-purple-400">
+                      Base + Overlay Cap
+                    </Badge>
+                  </div>
+                )}
+              </>
+            )}
+
             {geometrySettings.separateFiles && (geometrySettings.mode === "layered" || geometrySettings.mode === "raised") && (
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Multi-part:</span>
@@ -174,7 +197,7 @@ export function ExportPanel() {
               <span className="font-mono">{geometrySettings.letterMaterial}</span>
             </div>
             
-            {geometrySettings.mode !== "flat" && (
+            {geometrySettings.mode !== "flat" && geometrySettings.enableBacking !== false && (
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Backing:</span>
                 <span className="font-mono">{geometrySettings.backingMaterial}</span>

@@ -50,9 +50,29 @@ export const geometrySettingsSchema = z.object({
   letterMaterial: z.enum(materialTypes),
   backingMaterial: z.enum(materialTypes),
   separateFiles: z.boolean(),
+  enableBacking: z.boolean().optional(),
 });
 
 export type GeometrySettings = z.infer<typeof geometrySettingsSchema>;
+
+export const tubeSettingsSchema = z.object({
+  channelDepth: z.number().min(10).max(40),
+  wallThickness: z.number().min(1).max(5),
+  wallHeight: z.number().min(5).max(30),
+  tubeWidth: z.number().min(15).max(50),
+  enableOverlay: z.boolean(),
+  overlayThickness: z.number().min(1).max(5),
+});
+
+export type TubeSettings = z.infer<typeof tubeSettingsSchema>;
+
+export const sketchPathSchema = z.object({
+  id: z.string(),
+  points: z.array(z.object({ x: z.number(), y: z.number() })),
+  closed: z.boolean(),
+});
+
+export type SketchPath = z.infer<typeof sketchPathSchema>;
 
 export const letterSettingsSchema = z.object({
   text: z.string().min(1).max(10),
@@ -142,6 +162,16 @@ export const defaultGeometrySettings: GeometrySettings = {
   letterMaterial: "transparent",
   backingMaterial: "opaque",
   separateFiles: true,
+  enableBacking: true,
+};
+
+export const defaultTubeSettings: TubeSettings = {
+  channelDepth: 20,
+  wallThickness: 2,
+  wallHeight: 15,
+  tubeWidth: 25,
+  enableOverlay: true,
+  overlayThickness: 2,
 };
 
 export { users, insertUserSchema } from "./users";

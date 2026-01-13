@@ -145,7 +145,7 @@ const fontFileMap: Record<string, string> = {
 };
 
 function WebGL3DCanvas() {
-  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, showGrid, showWireframe, showMeasurements } = useEditorStore();
+  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, tubeSettings, showGrid, showWireframe, showMeasurements } = useEditorStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -165,6 +165,12 @@ function WebGL3DCanvas() {
   const textHeight = 2.6 * letterSettings.scale;
   const width = letterSettings.text.length * 40 * letterSettings.scale;
   const height = 60 * letterSettings.scale;
+  
+  const tubeChannelDepth = (tubeSettings.channelDepth / 20) * letterSettings.scale;
+  const tubeWallThickness = (tubeSettings.wallThickness / 20) * letterSettings.scale;
+  const tubeWallHeight = (tubeSettings.wallHeight / 20) * letterSettings.scale;
+  const tubeWidth = (tubeSettings.tubeWidth / 20) * letterSettings.scale;
+  const overlayThickness = (tubeSettings.overlayThickness / 20) * letterSettings.scale;
   
   const materialColors = {
     opaque: "#6b21a8",
@@ -391,20 +397,71 @@ function WebGL3DCanvas() {
               )}
 
               {geometrySettings.mode === "outline" && (
-                <Text
-                  font={fontUrl}
-                  position={[0, 0, 0]}
-                  fontSize={fontSize}
-                  color="transparent"
-                  anchorX="center"
-                  anchorY="middle"
-                  strokeWidth={channelRadius * 2 || 0.15}
-                  strokeColor="#fbbf24"
-                  fillOpacity={0}
-                  strokeOpacity={0.9}
-                >
-                  {letterSettings.text || "A"}
-                </Text>
+                <>
+                  <Text
+                    font={fontUrl}
+                    position={[0, 0, tubeWallHeight / 2]}
+                    fontSize={fontSize}
+                    color={backingColor}
+                    anchorX="center"
+                    anchorY="middle"
+                    strokeWidth={tubeWidth || 0.8}
+                    strokeColor={backingColor}
+                    fillOpacity={0}
+                    strokeOpacity={1}
+                  >
+                    {letterSettings.text || "A"}
+                  </Text>
+                  
+                  <Text
+                    font={fontUrl}
+                    position={[0, 0, tubeWallHeight / 2 + 0.01]}
+                    fontSize={fontSize}
+                    color="#fbbf24"
+                    anchorX="center"
+                    anchorY="middle"
+                    strokeWidth={(tubeWidth - tubeWallThickness * 2) || 0.6}
+                    strokeColor="#fbbf24"
+                    fillOpacity={0}
+                    strokeOpacity={0.85}
+                  >
+                    {letterSettings.text || "A"}
+                  </Text>
+                  
+                  {tubeSettings.enableOverlay && (
+                    <Text
+                      font={fontUrl}
+                      position={[0, 0, tubeWallHeight + overlayThickness / 2]}
+                      fontSize={fontSize}
+                      color={letterColor}
+                      anchorX="center"
+                      anchorY="middle"
+                      strokeWidth={tubeWidth || 0.8}
+                      strokeColor={letterColor}
+                      fillOpacity={0}
+                      strokeOpacity={0.7}
+                    >
+                      {letterSettings.text || "A"}
+                    </Text>
+                  )}
+                  
+                  {geometrySettings.enableBacking !== false && (
+                    <Text
+                      font={fontUrl}
+                      position={[0, 0, -backingThickness / 2]}
+                      fontSize={fontSize}
+                      color={backingColor}
+                      anchorX="center"
+                      anchorY="middle"
+                      strokeWidth={tubeWidth || 0.8}
+                      strokeColor={backingColor}
+                      fillOpacity={0}
+                      strokeOpacity={0.5}
+                    >
+                      {letterSettings.text || "A"}
+                    </Text>
+                  )}
+                </>
               )}
 
               <Text
@@ -520,24 +577,55 @@ function WebGL3DCanvas() {
           {geometrySettings.mode === "flat" && "Flat Letters"}
           {geometrySettings.mode === "outline" && "Outline (Neon Style)"}
         </div>
-        {geometrySettings.mode !== "flat" && geometrySettings.mode !== "stencil" && (
-          <div className="flex items-center gap-2 text-[10px]">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: backingColor }} />
-            <span className="text-zinc-400">Backing ({geometrySettings.backingMaterial})</span>
-          </div>
+        {geometrySettings.mode === "outline" ? (
+          <>
+            <div className="flex items-center gap-2 text-[10px]">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: backingColor }} />
+              <span className="text-zinc-400">Tube walls ({tubeSettings.wallHeight}mm)</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px]">
+              <div className="w-2 h-2 rounded-full bg-yellow-500" />
+              <span className="text-zinc-400">Light channel ({tubeSettings.channelDepth}mm)</span>
+            </div>
+            {tubeSettings.enableOverlay && (
+              <div className="flex items-center gap-2 text-[10px]">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: letterColor }} />
+                <span className="text-zinc-400">Overlay cap (diffuser)</span>
+              </div>
+            )}
+            {geometrySettings.enableBacking !== false && (
+              <div className="flex items-center gap-2 text-[10px]">
+                <div className="w-2 h-2 rounded-full opacity-50" style={{ backgroundColor: backingColor }} />
+                <span className="text-zinc-400">Backing plate</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {geometrySettings.mode !== "flat" && geometrySettings.mode !== "stencil" && (
+              <div className="flex items-center gap-2 text-[10px]">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: backingColor }} />
+                <span className="text-zinc-400">Backing ({geometrySettings.backingMaterial})</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-[10px]">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: letterColor }} />
+              <span className="text-zinc-400">Letters ({geometrySettings.letterMaterial})</span>
+            </div>
+            {wiringSettings.channelType !== "none" && (
+              <div className="flex items-center gap-2 text-[10px]">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-zinc-400">Wire channel</span>
+              </div>
+            )}
+            {mountingSettings.pattern !== "none" && (
+              <div className="flex items-center gap-2 text-[10px]">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-zinc-400">Mount holes</span>
+              </div>
+            )}
+          </>
         )}
-        <div className="flex items-center gap-2 text-[10px]">
-          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: letterColor }} />
-          <span className="text-zinc-400">Letters ({geometrySettings.letterMaterial})</span>
-        </div>
-        <div className="flex items-center gap-2 text-[10px]">
-          <div className="w-2 h-2 rounded-full bg-yellow-500" />
-          <span className="text-zinc-400">Wire channel</span>
-        </div>
-        <div className="flex items-center gap-2 text-[10px]">
-          <div className="w-2 h-2 rounded-full bg-red-500" />
-          <span className="text-zinc-400">Mount holes</span>
-        </div>
       </div>
     </div>
   );

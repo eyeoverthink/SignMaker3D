@@ -1,15 +1,21 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Type, Layers, Cable, CircleDot, Settings2, Download } from "lucide-react";
+import { Type, Layers, Cable, CircleDot, Settings2, Download, Cylinder, Pencil } from "lucide-react";
 import { TextControls } from "./text-controls";
 import { GeometryControls } from "./geometry-controls";
 import { WiringControls } from "./wiring-controls";
 import { MountingControls } from "./mounting-controls";
 import { ViewControls } from "./view-controls";
 import { ExportPanel } from "./export-panel";
+import { TubeControls } from "./tube-controls";
+import { SketchControls } from "./sketch-controls";
+import { useEditorStore } from "@/lib/editor-store";
 
 export function EditorSidebar() {
+  const { geometrySettings } = useEditorStore();
+  const isOutlineMode = geometrySettings.mode === "outline";
+
   return (
     <div className="w-80 border-r bg-sidebar flex flex-col h-full">
       <div className="p-4 border-b">
@@ -20,7 +26,7 @@ export function EditorSidebar() {
       </div>
 
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-6 p-1 m-2 bg-muted/50">
+        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-8' : 'grid-cols-6'}`}>
           <TabsTrigger
             value="text"
             className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
@@ -69,6 +75,26 @@ export function EditorSidebar() {
             <Download className="h-3.5 w-3.5" />
             <span className="text-[9px]">Export</span>
           </TabsTrigger>
+          {isOutlineMode && (
+            <>
+              <TabsTrigger
+                value="tube"
+                className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+                data-testid="tab-tube"
+              >
+                <Cylinder className="h-3.5 w-3.5" />
+                <span className="text-[9px]">Tube</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="sketch"
+                className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+                data-testid="tab-sketch"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="text-[9px]">Sketch</span>
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <ScrollArea className="flex-1">
@@ -96,6 +122,18 @@ export function EditorSidebar() {
             <TabsContent value="export" className="mt-0">
               <ExportPanel />
             </TabsContent>
+
+            {isOutlineMode && (
+              <>
+                <TabsContent value="tube" className="mt-0">
+                  <TubeControls />
+                </TabsContent>
+
+                <TabsContent value="sketch" className="mt-0">
+                  <SketchControls />
+                </TabsContent>
+              </>
+            )}
           </div>
         </ScrollArea>
       </Tabs>

@@ -117,23 +117,49 @@ export function GeometryControls() {
           </p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3 pt-3 border-t">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Backing Thickness</Label>
-            <span className="text-sm font-mono text-muted-foreground">
-              {geometrySettings.backingThickness}mm
-            </span>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="enable-backing" className="text-sm font-medium">
+                Include Backing Plate
+              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[200px]">
+                  <p className="text-xs">Turn off for free-floating neon style signs</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Switch
+              id="enable-backing"
+              data-testid="switch-enable-backing"
+              checked={geometrySettings.enableBacking ?? true}
+              onCheckedChange={(checked) => setGeometrySettings({ enableBacking: checked })}
+            />
           </div>
-          <Slider
-            data-testid="slider-backing-thickness"
-            value={[geometrySettings.backingThickness]}
-            onValueChange={([value]) => setGeometrySettings({ backingThickness: value })}
-            min={2}
-            max={30}
-            step={1}
-            className="py-2"
-          />
         </div>
+
+        {geometrySettings.enableBacking !== false && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Backing Thickness</Label>
+              <span className="text-sm font-mono text-muted-foreground">
+                {geometrySettings.backingThickness}mm
+              </span>
+            </div>
+            <Slider
+              data-testid="slider-backing-thickness"
+              value={[geometrySettings.backingThickness]}
+              onValueChange={([value]) => setGeometrySettings({ backingThickness: value })}
+              min={2}
+              max={30}
+              step={1}
+              className="py-2"
+            />
+          </div>
+        )}
 
         {geometrySettings.mode === "raised" && (
           <div className="space-y-2">

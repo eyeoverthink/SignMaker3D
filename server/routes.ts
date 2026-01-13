@@ -8,12 +8,14 @@ import {
   geometrySettingsSchema,
   wiringSettingsSchema,
   mountingSettingsSchema,
+  tubeSettingsSchema,
   insertProjectSchema,
   fontOptions,
   baseTemplates,
   defaultGeometrySettings,
   defaultWiringSettings,
   defaultMountingSettings,
+  defaultTubeSettings,
 } from "@shared/schema";
 import { z } from "zod";
 import archiver from "archiver";
@@ -40,6 +42,7 @@ const exportRequestSchema = z.object({
   geometrySettings: geometrySettingsSchema.optional(),
   wiringSettings: wiringSettingsSchema.optional(),
   mountingSettings: mountingSettingsSchema.optional(),
+  tubeSettings: tubeSettingsSchema.optional(),
   format: z.enum(["stl", "obj", "3mf"]).default("stl"),
 });
 
@@ -166,9 +169,11 @@ export async function registerRoutes(
       const geometrySettings = parsed.data.geometrySettings || defaultGeometrySettings;
       const wiringSettings = parsed.data.wiringSettings || defaultWiringSettings;
       const mountingSettings = parsed.data.mountingSettings || defaultMountingSettings;
+      const tubeSettings = parsed.data.tubeSettings || defaultTubeSettings;
 
-      const shouldExportSeparate = geometrySettings.separateFiles && 
-        (geometrySettings.mode === "layered" || geometrySettings.mode === "raised");
+      const shouldExportSeparate = (geometrySettings.separateFiles && 
+        (geometrySettings.mode === "layered" || geometrySettings.mode === "raised")) ||
+        (geometrySettings.mode === "outline" && tubeSettings.enableOverlay);
 
       if (shouldExportSeparate && format !== "3mf") {
         const exportedParts = generateMultiPartExport(
