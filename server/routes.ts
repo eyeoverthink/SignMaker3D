@@ -3,6 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSignage, generateMultiPartExport, generateTwoPartExport, type ExportedPart } from "./stl-generator";
+import { generateNeonSignV2 } from "./stl-generator-v2";
 import { twoPartSystemSchema, defaultTwoPartSystem } from "@shared/schema";
 import {
   letterSettingsSchema,
@@ -185,7 +186,7 @@ export async function registerRoutes(
       const inputMode = parsed.data.inputMode || "text";
 
       if (twoPartSystem.enabled && geometrySettings.mode === "outline" && format !== "3mf") {
-        const exportedParts = generateTwoPartExport(
+        const exportedParts = generateNeonSignV2(
           letterSettings,
           tubeSettings,
           twoPartSystem,
