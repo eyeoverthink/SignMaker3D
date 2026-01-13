@@ -328,85 +328,47 @@ function connectEdges(triangles: Triangle[], edge1: Vector3[], edge2: Vector3[],
 }
 
 function capUChannel(triangles: Triangle[], profile: UChannelProfile, isStart: boolean) {
-  // Create end caps for the U-channel
-  // This closes off the ends with solid walls
+  // Create end caps for the U-channel with consistent winding
+  // isStart: cap faces backward (into path), isEnd: cap faces forward (out of path)
   
   const ol = profile.outerLeft;
   const il = profile.innerLeft;
   const or = profile.outerRight;
   const ir = profile.innerRight;
   
-  // Left wall end cap
+  // Helper to add a quad with proper winding based on direction
+  // Start cap: normals point opposite to path direction (-tangent)
+  // End cap: normals point along path direction (+tangent)
+  function addQuad(a: Vector3, b: Vector3, c: Vector3, d: Vector3) {
+    // Swap winding: start cap uses CW, end cap uses CCW (relative to outward normal)
+    if (isStart) {
+      // CW winding for start cap - normals point backward (-tangent)
+      triangles.push({ normal: calcNormal(a, c, b), v1: a, v2: c, v3: b });
+      triangles.push({ normal: calcNormal(a, d, c), v1: a, v2: d, v3: c });
+    } else {
+      // CCW winding for end cap - normals point forward (+tangent)
+      triangles.push({ normal: calcNormal(a, b, c), v1: a, v2: b, v3: c });
+      triangles.push({ normal: calcNormal(a, c, d), v1: a, v2: c, v3: d });
+    }
+  }
+  
+  // Left wall end cap - connect outer left edge to inner left edge
   for (let i = 0; i < ol.length - 1; i++) {
-    if (isStart) {
-      triangles.push({
-        normal: calcNormal(ol[i], il[i], ol[i + 1]),
-        v1: ol[i], v2: il[i], v3: ol[i + 1]
-      });
-      triangles.push({
-        normal: calcNormal(ol[i + 1], il[i], il[i + 1]),
-        v1: ol[i + 1], v2: il[i], v3: il[i + 1]
-      });
-    } else {
-      triangles.push({
-        normal: calcNormal(ol[i], ol[i + 1], il[i]),
-        v1: ol[i], v2: ol[i + 1], v3: il[i]
-      });
-      triangles.push({
-        normal: calcNormal(ol[i + 1], il[i + 1], il[i]),
-        v1: ol[i + 1], v2: il[i + 1], v3: il[i]
-      });
-    }
+    addQuad(ol[i], il[i], il[i + 1], ol[i + 1]);
   }
   
-  // Right wall end cap
+  // Right wall end cap - connect outer right edge to inner right edge
   for (let i = 0; i < or.length - 1; i++) {
-    if (isStart) {
-      triangles.push({
-        normal: calcNormal(or[i], or[i + 1], ir[i]),
-        v1: or[i], v2: or[i + 1], v3: ir[i]
-      });
-      triangles.push({
-        normal: calcNormal(or[i + 1], ir[i + 1], ir[i]),
-        v1: or[i + 1], v2: ir[i + 1], v3: ir[i]
-      });
-    } else {
-      triangles.push({
-        normal: calcNormal(or[i], ir[i], or[i + 1]),
-        v1: or[i], v2: ir[i], v3: or[i + 1]
-      });
-      triangles.push({
-        normal: calcNormal(or[i + 1], ir[i], ir[i + 1]),
-        v1: or[i + 1], v2: ir[i], v3: ir[i + 1]
-      });
-    }
+    addQuad(or[i], or[i + 1], ir[i + 1], ir[i]);
   }
   
-  // Bottom end cap (connects outer left bottom to outer right bottom)
+  // Bottom end cap (connects bottom of left wall to bottom of right wall)
   const bottomLeft = ol[0];
   const bottomRight = or[0];
   const innerBottomLeft = il[0];
   const innerBottomRight = ir[0];
   
-  if (isStart) {
-    triangles.push({
-      normal: calcNormal(bottomLeft, innerBottomLeft, bottomRight),
-      v1: bottomLeft, v2: innerBottomLeft, v3: bottomRight
-    });
-    triangles.push({
-      normal: calcNormal(innerBottomLeft, innerBottomRight, bottomRight),
-      v1: innerBottomLeft, v2: innerBottomRight, v3: bottomRight
-    });
-  } else {
-    triangles.push({
-      normal: calcNormal(bottomLeft, bottomRight, innerBottomLeft),
-      v1: bottomLeft, v2: bottomRight, v3: innerBottomLeft
-    });
-    triangles.push({
-      normal: calcNormal(innerBottomLeft, bottomRight, innerBottomRight),
-      v1: innerBottomLeft, v2: bottomRight, v3: innerBottomRight
-    });
-  }
+  addQuad(bottomLeft, bottomRight, innerBottomRight, innerBottomLeft);
 }
 
 // Create a swept tube along a path using parallel transport frame
