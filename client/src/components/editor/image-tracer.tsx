@@ -364,13 +364,35 @@ export function ImageTracer() {
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
       
-      // Convert to grayscale array for edge detection
-      const gray = new Float32Array(width * height);
+      // Step 1: Create brightness/saturation mask to filter out dark areas
+      // This prevents picking up background elements like grid lines
+      const brightMask = new Uint8Array(width * height);
       for (let i = 0; i < data.length; i += 4) {
-        gray[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const brightness = (r + g + b) / 3;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const saturation = max === 0 ? 0 : (max - min) / max;
+        
+        // Keep pixels that are either bright OR saturated (colored)
+        // This preserves neon signs which are bright and colored
+        const isBright = brightness > 80;
+        const isColorful = saturation > 0.2 && brightness > 40;
+        brightMask[i / 4] = (isBright || isColorful) ? 1 : 0;
       }
       
-      // Apply Sobel edge detection for sharper edges
+      // Step 2: Convert to grayscale with brightness mask
+      const gray = new Float32Array(width * height);
+      for (let i = 0; i < data.length; i += 4) {
+        const idx = i / 4;
+        if (brightMask[idx]) {
+          gray[idx] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        } else {
+          gray[idx] = 255; // Treat dark areas as background (white = no edge)
+        }
+      }
+      
+      // Step 3: Apply Sobel edge detection
       const edges = new Float32Array(width * height);
       for (let y = 1; y < height - 1; y++) {
         for (let x = 1; x < width - 1; x++) {
@@ -393,8 +415,10 @@ export function ImageTracer() {
       
       const edgeThreshold = (threshold / 255) * maxEdge * 0.5;
       for (let i = 0; i < data.length; i += 4) {
-        const edgeVal = edges[i / 4];
-        const binary = edgeVal > edgeThreshold ? 0 : 255;
+        const idx = i / 4;
+        const edgeVal = edges[idx];
+        // Only mark as edge if also passes brightness mask
+        const binary = (edgeVal > edgeThreshold && brightMask[idx]) ? 0 : 255;
         data[i] = binary;
         data[i + 1] = binary;
         data[i + 2] = binary;
