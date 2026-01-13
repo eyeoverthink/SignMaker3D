@@ -186,6 +186,7 @@ export async function registerRoutes(
       const inputMode = parsed.data.inputMode || "text";
       
       console.log(`[Export] inputMode: ${inputMode}, sketchPaths count: ${sketchPaths.length}`);
+      console.log(`[Export] twoPartSystem.enabled: ${twoPartSystem.enabled}, geometrySettings.mode: ${geometrySettings.mode}, format: ${format}`);
       if (sketchPaths.length > 0) {
         console.log(`[Export] First path has ${sketchPaths[0].points.length} points`);
       }
