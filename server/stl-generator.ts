@@ -1,4 +1,5 @@
-import type { LetterSettings, WiringSettings, MountingSettings, GeometrySettings } from "@shared/schema";
+import type { LetterSettings, WiringSettings, MountingSettings, GeometrySettings, TubeSettings } from "@shared/schema";
+import { defaultTubeSettings } from "@shared/schema";
 import opentype from "opentype.js";
 import earcut from "earcut";
 import path from "path";
@@ -533,6 +534,81 @@ function generateBoxTriangles(
   return triangles;
 }
 
+function generateOrientedTubeSegment(
+  radius: number,
+  start: { x: number; y: number; z: number },
+  end: { x: number; y: number; z: number },
+  segments: number = 8
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const dz = end.z - start.z;
+  const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  
+  if (length < 0.001) return triangles;
+  
+  const dir = { x: dx / length, y: dy / length, z: dz / length };
+  
+  let perp1: { x: number; y: number; z: number };
+  if (Math.abs(dir.z) < 0.9) {
+    const temp = { x: 0, y: 0, z: 1 };
+    perp1 = normalize(cross(dir, temp));
+  } else {
+    const temp = { x: 1, y: 0, z: 0 };
+    perp1 = normalize(cross(dir, temp));
+  }
+  const perp2 = normalize(cross(dir, perp1));
+  
+  for (let i = 0; i < segments; i++) {
+    const angle1 = (i / segments) * Math.PI * 2;
+    const angle2 = ((i + 1) / segments) * Math.PI * 2;
+    
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    const p1 = {
+      x: start.x + radius * (cos1 * perp1.x + sin1 * perp2.x),
+      y: start.y + radius * (cos1 * perp1.y + sin1 * perp2.y),
+      z: start.z + radius * (cos1 * perp1.z + sin1 * perp2.z),
+    };
+    const p2 = {
+      x: start.x + radius * (cos2 * perp1.x + sin2 * perp2.x),
+      y: start.y + radius * (cos2 * perp1.y + sin2 * perp2.y),
+      z: start.z + radius * (cos2 * perp1.z + sin2 * perp2.z),
+    };
+    const p3 = {
+      x: end.x + radius * (cos2 * perp1.x + sin2 * perp2.x),
+      y: end.y + radius * (cos2 * perp1.y + sin2 * perp2.y),
+      z: end.z + radius * (cos2 * perp1.z + sin2 * perp2.z),
+    };
+    const p4 = {
+      x: end.x + radius * (cos1 * perp1.x + sin1 * perp2.x),
+      y: end.y + radius * (cos1 * perp1.y + sin1 * perp2.y),
+      z: end.z + radius * (cos1 * perp1.z + sin1 * perp2.z),
+    };
+    
+    const normal1 = calculateNormal(p1, p2, p3);
+    triangles.push({ normal: normal1, v1: p1, v2: p2, v3: p3 });
+    
+    const normal2 = calculateNormal(p1, p3, p4);
+    triangles.push({ normal: normal2, v1: p1, v2: p3, v3: p4 });
+    
+    const startCenter = start;
+    const endCenter = end;
+    const startNormal = { x: -dir.x, y: -dir.y, z: -dir.z };
+    triangles.push({ normal: startNormal, v1: startCenter, v2: p2, v3: p1 });
+    
+    const endNormal = dir;
+    triangles.push({ normal: endNormal, v1: endCenter, v2: p4, v3: p3 });
+  }
+  
+  return triangles;
+}
+
 function generateCylinderTriangles(
   radius: number,
   height: number,
@@ -723,7 +799,8 @@ export function generateSignageParts(
   letterSettings: LetterSettings,
   geometrySettings: GeometrySettings,
   wiringSettings: WiringSettings,
-  mountingSettings: MountingSettings
+  mountingSettings: MountingSettings,
+  tubeSettings: TubeSettings = defaultTubeSettings
 ): GeneratedSignage {
   const parts: GeneratedPart[] = [];
   const text = letterSettings.text || "A";
@@ -811,6 +888,109 @@ export function generateSignageParts(
         triangles: letterTriangles,
         material: geometrySettings.letterMaterial,
       });
+      break;
+    }
+
+    case "outline": {
+      const font = loadFontSync(fontId);
+      const fontPath = font.getPath(text, 0, 0, fontSize);
+      const contours = pathToContours(fontPath);
+      
+      if (contours.length > 0) {
+        const allX = contours.flatMap(c => c.filter((_, i) => i % 2 === 0));
+        const allY = contours.flatMap(c => c.filter((_, i) => i % 2 === 1));
+        const minX = Math.min(...allX);
+        const maxX = Math.max(...allX);
+        const minY = Math.min(...allY);
+        const maxY = Math.max(...allY);
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        const isFilament = tubeSettings.channelType === "filament";
+        const tubeRadius = isFilament 
+          ? (tubeSettings.filamentDiameter / 2) 
+          : (tubeSettings.tubeWidth / 2);
+        const wallHeight = tubeSettings.wallHeight;
+        const zOffset = wallHeight / 2;
+        
+        const tubeTriangles: Triangle[] = [];
+        
+        for (const contour of contours) {
+          const numPoints = contour.length / 2;
+          if (numPoints < 3) continue;
+          
+          for (let i = 0; i < numPoints; i++) {
+            const x1 = contour[i * 2] - centerX;
+            const y1 = -(contour[i * 2 + 1] - centerY);
+            const next = (i + 1) % numPoints;
+            const x2 = contour[next * 2] - centerX;
+            const y2 = -(contour[next * 2 + 1] - centerY);
+            
+            const segTriangles = generateOrientedTubeSegment(
+              tubeRadius,
+              { x: x1, y: y1, z: zOffset },
+              { x: x2, y: y2, z: zOffset },
+              isFilament ? 12 : 8
+            );
+            tubeTriangles.push(...segTriangles);
+          }
+        }
+        
+        parts.push({
+          name: isFilament ? "filament_tube" : "led_channel",
+          triangles: tubeTriangles,
+          material: geometrySettings.letterMaterial,
+        });
+        
+        if (tubeSettings.enableOverlay) {
+          const overlayTriangles: Triangle[] = [];
+          const overlayZ = wallHeight + tubeSettings.overlayThickness / 2;
+          const overlayRadius = tubeRadius * 1.1;
+          
+          for (const contour of contours) {
+            const numPoints = contour.length / 2;
+            if (numPoints < 3) continue;
+            
+            for (let i = 0; i < numPoints; i++) {
+              const x1 = contour[i * 2] - centerX;
+              const y1 = -(contour[i * 2 + 1] - centerY);
+              const next = (i + 1) % numPoints;
+              const x2 = contour[next * 2] - centerX;
+              const y2 = -(contour[next * 2 + 1] - centerY);
+              
+              const segTriangles = generateOrientedTubeSegment(
+                overlayRadius,
+                { x: x1, y: y1, z: overlayZ },
+                { x: x2, y: y2, z: overlayZ },
+                isFilament ? 12 : 8
+              );
+              overlayTriangles.push(...segTriangles);
+            }
+          }
+          
+          parts.push({
+            name: "overlay_cap",
+            triangles: overlayTriangles,
+            material: "diffuser",
+          });
+        }
+        
+        if (geometrySettings.enableBacking !== false) {
+          const backingTriangles = generateBackingPlate(
+            text,
+            fontSize,
+            geometrySettings.backingThickness,
+            10 * scale,
+            8 * scale,
+            fontId
+          );
+          parts.push({
+            name: "backing",
+            triangles: backingTriangles,
+            material: geometrySettings.backingMaterial,
+          });
+        }
+      }
       break;
     }
 
@@ -973,13 +1153,15 @@ export function generateSignage(
   wiringSettings: WiringSettings,
   mountingSettings: MountingSettings,
   format: string,
-  geometrySettings: GeometrySettings
+  geometrySettings: GeometrySettings,
+  tubeSettings: TubeSettings = defaultTubeSettings
 ): Buffer | string {
   const { combined } = generateSignageParts(
     letterSettings,
     geometrySettings,
     wiringSettings,
-    mountingSettings
+    mountingSettings,
+    tubeSettings
   );
 
   if (format === "obj") {
@@ -1001,9 +1183,10 @@ export function generateMultiPartExport(
   geometrySettings: GeometrySettings,
   wiringSettings: WiringSettings,
   mountingSettings: MountingSettings,
-  format: "stl" | "obj"
+  format: "stl" | "obj",
+  tubeSettings: TubeSettings = defaultTubeSettings
 ): ExportedPart[] {
-  const { parts } = generateSignageParts(letterSettings, geometrySettings, wiringSettings, mountingSettings);
+  const { parts } = generateSignageParts(letterSettings, geometrySettings, wiringSettings, mountingSettings, tubeSettings);
   const exportedParts: ExportedPart[] = [];
 
   const textSlug = letterSettings.text.replace(/\s/g, "_");

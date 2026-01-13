@@ -171,6 +171,8 @@ function WebGL3DCanvas() {
   const tubeWallHeight = (tubeSettings.wallHeight / 20) * letterSettings.scale;
   const tubeWidth = (tubeSettings.tubeWidth / 20) * letterSettings.scale;
   const overlayThickness = (tubeSettings.overlayThickness / 20) * letterSettings.scale;
+  const filamentDiameter = (tubeSettings.filamentDiameter / 20) * letterSettings.scale;
+  const isFilament = tubeSettings.channelType === "filament";
   
   const materialColors = {
     opaque: "#6b21a8",
@@ -398,35 +400,80 @@ function WebGL3DCanvas() {
 
               {geometrySettings.mode === "outline" && (
                 <>
-                  <Text
-                    font={fontUrl}
-                    position={[0, 0, tubeWallHeight / 2]}
-                    fontSize={fontSize}
-                    color={backingColor}
-                    anchorX="center"
-                    anchorY="middle"
-                    strokeWidth={tubeWidth || 0.8}
-                    strokeColor={backingColor}
-                    fillOpacity={0}
-                    strokeOpacity={1}
-                  >
-                    {letterSettings.text || "A"}
-                  </Text>
-                  
-                  <Text
-                    font={fontUrl}
-                    position={[0, 0, tubeWallHeight / 2 + 0.01]}
-                    fontSize={fontSize}
-                    color="#fbbf24"
-                    anchorX="center"
-                    anchorY="middle"
-                    strokeWidth={(tubeWidth - tubeWallThickness * 2) || 0.6}
-                    strokeColor="#fbbf24"
-                    fillOpacity={0}
-                    strokeOpacity={0.85}
-                  >
-                    {letterSettings.text || "A"}
-                  </Text>
+                  {isFilament ? (
+                    <>
+                      <Text
+                        font={fontUrl}
+                        position={[0, 0, tubeWallHeight / 2]}
+                        fontSize={fontSize}
+                        color="#f97316"
+                        anchorX="center"
+                        anchorY="middle"
+                        strokeWidth={filamentDiameter}
+                        strokeColor="#f97316"
+                        fillOpacity={0}
+                        strokeOpacity={0.9}
+                      >
+                        {letterSettings.text || "A"}
+                      </Text>
+                      
+                      <Text
+                        font={fontUrl}
+                        position={[0, 0, tubeWallHeight / 2 + 0.01]}
+                        fontSize={fontSize}
+                        color="#fbbf24"
+                        anchorX="center"
+                        anchorY="middle"
+                        strokeWidth={filamentDiameter * 0.5}
+                        strokeColor="#fbbf24"
+                        fillOpacity={0}
+                        strokeOpacity={1}
+                      >
+                        {letterSettings.text || "A"}
+                      </Text>
+                      
+                      <mesh position={[-textWidth / 2 - 0.2, 0, tubeWallHeight / 2]}>
+                        <sphereGeometry args={[filamentDiameter * 0.6, 16, 16]} />
+                        <meshStandardMaterial color="#22c55e" emissive="#22c55e" emissiveIntensity={0.3} />
+                      </mesh>
+                      <mesh position={[textWidth / 2 + 0.2, 0, tubeWallHeight / 2]}>
+                        <sphereGeometry args={[filamentDiameter * 0.6, 16, 16]} />
+                        <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.3} />
+                      </mesh>
+                    </>
+                  ) : (
+                    <>
+                      <Text
+                        font={fontUrl}
+                        position={[0, 0, tubeWallHeight / 2]}
+                        fontSize={fontSize}
+                        color={backingColor}
+                        anchorX="center"
+                        anchorY="middle"
+                        strokeWidth={tubeWidth || 0.8}
+                        strokeColor={backingColor}
+                        fillOpacity={0}
+                        strokeOpacity={1}
+                      >
+                        {letterSettings.text || "A"}
+                      </Text>
+                      
+                      <Text
+                        font={fontUrl}
+                        position={[0, 0, tubeWallHeight / 2 + 0.01]}
+                        fontSize={fontSize}
+                        color="#fbbf24"
+                        anchorX="center"
+                        anchorY="middle"
+                        strokeWidth={(tubeWidth - tubeWallThickness * 2) || 0.6}
+                        strokeColor="#fbbf24"
+                        fillOpacity={0}
+                        strokeOpacity={0.85}
+                      >
+                        {letterSettings.text || "A"}
+                      </Text>
+                    </>
+                  )}
                   
                   {tubeSettings.enableOverlay && (
                     <Text
@@ -436,7 +483,7 @@ function WebGL3DCanvas() {
                       color={letterColor}
                       anchorX="center"
                       anchorY="middle"
-                      strokeWidth={tubeWidth || 0.8}
+                      strokeWidth={isFilament ? filamentDiameter * 1.2 : (tubeWidth || 0.8)}
                       strokeColor={letterColor}
                       fillOpacity={0}
                       strokeOpacity={0.7}
@@ -453,7 +500,7 @@ function WebGL3DCanvas() {
                       color={backingColor}
                       anchorX="center"
                       anchorY="middle"
-                      strokeWidth={tubeWidth || 0.8}
+                      strokeWidth={isFilament ? filamentDiameter * 1.2 : (tubeWidth || 0.8)}
                       strokeColor={backingColor}
                       fillOpacity={0}
                       strokeOpacity={0.5}
@@ -580,13 +627,29 @@ function WebGL3DCanvas() {
         {geometrySettings.mode === "outline" ? (
           <>
             <div className="flex items-center gap-2 text-[10px]">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: backingColor }} />
-              <span className="text-zinc-400">Tube walls ({tubeSettings.wallHeight}mm)</span>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isFilament ? "#f97316" : backingColor }} />
+              <span className="text-zinc-400">
+                {isFilament ? `Circular tube (${tubeSettings.filamentDiameter}mm)` : `Tube walls (${tubeSettings.wallHeight}mm)`}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-[10px]">
               <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              <span className="text-zinc-400">Light channel ({tubeSettings.channelDepth}mm)</span>
+              <span className="text-zinc-400">
+                {isFilament ? "Filament path (continuous)" : `Light channel (${tubeSettings.channelDepth}mm)`}
+              </span>
             </div>
+            {isFilament && (
+              <>
+                <div className="flex items-center gap-2 text-[10px]">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-zinc-400">Entry point</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px]">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-zinc-400">Exit point</span>
+                </div>
+              </>
+            )}
             {tubeSettings.enableOverlay && (
               <div className="flex items-center gap-2 text-[10px]">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: letterColor }} />

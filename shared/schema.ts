@@ -55,13 +55,19 @@ export const geometrySettingsSchema = z.object({
 
 export type GeometrySettings = z.infer<typeof geometrySettingsSchema>;
 
+export const tubeChannelTypes = ["led_strip", "filament"] as const;
+export type TubeChannelType = typeof tubeChannelTypes[number];
+
 export const tubeSettingsSchema = z.object({
+  channelType: z.enum(tubeChannelTypes),
   channelDepth: z.number().min(10).max(40),
+  filamentDiameter: z.number().min(8).max(20),
   wallThickness: z.number().min(1).max(5),
   wallHeight: z.number().min(5).max(30),
   tubeWidth: z.number().min(15).max(50),
   enableOverlay: z.boolean(),
   overlayThickness: z.number().min(1).max(5),
+  continuousPath: z.boolean(),
 });
 
 export type TubeSettings = z.infer<typeof tubeSettingsSchema>;
@@ -166,12 +172,15 @@ export const defaultGeometrySettings: GeometrySettings = {
 };
 
 export const defaultTubeSettings: TubeSettings = {
+  channelType: "led_strip",
   channelDepth: 20,
+  filamentDiameter: 12,
   wallThickness: 2,
   wallHeight: 15,
   tubeWidth: 25,
   enableOverlay: true,
   overlayThickness: 2,
+  continuousPath: false,
 };
 
 export { users, insertUserSchema } from "./users";

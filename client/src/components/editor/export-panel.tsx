@@ -165,9 +165,23 @@ export function ExportPanel() {
             {geometrySettings.mode === "outline" && (
               <>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tube channel:</span>
-                  <span className="font-mono">{tubeSettings.channelDepth}mm deep</span>
+                  <span className="text-muted-foreground">Light type:</span>
+                  <Badge variant="outline" className={`text-[10px] ${tubeSettings.channelType === "filament" ? "border-orange-500/50 text-orange-400" : "border-yellow-500/50 text-yellow-400"}`}>
+                    {tubeSettings.channelType === "filament" ? "Filament/Neon" : "LED Strip"}
+                  </Badge>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{tubeSettings.channelType === "filament" ? "Tube diameter:" : "Channel depth:"}</span>
+                  <span className="font-mono">{tubeSettings.channelType === "filament" ? tubeSettings.filamentDiameter : tubeSettings.channelDepth}mm</span>
+                </div>
+                {tubeSettings.channelType === "filament" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Path:</span>
+                    <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-400">
+                      Continuous
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Wall height:</span>
                   <span className="font-mono">{tubeSettings.wallHeight}mm</span>

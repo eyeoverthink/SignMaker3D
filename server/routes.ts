@@ -181,7 +181,8 @@ export async function registerRoutes(
           geometrySettings,
           wiringSettings,
           mountingSettings,
-          format as "stl" | "obj"
+          format as "stl" | "obj",
+          tubeSettings
         );
 
         const textSlug = letterSettings.text.replace(/\s/g, "_");
@@ -237,7 +238,8 @@ export async function registerRoutes(
         wiringSettings,
         mountingSettings,
         format,
-        geometrySettings
+        geometrySettings,
+        tubeSettings
       );
 
       const filename = `${letterSettings.text.replace(/\s/g, "_")}_signage.${format}`;
