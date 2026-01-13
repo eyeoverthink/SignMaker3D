@@ -913,10 +913,9 @@ export function generateSignageParts(
         
         const isFilament = tubeSettings.channelType === "filament";
         const tubeRadius = isFilament 
-          ? (tubeSettings.filamentDiameter / 2) 
+          ? (tubeSettings.filamentDiameter / 2) + tubeSettings.wallThickness
           : (tubeSettings.tubeWidth / 2);
-        const wallHeight = tubeSettings.wallHeight;
-        const zOffset = wallHeight / 2;
+        const zOffset = tubeRadius;
         
         const tubeTriangles: Triangle[] = [];
         
@@ -949,7 +948,7 @@ export function generateSignageParts(
         
         if (tubeSettings.enableOverlay) {
           const overlayTriangles: Triangle[] = [];
-          const overlayZ = wallHeight + tubeSettings.overlayThickness / 2;
+          const overlayZ = zOffset * 2 + tubeSettings.overlayThickness / 2;
           const overlayRadius = tubeRadius * 1.1;
           
           for (const contour of contours) {

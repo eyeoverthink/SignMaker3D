@@ -201,23 +201,28 @@ export function TubeControls() {
           </p>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Wall Height</Label>
-            <span className="text-sm font-mono text-muted-foreground">
-              {tubeSettings.wallHeight}mm
-            </span>
+        {!isFilament && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Channel Depth</Label>
+              <span className="text-sm font-mono text-muted-foreground">
+                {tubeSettings.wallHeight}mm
+              </span>
+            </div>
+            <Slider
+              data-testid="slider-wall-height"
+              value={[tubeSettings.wallHeight]}
+              onValueChange={([value]) => setTubeSettings({ wallHeight: value })}
+              min={5}
+              max={30}
+              step={1}
+              className="py-2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Depth of the LED strip channel
+            </p>
           </div>
-          <Slider
-            data-testid="slider-wall-height"
-            value={[tubeSettings.wallHeight]}
-            onValueChange={([value]) => setTubeSettings({ wallHeight: value })}
-            min={5}
-            max={30}
-            step={1}
-            className="py-2"
-          />
-        </div>
+        )}
 
         {isFilament && (
           <div className="p-3 bg-orange-500/10 rounded-md border border-orange-500/30">

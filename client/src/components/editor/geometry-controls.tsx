@@ -74,9 +74,13 @@ export function GeometryControls() {
           </div>
           <Select
             value={geometrySettings.mode}
-            onValueChange={(value: typeof geometrySettings.mode) =>
-              setGeometrySettings({ mode: value })
-            }
+            onValueChange={(value: typeof geometrySettings.mode) => {
+              const updates: Partial<typeof geometrySettings> = { mode: value };
+              if (value === "outline") {
+                updates.enableBacking = false;
+              }
+              setGeometrySettings(updates);
+            }}
           >
             <SelectTrigger data-testid="select-geometry-mode" className="h-10">
               <SelectValue placeholder="Select mode" />
