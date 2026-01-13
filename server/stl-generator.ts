@@ -1,4 +1,8 @@
 import type { LetterSettings, WiringSettings, MountingSettings, GeometrySettings } from "@shared/schema";
+import opentype from "opentype.js";
+import earcut from "earcut";
+import path from "path";
+import fs from "fs";
 
 interface Vector3 {
   x: number;
@@ -17,6 +21,36 @@ interface GeneratedPart {
   name: string;
   triangles: Triangle[];
   material: string;
+}
+
+let cachedFont: opentype.Font | null = null;
+
+async function loadFont(): Promise<opentype.Font> {
+  if (cachedFont) return cachedFont;
+  
+  const fontPath = path.join(process.cwd(), "server/fonts/Roboto-Bold.ttf");
+  
+  if (!fs.existsSync(fontPath)) {
+    throw new Error(`Font file not found at ${fontPath}`);
+  }
+  
+  const buffer = fs.readFileSync(fontPath);
+  cachedFont = opentype.parse(buffer.buffer as ArrayBuffer);
+  return cachedFont;
+}
+
+function loadFontSync(): opentype.Font {
+  if (cachedFont) return cachedFont;
+  
+  const fontPath = path.join(process.cwd(), "server/fonts/Roboto-Bold.ttf");
+  
+  if (!fs.existsSync(fontPath)) {
+    throw new Error(`Font file not found at ${fontPath}`);
+  }
+  
+  const buffer = fs.readFileSync(fontPath);
+  cachedFont = opentype.parse(buffer.buffer as ArrayBuffer);
+  return cachedFont;
 }
 
 function normalize(v: Vector3): Vector3 {
@@ -41,6 +75,399 @@ function calculateNormal(v1: Vector3, v2: Vector3, v3: Vector3): Vector3 {
   const edge1 = subtract(v2, v1);
   const edge2 = subtract(v3, v1);
   return normalize(cross(edge1, edge2));
+}
+
+function pathToContours(fontPath: opentype.Path): number[][] {
+  const contours: number[][] = [];
+  let currentContour: number[] = [];
+  const curveSteps = 8;
+
+  for (const cmd of fontPath.commands) {
+    switch (cmd.type) {
+      case "M":
+        if (currentContour.length > 0) {
+          contours.push(currentContour);
+        }
+        currentContour = [cmd.x, cmd.y];
+        break;
+
+      case "L":
+        currentContour.push(cmd.x, cmd.y);
+        break;
+
+      case "Q": {
+        const lastX = currentContour[currentContour.length - 2];
+        const lastY = currentContour[currentContour.length - 1];
+        for (let i = 1; i <= curveSteps; i++) {
+          const t = i / curveSteps;
+          const mt = 1 - t;
+          const x = mt * mt * lastX + 2 * mt * t * cmd.x1 + t * t * cmd.x;
+          const y = mt * mt * lastY + 2 * mt * t * cmd.y1 + t * t * cmd.y;
+          currentContour.push(x, y);
+        }
+        break;
+      }
+
+      case "C": {
+        const cLastX = currentContour[currentContour.length - 2];
+        const cLastY = currentContour[currentContour.length - 1];
+        for (let i = 1; i <= curveSteps; i++) {
+          const t = i / curveSteps;
+          const mt = 1 - t;
+          const mt2 = mt * mt;
+          const mt3 = mt2 * mt;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          const x = mt3 * cLastX + 3 * mt2 * t * cmd.x1 + 3 * mt * t2 * cmd.x2 + t3 * cmd.x;
+          const y = mt3 * cLastY + 3 * mt2 * t * cmd.y1 + 3 * mt * t2 * cmd.y2 + t3 * cmd.y;
+          currentContour.push(x, y);
+        }
+        break;
+      }
+
+      case "Z":
+        break;
+    }
+  }
+
+  if (currentContour.length > 0) {
+    contours.push(currentContour);
+  }
+
+  return contours;
+}
+
+function triangulateContours(contours: number[][]): { vertices: number[]; indices: number[] } {
+  if (contours.length === 0) return { vertices: [], indices: [] };
+
+  const vertices = [...contours[0]];
+  const holes: number[] = [];
+
+  let offset = vertices.length / 2;
+  for (let i = 1; i < contours.length; i++) {
+    holes.push(offset);
+    vertices.push(...contours[i]);
+    offset += contours[i].length / 2;
+  }
+
+  const indices = earcut(vertices, holes);
+  return { vertices, indices };
+}
+
+function getBoundaryEdges(vertices: number[], indices: number[]): number[][] {
+  const edgeCount = new Map<string, { count: number; a: number; b: number }>();
+
+  for (let i = 0; i < indices.length; i += 3) {
+    const edges = [
+      [indices[i], indices[i + 1]],
+      [indices[i + 1], indices[i + 2]],
+      [indices[i + 2], indices[i]],
+    ];
+
+    for (const [a, b] of edges) {
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      const existing = edgeCount.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        edgeCount.set(key, { count: 1, a, b });
+      }
+    }
+  }
+
+  const boundaryEdges: number[][] = [];
+  edgeCount.forEach(({ count, a, b }) => {
+    if (count === 1) {
+      boundaryEdges.push([a, b]);
+    }
+  });
+
+  return boundaryEdges;
+}
+
+function orderBoundaryEdges(edges: number[][]): number[][] {
+  if (edges.length === 0) return [];
+
+  const contours: number[][] = [];
+  const usedEdges = new Set<number>();
+  
+  while (usedEdges.size < edges.length) {
+    let startIdx = -1;
+    for (let i = 0; i < edges.length; i++) {
+      if (!usedEdges.has(i)) {
+        startIdx = i;
+        break;
+      }
+    }
+    
+    if (startIdx === -1) break;
+    
+    const contour: number[] = [];
+    let currentIdx = startIdx;
+    let currentVertex = edges[currentIdx][0];
+    contour.push(currentVertex);
+    
+    while (true) {
+      usedEdges.add(currentIdx);
+      const edge = edges[currentIdx];
+      const nextVertex = edge[0] === currentVertex ? edge[1] : edge[0];
+      
+      if (nextVertex === contour[0] && contour.length > 2) {
+        break;
+      }
+      
+      contour.push(nextVertex);
+      currentVertex = nextVertex;
+      
+      let foundNext = false;
+      for (let i = 0; i < edges.length; i++) {
+        if (!usedEdges.has(i)) {
+          if (edges[i][0] === currentVertex || edges[i][1] === currentVertex) {
+            currentIdx = i;
+            foundNext = true;
+            break;
+          }
+        }
+      }
+      
+      if (!foundNext) break;
+    }
+    
+    contours.push(contour);
+  }
+  
+  return contours;
+}
+
+function extrudeToTriangles(
+  vertices2D: number[],
+  indices: number[],
+  depth: number,
+  offsetX: number = 0,
+  offsetY: number = 0,
+  offsetZ: number = 0
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const numVerts = vertices2D.length / 2;
+
+  const frontVertices: Vector3[] = [];
+  const backVertices: Vector3[] = [];
+
+  for (let i = 0; i < vertices2D.length; i += 2) {
+    frontVertices.push({
+      x: vertices2D[i] + offsetX,
+      y: vertices2D[i + 1] + offsetY,
+      z: offsetZ,
+    });
+    backVertices.push({
+      x: vertices2D[i] + offsetX,
+      y: vertices2D[i + 1] + offsetY,
+      z: offsetZ + depth,
+    });
+  }
+
+  for (let i = 0; i < indices.length; i += 3) {
+    const v1 = frontVertices[indices[i]];
+    const v2 = frontVertices[indices[i + 1]];
+    const v3 = frontVertices[indices[i + 2]];
+    const normal = calculateNormal(v1, v2, v3);
+    triangles.push({ normal, v1, v2, v3 });
+  }
+
+  for (let i = 0; i < indices.length; i += 3) {
+    const v1 = backVertices[indices[i + 2]];
+    const v2 = backVertices[indices[i + 1]];
+    const v3 = backVertices[indices[i]];
+    const normal = calculateNormal(v1, v2, v3);
+    triangles.push({ normal, v1, v2, v3 });
+  }
+
+  const boundaryEdges = getBoundaryEdges(vertices2D, indices);
+  const orderedContours = orderBoundaryEdges(boundaryEdges);
+
+  for (const contour of orderedContours) {
+    for (let i = 0; i < contour.length; i++) {
+      const curr = contour[i];
+      const next = contour[(i + 1) % contour.length];
+
+      const v1 = frontVertices[curr];
+      const v2 = frontVertices[next];
+      const v3 = backVertices[curr];
+      const v4 = backVertices[next];
+
+      const normal1 = calculateNormal(v1, v2, v3);
+      triangles.push({ normal: normal1, v1, v2, v3 });
+
+      const normal2 = calculateNormal(v2, v4, v3);
+      triangles.push({ normal: normal2, v1: v2, v2: v4, v3 });
+    }
+  }
+
+  return triangles;
+}
+
+function getContourWinding(contour: number[]): number {
+  let sum = 0;
+  for (let i = 0; i < contour.length; i += 2) {
+    const x1 = contour[i];
+    const y1 = contour[i + 1];
+    const x2 = contour[(i + 2) % contour.length];
+    const y2 = contour[(i + 3) % contour.length];
+    sum += (x2 - x1) * (y2 + y1);
+  }
+  return sum;
+}
+
+function isContourInside(inner: number[], outer: number[]): boolean {
+  if (inner.length < 2) return false;
+  const testX = inner[0];
+  const testY = inner[1];
+  
+  let inside = false;
+  for (let i = 0, j = outer.length - 2; i < outer.length; j = i, i += 2) {
+    const xi = outer[i];
+    const yi = outer[i + 1];
+    const xj = outer[j];
+    const yj = outer[j + 1];
+    
+    if (((yi > testY) !== (yj > testY)) && 
+        (testX < (xj - xi) * (testY - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  
+  return inside;
+}
+
+function generateTextGeometry(
+  text: string,
+  fontSize: number,
+  depth: number,
+  offsetX: number = 0,
+  offsetY: number = 0,
+  offsetZ: number = 0
+): Triangle[] {
+  const font = loadFontSync();
+  const allTriangles: Triangle[] = [];
+
+  const glyphs = font.stringToGlyphs(text);
+  let currentX = 0;
+  
+  const glyphData: { contours: number[][]; x: number }[] = [];
+  
+  for (const glyph of glyphs) {
+    if (glyph.advanceWidth) {
+      const glyphPath = glyph.getPath(currentX, 0, fontSize);
+      const contours = pathToContours(glyphPath);
+      if (contours.length > 0) {
+        glyphData.push({ contours, x: currentX });
+      }
+      currentX += (glyph.advanceWidth / font.unitsPerEm) * fontSize;
+    }
+  }
+
+  if (glyphData.length === 0) {
+    return generateFallbackTextGeometry(text, fontSize, depth, offsetX, offsetY, offsetZ);
+  }
+
+  let globalMinX = Infinity, globalMaxX = -Infinity;
+  let globalMinY = Infinity, globalMaxY = -Infinity;
+
+  for (const { contours } of glyphData) {
+    for (const contour of contours) {
+      for (let i = 0; i < contour.length; i += 2) {
+        globalMinX = Math.min(globalMinX, contour[i]);
+        globalMaxX = Math.max(globalMaxX, contour[i]);
+        globalMinY = Math.min(globalMinY, contour[i + 1]);
+        globalMaxY = Math.max(globalMaxY, contour[i + 1]);
+      }
+    }
+  }
+
+  const centerX = (globalMinX + globalMaxX) / 2;
+  const centerY = (globalMinY + globalMaxY) / 2;
+
+  for (const { contours } of glyphData) {
+    const outerContours: number[][] = [];
+    const holeContours: number[][] = [];
+    
+    for (const contour of contours) {
+      const winding = getContourWinding(contour);
+      if (winding > 0) {
+        holeContours.push(contour);
+      } else {
+        outerContours.push(contour);
+      }
+    }
+    
+    for (const outer of outerContours) {
+      const holesForThisOuter: number[][] = [];
+      for (const hole of holeContours) {
+        if (isContourInside(hole, outer)) {
+          holesForThisOuter.push(hole);
+        }
+      }
+      
+      const { vertices, indices } = triangulateContours([outer, ...holesForThisOuter]);
+      
+      if (indices.length > 0) {
+        const centeredVertices: number[] = [];
+        for (let i = 0; i < vertices.length; i += 2) {
+          centeredVertices.push(
+            vertices[i] - centerX,
+            -(vertices[i + 1] - centerY)
+          );
+        }
+        
+        const letterTriangles = extrudeToTriangles(
+          centeredVertices,
+          indices,
+          depth,
+          offsetX,
+          offsetY,
+          offsetZ
+        );
+        allTriangles.push(...letterTriangles);
+      }
+    }
+  }
+
+  if (allTriangles.length === 0) {
+    return generateFallbackTextGeometry(text, fontSize, depth, offsetX, offsetY, offsetZ);
+  }
+
+  return allTriangles;
+}
+
+function generateFallbackTextGeometry(
+  text: string,
+  fontSize: number,
+  depth: number,
+  offsetX: number,
+  offsetY: number,
+  offsetZ: number
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const charWidth = fontSize * 0.6;
+  const charHeight = fontSize;
+  const spacing = fontSize * 0.1;
+  const totalWidth = text.length * (charWidth + spacing) - spacing;
+  const startX = -totalWidth / 2;
+
+  for (let i = 0; i < text.length; i++) {
+    const x = startX + i * (charWidth + spacing) + charWidth / 2 + offsetX;
+    const boxTriangles = generateBoxTriangles(
+      charWidth,
+      charHeight,
+      depth,
+      x,
+      offsetY,
+      offsetZ + depth / 2
+    );
+    triangles.push(...boxTriangles);
+  }
+
+  return triangles;
 }
 
 function generateBoxTriangles(
@@ -134,33 +561,35 @@ function generateCylinderTriangles(
 
     const sideNormal1 = calculateNormal(p1, p2, p3);
     triangles.push({ normal: sideNormal1, v1: p1, v2: p2, v3: p3 });
+
     const sideNormal2 = calculateNormal(p1, p3, p4);
     triangles.push({ normal: sideNormal2, v1: p1, v2: p3, v3: p4 });
 
-    const topNormal = calculateNormal(top, p4, p3);
-    triangles.push({ normal: topNormal, v1: top, v2: p4, v3: p3 });
-    const bottomNormal = calculateNormal(bottom, p2, p1);
+    const bottomNormal = rotateX
+      ? { x: 0, y: 0, z: -1 }
+      : { x: 0, y: -1, z: 0 };
     triangles.push({ normal: bottomNormal, v1: bottom, v2: p2, v3: p1 });
+
+    const topNormal = rotateX
+      ? { x: 0, y: 0, z: 1 }
+      : { x: 0, y: 1, z: 0 };
+    triangles.push({ normal: topNormal, v1: top, v2: p4, v3: p3 });
   }
 
   return triangles;
 }
 
-function trianglesToSTL(triangles: Triangle[], header: string = "SignCraft 3D STL Export"): Buffer {
+function trianglesToSTL(triangles: Triangle[], solidName: string = "signage"): Buffer {
   const headerSize = 80;
-  const triangleCountSize = 4;
-  const triangleSize = 50;
-  const bufferSize = headerSize + triangleCountSize + triangles.length * triangleSize;
+  const triangleCount = triangles.length;
+  const dataSize = headerSize + 4 + triangleCount * 50;
 
-  const buffer = Buffer.alloc(bufferSize);
-  let offset = 0;
+  const buffer = Buffer.alloc(dataSize);
+  const header = `SignCraft 3D STL - ${solidName}`.slice(0, 80).padEnd(80, "\0");
+  buffer.write(header, 0);
+  buffer.writeUInt32LE(triangleCount, 80);
 
-  buffer.write(header, 0, "ascii");
-  offset = headerSize;
-
-  buffer.writeUInt32LE(triangles.length, offset);
-  offset += 4;
-
+  let offset = 84;
   for (const tri of triangles) {
     buffer.writeFloatLE(tri.normal.x, offset);
     buffer.writeFloatLE(tri.normal.y, offset + 4);
@@ -230,47 +659,35 @@ function trianglesToOBJ(triangles: Triangle[], objectName: string = "signage"): 
   return obj;
 }
 
-function generateLetterGeometry(
-  text: string,
-  scale: number,
-  letterHeight: number,
-  zOffset: number
-): Triangle[] {
-  const triangles: Triangle[] = [];
-  const charWidth = 30;
-  const charHeightBase = 45;
-  const spacing = 5;
-
-  for (let i = 0; i < text.length; i++) {
-    const charOffset = (i - (text.length - 1) / 2) * (charWidth + spacing) * scale;
-
-    const letterTriangles = generateBoxTriangles(
-      charWidth * scale,
-      charHeightBase * scale,
-      letterHeight,
-      charOffset,
-      0,
-      zOffset + letterHeight / 2
-    );
-    triangles.push(...letterTriangles);
-  }
-
-  return triangles;
-}
-
 function generateBackingPlate(
   text: string,
-  scale: number,
+  fontSize: number,
   backingThickness: number,
   paddingX: number = 10,
   paddingY: number = 8
 ): Triangle[] {
-  const charWidth = 30;
-  const charHeight = 45;
-  const spacing = 5;
+  const font = loadFontSync();
+  const fontPath = font.getPath(text, 0, 0, fontSize);
+  const contours = pathToContours(fontPath);
 
-  const totalWidth = (text.length * (charWidth + spacing) - spacing) * scale + paddingX * 2;
-  const totalHeight = charHeight * scale + paddingY * 2;
+  let totalWidth: number;
+  let totalHeight: number;
+
+  if (contours.length > 0) {
+    const allX = contours.flatMap(c => c.filter((_, i) => i % 2 === 0));
+    const allY = contours.flatMap(c => c.filter((_, i) => i % 2 === 1));
+    const minX = Math.min(...allX);
+    const maxX = Math.max(...allX);
+    const minY = Math.min(...allY);
+    const maxY = Math.max(...allY);
+    totalWidth = (maxX - minX) + paddingX * 2;
+    totalHeight = (maxY - minY) + paddingY * 2;
+  } else {
+    const charWidth = fontSize * 0.6;
+    const spacing = fontSize * 0.1;
+    totalWidth = (text.length * (charWidth + spacing) - spacing) + paddingX * 2;
+    totalHeight = fontSize + paddingY * 2;
+  }
 
   return generateBoxTriangles(
     totalWidth,
@@ -280,46 +697,6 @@ function generateBackingPlate(
     0,
     -backingThickness / 2
   );
-}
-
-function generateStencilCutouts(
-  text: string,
-  scale: number,
-  backingThickness: number,
-  paddingX: number = 10,
-  paddingY: number = 8
-): { backing: Triangle[]; cutouts: Triangle[] } {
-  const charWidth = 30;
-  const charHeight = 45;
-  const spacing = 5;
-
-  const totalWidth = (text.length * (charWidth + spacing) - spacing) * scale + paddingX * 2;
-  const totalHeight = charHeight * scale + paddingY * 2;
-
-  const backing = generateBoxTriangles(
-    totalWidth,
-    totalHeight,
-    backingThickness,
-    0,
-    0,
-    0
-  );
-
-  const cutouts: Triangle[] = [];
-  for (let i = 0; i < text.length; i++) {
-    const charOffset = (i - (text.length - 1) / 2) * (charWidth + spacing) * scale;
-    const cutoutTriangles = generateBoxTriangles(
-      charWidth * scale * 0.85,
-      charHeight * scale * 0.85,
-      backingThickness + 2,
-      charOffset,
-      0,
-      0
-    );
-    cutouts.push(...cutoutTriangles);
-  }
-
-  return { backing, cutouts };
 }
 
 export interface GeneratedSignage {
@@ -336,23 +713,16 @@ export function generateSignageParts(
   const parts: GeneratedPart[] = [];
   const text = letterSettings.text || "A";
   const scale = letterSettings.scale;
-  
-  const charWidth = 30;
-  const charHeight = 45;
-  const spacing = 5;
-  const paddingX = 10;
-  const paddingY = 8;
-  const totalWidth = (text.length * (charWidth + spacing) - spacing) * scale + paddingX * 2;
-  const totalHeight = charHeight * scale + paddingY * 2;
+  const fontSize = 45 * scale;
 
   switch (geometrySettings.mode) {
     case "raised": {
       const backingTriangles = generateBackingPlate(
-        text, 
-        scale, 
+        text,
+        fontSize,
         geometrySettings.backingThickness,
-        paddingX,
-        paddingY
+        10 * scale,
+        8 * scale
       );
       parts.push({
         name: "backing",
@@ -361,10 +731,12 @@ export function generateSignageParts(
       });
 
       const letterZOffset = geometrySettings.letterOffset;
-      const letterTriangles = generateLetterGeometry(
+      const letterTriangles = generateTextGeometry(
         text,
-        scale,
+        fontSize,
         geometrySettings.letterHeight,
+        0,
+        0,
         letterZOffset
       );
       parts.push({
@@ -376,16 +748,15 @@ export function generateSignageParts(
     }
 
     case "stencil": {
-      const backingTriangles = generateBoxTriangles(
-        totalWidth,
-        totalHeight,
+      const backingTriangles = generateBackingPlate(
+        text,
+        fontSize,
         geometrySettings.backingThickness,
-        0,
-        0,
-        0
+        10 * scale,
+        8 * scale
       );
       parts.push({
-        name: "backing_with_cutouts",
+        name: "stencil_backing",
         triangles: backingTriangles,
         material: geometrySettings.backingMaterial,
       });
@@ -395,25 +766,27 @@ export function generateSignageParts(
     case "layered": {
       const backingTriangles = generateBackingPlate(
         text,
-        scale,
+        fontSize,
         geometrySettings.backingThickness,
-        paddingX,
-        paddingY
+        10 * scale,
+        8 * scale
       );
       parts.push({
-        name: "backing_plate",
+        name: "backing",
         triangles: backingTriangles,
         material: geometrySettings.backingMaterial,
       });
 
-      const letterTriangles = generateLetterGeometry(
+      const letterTriangles = generateTextGeometry(
         text,
-        scale,
+        fontSize,
         geometrySettings.letterHeight,
-        geometrySettings.backingThickness / 2 + geometrySettings.letterOffset
+        0,
+        0,
+        geometrySettings.letterOffset
       );
       parts.push({
-        name: "letters_separate",
+        name: "letters",
         triangles: letterTriangles,
         material: geometrySettings.letterMaterial,
       });
@@ -422,22 +795,17 @@ export function generateSignageParts(
 
     case "flat":
     default: {
-      const flatTriangles: Triangle[] = [];
-      for (let i = 0; i < text.length; i++) {
-        const charOffset = (i - (text.length - 1) / 2) * (charWidth + spacing) * scale;
-        const letterTris = generateBoxTriangles(
-          charWidth * scale,
-          charHeight * scale,
-          letterSettings.depth,
-          charOffset,
-          0,
-          0
-        );
-        flatTriangles.push(...letterTris);
-      }
+      const letterTriangles = generateTextGeometry(
+        text,
+        fontSize,
+        letterSettings.depth,
+        0,
+        0,
+        0
+      );
       parts.push({
-        name: "flat_letters",
-        triangles: flatTriangles,
+        name: "letters",
+        triangles: letterTriangles,
         material: geometrySettings.letterMaterial,
       });
       break;
@@ -445,88 +813,108 @@ export function generateSignageParts(
   }
 
   if (wiringSettings.channelType !== "none") {
-    const channelRadius = wiringSettings.channelDiameter / 2;
-    const channelWidth = totalWidth * 0.9;
+    const font = loadFontSync();
+    const fontPath = font.getPath(text, 0, 0, fontSize);
+    const contours = pathToContours(fontPath);
 
-    const yOffset =
-      wiringSettings.channelType === "back"
-        ? (-charHeight * scale) / 3
-        : 0;
-    const zOffset =
-      wiringSettings.channelType === "back"
-        ? -geometrySettings.backingThickness / 2 - channelRadius
-        : geometrySettings.letterHeight / 2;
+    let textWidth: number;
+    if (contours.length > 0) {
+      const allX = contours.flatMap(c => c.filter((_, i) => i % 2 === 0));
+      textWidth = Math.max(...allX) - Math.min(...allX);
+    } else {
+      textWidth = text.length * fontSize * 0.7;
+    }
+
+    const channelY = wiringSettings.channelType === "back" 
+      ? -fontSize * 0.4 
+      : 0;
 
     const channelTriangles = generateCylinderTriangles(
-      channelRadius,
-      channelWidth,
+      wiringSettings.channelDiameter / 2,
+      textWidth * 0.9,
       16,
       0,
-      yOffset,
-      zOffset,
+      channelY,
+      -geometrySettings.backingThickness / 2,
       true
     );
-    parts.push({
-      name: "wiring_channel",
-      triangles: channelTriangles,
-      material: "opaque",
-    });
+
+    const existingLetters = parts.find(p => p.name === "letters" || p.name === "stencil_backing");
+    if (existingLetters) {
+      existingLetters.triangles.push(...channelTriangles);
+    }
   }
 
   if (mountingSettings.pattern !== "none") {
-    const holeRadius = mountingSettings.holeDiameter / 2;
-    const baseX = totalWidth / 2 - mountingSettings.insetFromEdge - paddingX;
-    const baseY = totalHeight / 2 - mountingSettings.insetFromEdge - paddingY;
+    const font = loadFontSync();
+    const fontPath = font.getPath(text, 0, 0, fontSize);
+    const contours = pathToContours(fontPath);
 
-    const holePositions: [number, number][] = [];
+    let totalWidth: number;
+    let totalHeight: number;
+
+    if (contours.length > 0) {
+      const allX = contours.flatMap(c => c.filter((_, i) => i % 2 === 0));
+      const allY = contours.flatMap(c => c.filter((_, i) => i % 2 === 1));
+      totalWidth = Math.max(...allX) - Math.min(...allX) + 20 * scale;
+      totalHeight = Math.max(...allY) - Math.min(...allY) + 16 * scale;
+    } else {
+      totalWidth = text.length * fontSize * 0.7 + 20 * scale;
+      totalHeight = fontSize + 16 * scale;
+    }
+
+    const holePositions: { x: number; y: number }[] = [];
+    const hw = totalWidth / 2 - mountingSettings.insetFromEdge * scale;
+    const hh = totalHeight / 2 - mountingSettings.insetFromEdge * scale;
 
     switch (mountingSettings.pattern) {
-      case "2-point":
-        holePositions.push([-baseX, 0], [baseX, 0]);
-        break;
       case "4-corner":
         holePositions.push(
-          [-baseX, baseY],
-          [baseX, baseY],
-          [-baseX, -baseY],
-          [baseX, -baseY]
+          { x: -hw, y: -hh },
+          { x: hw, y: -hh },
+          { x: -hw, y: hh },
+          { x: hw, y: hh }
         );
+        break;
+      case "2-point":
+        holePositions.push({ x: -hw, y: 0 }, { x: hw, y: 0 });
         break;
       case "6-point":
         holePositions.push(
-          [-baseX, baseY],
-          [0, baseY],
-          [baseX, baseY],
-          [-baseX, -baseY],
-          [0, -baseY],
-          [baseX, -baseY]
+          { x: -hw, y: -hh },
+          { x: 0, y: -hh },
+          { x: hw, y: -hh },
+          { x: -hw, y: hh },
+          { x: 0, y: hh },
+          { x: hw, y: hh }
         );
+        break;
+      case "custom":
+        holePositions.push({ x: 0, y: 0 });
         break;
     }
 
-    const holeTriangles: Triangle[] = [];
-    for (const [x, y] of holePositions) {
-      const holeTris = generateCylinderTriangles(
-        holeRadius,
-        mountingSettings.holeDepth,
+    for (const pos of holePositions) {
+      const holeTriangles = generateCylinderTriangles(
+        mountingSettings.holeDiameter / 2,
+        geometrySettings.backingThickness + 2,
         16,
-        x,
-        y,
+        pos.x,
+        pos.y,
         -geometrySettings.backingThickness / 2
       );
-      holeTriangles.push(...holeTris);
-    }
-    
-    if (holeTriangles.length > 0) {
-      parts.push({
-        name: "mounting_holes",
-        triangles: holeTriangles,
-        material: "opaque",
-      });
+
+      const backing = parts.find(p => p.name === "backing" || p.name === "stencil_backing");
+      if (backing) {
+        backing.triangles.push(...holeTriangles);
+      }
     }
   }
 
-  const combined = parts.flatMap(p => p.triangles);
+  const combined: Triangle[] = [];
+  for (const part of parts) {
+    combined.push(...part.triangles);
+  }
 
   return { parts, combined };
 }
@@ -535,23 +923,18 @@ export function generateSignage(
   letterSettings: LetterSettings,
   wiringSettings: WiringSettings,
   mountingSettings: MountingSettings,
-  format: "stl" | "obj" | "3mf",
-  geometrySettings?: GeometrySettings
+  format: string,
+  geometrySettings: GeometrySettings
 ): Buffer | string {
-  const geo = geometrySettings || {
-    mode: "flat" as const,
-    letterHeight: letterSettings.depth,
-    backingThickness: 5,
-    letterOffset: 0,
-    letterMaterial: "opaque" as const,
-    backingMaterial: "opaque" as const,
-    separateFiles: false,
-  };
-
-  const { combined } = generateSignageParts(letterSettings, geo, wiringSettings, mountingSettings);
+  const { combined } = generateSignageParts(
+    letterSettings,
+    geometrySettings,
+    wiringSettings,
+    mountingSettings
+  );
 
   if (format === "obj") {
-    return trianglesToOBJ(combined, letterSettings.text.replace(/\s/g, "_"));
+    return trianglesToOBJ(combined);
   }
 
   return trianglesToSTL(combined);
@@ -578,11 +961,11 @@ export function generateMultiPartExport(
 
   for (const part of parts) {
     const filename = `${textSlug}_${part.name}_${part.material}.${format}`;
-    
-    const content = format === "obj" 
+
+    const content = format === "obj"
       ? trianglesToOBJ(part.triangles, part.name)
       : trianglesToSTL(part.triangles, `SignCraft 3D - ${part.name}`);
-    
+
     exportedParts.push({
       filename,
       content,
