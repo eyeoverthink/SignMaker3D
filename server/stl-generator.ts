@@ -156,6 +156,30 @@ function pathToContours(fontPath: opentype.Path): number[][] {
   return contours;
 }
 
+function getContourWindingArea(contour: number[]): number {
+  let area = 0;
+  const n = contour.length / 2;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += contour[i * 2] * contour[j * 2 + 1];
+    area -= contour[j * 2] * contour[i * 2 + 1];
+  }
+  return area / 2;
+}
+
+function extractCenterlines(contours: number[][]): number[][] {
+  const outerContours = contours.filter(c => {
+    const area = getContourWindingArea(c);
+    return area < 0;
+  });
+  
+  if (outerContours.length === 0) {
+    return contours.filter(c => c.length >= 6);
+  }
+  
+  return outerContours.filter(c => c.length >= 6);
+}
+
 function triangulateContours(contours: number[][]): { vertices: number[]; indices: number[] } {
   if (contours.length === 0) return { vertices: [], indices: [] };
 
@@ -899,7 +923,8 @@ export function generateSignageParts(
     case "outline": {
       const font = loadFontSync(fontId);
       const fontPath = font.getPath(text, 0, 0, fontSize);
-      const contours = pathToContours(fontPath);
+      const rawContours = pathToContours(fontPath);
+      const contours = extractCenterlines(rawContours);
       
       if (contours.length > 0) {
         const allX = contours.flatMap(c => c.filter((_, i) => i % 2 === 0));
@@ -911,37 +936,33 @@ export function generateSignageParts(
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
         
-        const isFilament = tubeSettings.channelType === "filament";
-        const tubeRadius = isFilament 
-          ? (tubeSettings.filamentDiameter / 2) + tubeSettings.wallThickness
-          : (tubeSettings.tubeWidth / 2);
+        const tubeRadius = (tubeSettings.neonTubeDiameter / 2) + tubeSettings.wallThickness;
         const zOffset = tubeRadius;
         
         const tubeTriangles: Triangle[] = [];
         
         for (const contour of contours) {
           const numPoints = contour.length / 2;
-          if (numPoints < 3) continue;
+          if (numPoints < 2) continue;
           
-          for (let i = 0; i < numPoints; i++) {
+          for (let i = 0; i < numPoints - 1; i++) {
             const x1 = contour[i * 2] - centerX;
             const y1 = -(contour[i * 2 + 1] - centerY);
-            const next = (i + 1) % numPoints;
-            const x2 = contour[next * 2] - centerX;
-            const y2 = -(contour[next * 2 + 1] - centerY);
+            const x2 = contour[(i + 1) * 2] - centerX;
+            const y2 = -(contour[(i + 1) * 2 + 1] - centerY);
             
             const segTriangles = generateOrientedTubeSegment(
               tubeRadius,
               { x: x1, y: y1, z: zOffset },
               { x: x2, y: y2, z: zOffset },
-              isFilament ? 12 : 8
+              12
             );
             tubeTriangles.push(...segTriangles);
           }
         }
         
         parts.push({
-          name: isFilament ? "filament_tube" : "led_channel",
+          name: "neon_tube",
           triangles: tubeTriangles,
           material: geometrySettings.letterMaterial,
         });
@@ -966,7 +987,7 @@ export function generateSignageParts(
                 overlayRadius,
                 { x: x1, y: y1, z: overlayZ },
                 { x: x2, y: y2, z: overlayZ },
-                isFilament ? 12 : 8
+                12
               );
               overlayTriangles.push(...segTriangles);
             }
@@ -1447,10 +1468,7 @@ export function generateTwoPartSystem(
   const baseTriangles: Triangle[] = [];
   const capTriangles: Triangle[] = [];
   
-  const isFilament = tubeSettings.channelType === "filament";
-  const channelWidth = isFilament 
-    ? tubeSettings.filamentDiameter + tubeSettings.wallThickness * 2
-    : tubeSettings.tubeWidth;
+  const channelWidth = tubeSettings.neonTubeDiameter + tubeSettings.wallThickness * 2;
   const wallHeight = twoPartSystem.baseWallHeight;
   const wallThickness = twoPartSystem.baseWallThickness;
   const capThickness = twoPartSystem.capThickness;
@@ -1719,7 +1737,8 @@ export function generateTwoPartExport(
     
     const font = loadFontSync(fontId);
     const fontPath = font.getPath(text, 0, 0, fontSize);
-    contours = pathToContours(fontPath);
+    const rawContours = pathToContours(fontPath);
+    contours = extractCenterlines(rawContours);
     
     if (contours.length === 0) {
       return [];
