@@ -23,34 +23,47 @@ interface GeneratedPart {
   material: string;
 }
 
-let cachedFont: opentype.Font | null = null;
+const fontCache: Map<string, opentype.Font> = new Map();
 
-async function loadFont(): Promise<opentype.Font> {
-  if (cachedFont) return cachedFont;
+const fontFileMap: Record<string, string> = {
+  "inter": "Inter-Bold.ttf",
+  "roboto": "Roboto-Bold.ttf",
+  "poppins": "Poppins-Bold.ttf",
+  "montserrat": "Montserrat-Bold.ttf",
+  "open-sans": "OpenSans-Bold.ttf",
+  "playfair": "PlayfairDisplay-Bold.ttf",
+  "merriweather": "Merriweather-Bold.ttf",
+  "lora": "Lora-Bold.ttf",
+  "space-grotesk": "SpaceGrotesk-Bold.ttf",
+  "outfit": "Outfit-Bold.ttf",
+  "architects-daughter": "ArchitectsDaughter-Regular.ttf",
+  "oxanium": "Oxanium-Bold.ttf",
+};
+
+function loadFontSync(fontId: string = "roboto"): opentype.Font {
+  if (fontCache.has(fontId)) {
+    return fontCache.get(fontId)!;
+  }
   
-  const fontPath = path.join(process.cwd(), "server/fonts/Roboto-Bold.ttf");
+  const fontFileName = fontFileMap[fontId] || "Roboto-Bold.ttf";
+  const fontPath = path.join(process.cwd(), "server/fonts", fontFileName);
   
   if (!fs.existsSync(fontPath)) {
-    throw new Error(`Font file not found at ${fontPath}`);
+    console.warn(`Font file not found: ${fontPath}, falling back to Roboto`);
+    const fallbackPath = path.join(process.cwd(), "server/fonts/Roboto-Bold.ttf");
+    if (!fs.existsSync(fallbackPath)) {
+      throw new Error(`Default font file not found at ${fallbackPath}`);
+    }
+    const buffer = fs.readFileSync(fallbackPath);
+    const font = opentype.parse(buffer.buffer as ArrayBuffer);
+    fontCache.set(fontId, font);
+    return font;
   }
   
   const buffer = fs.readFileSync(fontPath);
-  cachedFont = opentype.parse(buffer.buffer as ArrayBuffer);
-  return cachedFont;
-}
-
-function loadFontSync(): opentype.Font {
-  if (cachedFont) return cachedFont;
-  
-  const fontPath = path.join(process.cwd(), "server/fonts/Roboto-Bold.ttf");
-  
-  if (!fs.existsSync(fontPath)) {
-    throw new Error(`Font file not found at ${fontPath}`);
-  }
-  
-  const buffer = fs.readFileSync(fontPath);
-  cachedFont = opentype.parse(buffer.buffer as ArrayBuffer);
-  return cachedFont;
+  const font = opentype.parse(buffer.buffer as ArrayBuffer);
+  fontCache.set(fontId, font);
+  return font;
 }
 
 function normalize(v: Vector3): Vector3 {
@@ -345,9 +358,10 @@ function generateTextGeometry(
   depth: number,
   offsetX: number = 0,
   offsetY: number = 0,
-  offsetZ: number = 0
+  offsetZ: number = 0,
+  fontId: string = "roboto"
 ): Triangle[] {
-  const font = loadFontSync();
+  const font = loadFontSync(fontId);
   const allTriangles: Triangle[] = [];
 
   const glyphs = font.stringToGlyphs(text);
@@ -664,9 +678,10 @@ function generateBackingPlate(
   fontSize: number,
   backingThickness: number,
   paddingX: number = 10,
-  paddingY: number = 8
+  paddingY: number = 8,
+  fontId: string = "roboto"
 ): Triangle[] {
-  const font = loadFontSync();
+  const font = loadFontSync(fontId);
   const fontPath = font.getPath(text, 0, 0, fontSize);
   const contours = pathToContours(fontPath);
 
@@ -714,6 +729,7 @@ export function generateSignageParts(
   const text = letterSettings.text || "A";
   const scale = letterSettings.scale;
   const fontSize = 45 * scale;
+  const fontId = letterSettings.fontId || "roboto";
 
   switch (geometrySettings.mode) {
     case "raised": {
@@ -722,7 +738,8 @@ export function generateSignageParts(
         fontSize,
         geometrySettings.backingThickness,
         10 * scale,
-        8 * scale
+        8 * scale,
+        fontId
       );
       parts.push({
         name: "backing",
@@ -737,7 +754,8 @@ export function generateSignageParts(
         geometrySettings.letterHeight,
         0,
         0,
-        letterZOffset
+        letterZOffset,
+        fontId
       );
       parts.push({
         name: "letters",
@@ -753,7 +771,8 @@ export function generateSignageParts(
         fontSize,
         geometrySettings.backingThickness,
         10 * scale,
-        8 * scale
+        8 * scale,
+        fontId
       );
       parts.push({
         name: "stencil_backing",
@@ -769,7 +788,8 @@ export function generateSignageParts(
         fontSize,
         geometrySettings.backingThickness,
         10 * scale,
-        8 * scale
+        8 * scale,
+        fontId
       );
       parts.push({
         name: "backing",
@@ -783,7 +803,8 @@ export function generateSignageParts(
         geometrySettings.letterHeight,
         0,
         0,
-        geometrySettings.letterOffset
+        geometrySettings.letterOffset,
+        fontId
       );
       parts.push({
         name: "letters",
@@ -801,7 +822,8 @@ export function generateSignageParts(
         letterSettings.depth,
         0,
         0,
-        0
+        0,
+        fontId
       );
       parts.push({
         name: "letters",
@@ -813,7 +835,7 @@ export function generateSignageParts(
   }
 
   if (wiringSettings.channelType !== "none") {
-    const font = loadFontSync();
+    const font = loadFontSync(fontId);
     const fontPath = font.getPath(text, 0, 0, fontSize);
     const contours = pathToContours(fontPath);
 
@@ -846,7 +868,7 @@ export function generateSignageParts(
   }
 
   if (mountingSettings.pattern !== "none") {
-    const font = loadFontSync();
+    const font = loadFontSync(fontId);
     const fontPath = font.getPath(text, 0, 0, fontSize);
     const contours = pathToContours(fontPath);
 
