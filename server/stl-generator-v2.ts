@@ -102,18 +102,19 @@ function generateUChannelRing(
   wallThickness: number,
   wallHeight: number
 ): UChannelProfile {
-  const binormal = cross(tangent, normal);
+  // For 2D paths on XY plane, we want:
+  // - Width direction: perpendicular to tangent in XY plane
+  // - Height direction: always +Z
   
-  // The channel is oriented so "up" is along the binormal (z-direction typically)
-  // "left/right" is along the normal direction
+  // Calculate perpendicular direction in XY plane
+  const perpX = -tangent.y;
+  const perpY = tangent.x;
+  const perpLen = Math.sqrt(perpX * perpX + perpY * perpY);
+  const perpNormX = perpLen > 0.001 ? perpX / perpLen : 1;
+  const perpNormY = perpLen > 0.001 ? perpY / perpLen : 0;
   
   const halfWidth = channelWidth / 2;
   const innerHalfWidth = halfWidth - wallThickness;
-  
-  // Create points for U-channel cross-section
-  // Going around: outer-bottom-left, up outer-left, across top-left (not needed - open top),
-  // down inner-left, across inner-bottom, up inner-right, across top-right (open),
-  // down outer-right, across outer-bottom
   
   const outerLeft: Vector3[] = [];
   const innerLeft: Vector3[] = [];
@@ -121,53 +122,54 @@ function generateUChannelRing(
   const innerRight: Vector3[] = [];
   const bottom: Vector3[] = [];
   
-  // Outer left edge (from bottom to top)
+  // Outer left edge (from floor to top of wall)
+  // Left is negative perpendicular direction
   for (let h = 0; h <= 4; h++) {
-    const zPos = (h / 4) * wallHeight;
+    const zPos = center.z + (h / 4) * wallHeight;
     outerLeft.push({
-      x: center.x + normal.x * (-halfWidth) + binormal.x * zPos,
-      y: center.y + normal.y * (-halfWidth) + binormal.y * zPos,
-      z: center.z + normal.z * (-halfWidth) + binormal.z * zPos
+      x: center.x + perpNormX * (-halfWidth),
+      y: center.y + perpNormY * (-halfWidth),
+      z: zPos
     });
   }
   
-  // Inner left edge (from bottom to top)
+  // Inner left edge (from floor to top of wall)
   for (let h = 0; h <= 4; h++) {
-    const zPos = (h / 4) * wallHeight;
+    const zPos = center.z + (h / 4) * wallHeight;
     innerLeft.push({
-      x: center.x + normal.x * (-innerHalfWidth) + binormal.x * zPos,
-      y: center.y + normal.y * (-innerHalfWidth) + binormal.y * zPos,
-      z: center.z + normal.z * (-innerHalfWidth) + binormal.z * zPos
+      x: center.x + perpNormX * (-innerHalfWidth),
+      y: center.y + perpNormY * (-innerHalfWidth),
+      z: zPos
     });
   }
   
-  // Outer right edge (from bottom to top)
+  // Outer right edge (from floor to top of wall)
   for (let h = 0; h <= 4; h++) {
-    const zPos = (h / 4) * wallHeight;
+    const zPos = center.z + (h / 4) * wallHeight;
     outerRight.push({
-      x: center.x + normal.x * halfWidth + binormal.x * zPos,
-      y: center.y + normal.y * halfWidth + binormal.y * zPos,
-      z: center.z + normal.z * halfWidth + binormal.z * zPos
+      x: center.x + perpNormX * halfWidth,
+      y: center.y + perpNormY * halfWidth,
+      z: zPos
     });
   }
   
-  // Inner right edge (from bottom to top)
+  // Inner right edge (from floor to top of wall)
   for (let h = 0; h <= 4; h++) {
-    const zPos = (h / 4) * wallHeight;
+    const zPos = center.z + (h / 4) * wallHeight;
     innerRight.push({
-      x: center.x + normal.x * innerHalfWidth + binormal.x * zPos,
-      y: center.y + normal.y * innerHalfWidth + binormal.y * zPos,
-      z: center.z + normal.z * innerHalfWidth + binormal.z * zPos
+      x: center.x + perpNormX * innerHalfWidth,
+      y: center.y + perpNormY * innerHalfWidth,
+      z: zPos
     });
   }
   
-  // Bottom (from left to right, at z=0)
+  // Bottom edge (from left to right at floor level)
   for (let w = 0; w <= 4; w++) {
-    const xPos = -halfWidth + (w / 4) * channelWidth;
+    const offset = -halfWidth + (w / 4) * channelWidth;
     bottom.push({
-      x: center.x + normal.x * xPos,
-      y: center.y + normal.y * xPos,
-      z: center.z + normal.z * xPos
+      x: center.x + perpNormX * offset,
+      y: center.y + perpNormY * offset,
+      z: center.z
     });
   }
   
@@ -175,18 +177,20 @@ function generateUChannelRing(
 }
 
 // Create a U-channel along a path (hollow channel for LED insertion)
+// Structure: solid base plate + channel floor + U-shaped walls on top
 function createUChannel(
   path: number[][],
   channelWidth: number,
   wallThickness: number,
-  wallHeight: number
+  wallHeight: number,
+  baseThickness: number = 3  // Solid base plate thickness
 ): Triangle[] {
   const triangles: Triangle[] = [];
   
   if (path.length < 2) return triangles;
   
-  // Convert 2D path to 3D
-  const path3D: Vector3[] = path.map(([x, y]) => ({ x, y, z: 0 }));
+  // Convert 2D path to 3D - channel floor starts at baseThickness
+  const path3D: Vector3[] = path.map(([x, y]) => ({ x, y, z: baseThickness }));
   
   const profiles: UChannelProfile[] = [];
   let prevNormal: Vector3 = { x: 0, y: 0, z: 1 };
@@ -299,7 +303,106 @@ function createUChannel(
   capUChannel(triangles, profiles[0], true);  // Start cap
   capUChannel(triangles, profiles[profiles.length - 1], false);  // End cap
   
+  // Generate base plate if baseThickness > 0
+  if (baseThickness > 0) {
+    generateBasePlate(triangles, profiles, baseThickness, channelWidth);
+  }
+  
   return triangles;
+}
+
+// Generate solid base plate underneath the U-channel
+function generateBasePlate(
+  triangles: Triangle[],
+  profiles: UChannelProfile[],
+  baseThickness: number,
+  channelWidth: number
+) {
+  // The base plate extends from Z=0 to the channel floor
+  // It follows the outer edges of the channel
+  
+  for (let i = 0; i < profiles.length - 1; i++) {
+    const p1 = profiles[i];
+    const p2 = profiles[i + 1];
+    
+    // Get outer bottom corners at channel floor level
+    const topLeft1 = p1.outerLeft[0];
+    const topRight1 = p1.outerRight[0];
+    const topLeft2 = p2.outerLeft[0];
+    const topRight2 = p2.outerRight[0];
+    
+    // Create corresponding points at Z=0 (base bottom)
+    const bottomLeft1: Vector3 = { x: topLeft1.x, y: topLeft1.y, z: 0 };
+    const bottomRight1: Vector3 = { x: topRight1.x, y: topRight1.y, z: 0 };
+    const bottomLeft2: Vector3 = { x: topLeft2.x, y: topLeft2.y, z: 0 };
+    const bottomRight2: Vector3 = { x: topRight2.x, y: topRight2.y, z: 0 };
+    
+    // Bottom face of base plate (at Z=0, facing down)
+    triangles.push({
+      normal: { x: 0, y: 0, z: -1 },
+      v1: bottomLeft1, v2: bottomRight1, v3: bottomLeft2
+    });
+    triangles.push({
+      normal: { x: 0, y: 0, z: -1 },
+      v1: bottomRight1, v2: bottomRight2, v3: bottomLeft2
+    });
+    
+    // Left side of base plate (connects top-left to bottom-left)
+    triangles.push({
+      normal: calcNormal(topLeft1, bottomLeft1, topLeft2),
+      v1: topLeft1, v2: bottomLeft1, v3: topLeft2
+    });
+    triangles.push({
+      normal: calcNormal(bottomLeft1, bottomLeft2, topLeft2),
+      v1: bottomLeft1, v2: bottomLeft2, v3: topLeft2
+    });
+    
+    // Right side of base plate (connects top-right to bottom-right)
+    triangles.push({
+      normal: calcNormal(topRight1, topRight2, bottomRight1),
+      v1: topRight1, v2: topRight2, v3: bottomRight1
+    });
+    triangles.push({
+      normal: calcNormal(bottomRight1, topRight2, bottomRight2),
+      v1: bottomRight1, v2: topRight2, v3: bottomRight2
+    });
+  }
+  
+  // End caps for base plate
+  const firstProfile = profiles[0];
+  const lastProfile = profiles[profiles.length - 1];
+  
+  // Start cap of base plate
+  const startTopLeft = firstProfile.outerLeft[0];
+  const startTopRight = firstProfile.outerRight[0];
+  const startBottomLeft: Vector3 = { x: startTopLeft.x, y: startTopLeft.y, z: 0 };
+  const startBottomRight: Vector3 = { x: startTopRight.x, y: startTopRight.y, z: 0 };
+  
+  // Start cap facing backward
+  triangles.push({
+    normal: calcNormal(startTopLeft, startTopRight, startBottomLeft),
+    v1: startTopLeft, v2: startTopRight, v3: startBottomLeft
+  });
+  triangles.push({
+    normal: calcNormal(startBottomLeft, startTopRight, startBottomRight),
+    v1: startBottomLeft, v2: startTopRight, v3: startBottomRight
+  });
+  
+  // End cap of base plate
+  const endTopLeft = lastProfile.outerLeft[0];
+  const endTopRight = lastProfile.outerRight[0];
+  const endBottomLeft: Vector3 = { x: endTopLeft.x, y: endTopLeft.y, z: 0 };
+  const endBottomRight: Vector3 = { x: endTopRight.x, y: endTopRight.y, z: 0 };
+  
+  // End cap facing forward
+  triangles.push({
+    normal: calcNormal(endTopLeft, endBottomLeft, endTopRight),
+    v1: endTopLeft, v2: endBottomLeft, v3: endTopRight
+  });
+  triangles.push({
+    normal: calcNormal(endBottomLeft, endBottomRight, endTopRight),
+    v1: endBottomLeft, v2: endBottomRight, v3: endTopRight
+  });
 }
 
 function connectEdges(triangles: Triangle[], edge1: Vector3[], edge2: Vector3[], reverse: boolean) {
