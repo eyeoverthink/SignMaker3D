@@ -36,6 +36,7 @@ export function TubeControls() {
 
   const handleTubeSizeChange = (size: string) => {
     const diameter = tubeSizeToMm[size] || 12;
+    console.log(`[TubeControls] Setting tube size to ${size}, diameter=${diameter}`);
     setTubeSettings({ 
       neonTubeSize: size as typeof neonTubeSizes[number],
       neonTubeDiameter: diameter,
