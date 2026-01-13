@@ -191,12 +191,19 @@ export async function registerRoutes(
         console.log(`[Export] First path has ${sketchPaths[0].points.length} points`);
       }
 
-      if (twoPartSystem.enabled && geometrySettings.mode === "outline" && format !== "3mf") {
+      // Use V2 generator for draw/image modes with sketch paths, or for outline mode with two-part system
+      const useV2Generator = (inputMode === "draw" || inputMode === "image") && sketchPaths.length > 0;
+      const useOutlineMode = twoPartSystem.enabled && geometrySettings.mode === "outline";
+      
+      // Note: V2 generator outputs STL format; if 3MF requested, we'll output STL instead
+      const actualFormat = (useV2Generator && format === "3mf") ? "stl" : format;
+      
+      if (useV2Generator || useOutlineMode) {
         const exportedParts = generateNeonSignV2(
           letterSettings,
           tubeSettings,
           twoPartSystem,
-          format as "stl" | "obj",
+          (actualFormat === "3mf" ? "stl" : actualFormat) as "stl" | "obj",
           sketchPaths,
           inputMode,
           {
