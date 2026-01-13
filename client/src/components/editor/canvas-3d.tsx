@@ -129,6 +129,21 @@ function Canvas2DFallback() {
   );
 }
 
+const fontFileMap: Record<string, string> = {
+  "inter": "Inter-Bold.ttf",
+  "roboto": "Roboto-Bold.ttf",
+  "poppins": "Poppins-Bold.ttf",
+  "montserrat": "Montserrat-Bold.ttf",
+  "open-sans": "OpenSans-Bold.ttf",
+  "playfair": "PlayfairDisplay-Bold.ttf",
+  "merriweather": "Merriweather-Bold.ttf",
+  "lora": "Lora-Bold.ttf",
+  "space-grotesk": "SpaceGrotesk-Bold.ttf",
+  "outfit": "Outfit-Bold.ttf",
+  "architects-daughter": "ArchitectsDaughter-Regular.ttf",
+  "oxanium": "Oxanium-Bold.ttf",
+};
+
 function WebGL3DCanvas() {
   const { letterSettings, geometrySettings, wiringSettings, mountingSettings, showGrid, showWireframe, showMeasurements } = useEditorStore();
   const [isLoaded, setIsLoaded] = useState(false);
@@ -136,9 +151,11 @@ function WebGL3DCanvas() {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedFont = fontOptions.find((f) => f.id === letterSettings.fontId);
+  const fontUrl = `/fonts/${fontFileMap[letterSettings.fontId] || "Inter-Bold.ttf"}`;
   
+  const depth = (letterSettings.depth / 20) * letterSettings.scale;
   const backingThickness = (geometrySettings.backingThickness / 20) * letterSettings.scale;
-  const letterHeight = (geometrySettings.letterHeight / 20) * letterSettings.scale;
+  const letterHeight = geometrySettings.mode === "outline" ? depth : (geometrySettings.letterHeight / 20) * letterSettings.scale;
   const letterOffset = (geometrySettings.letterOffset / 20) * letterSettings.scale;
   
   const fontSize = 2 * letterSettings.scale;
@@ -272,7 +289,7 @@ function WebGL3DCanvas() {
             failIfMajorPerformanceCaveat: false,
           }}
           dpr={[1, 2]}
-          onCreated={({ gl }) => {
+          onCreated={({ gl }: { gl: { setClearColor: (color: string) => void } }) => {
             gl.setClearColor("#18181b");
           }}
         >
@@ -348,17 +365,21 @@ function WebGL3DCanvas() {
               )}
 
               <Text
+                font={fontUrl}
                 position={[0, 0, letterOffset + letterHeight + 0.02]}
                 fontSize={fontSize}
                 color={showWireframe ? "#d946ef" : (geometrySettings.letterMaterial === "opaque" ? "#1e1b4b" : "#1e3a5f")}
                 anchorX="center"
                 anchorY="middle"
+                outlineWidth={geometrySettings.mode === "outline" ? 0.08 : 0}
+                outlineColor={geometrySettings.mode === "outline" ? "#fbbf24" : "#000000"}
               >
                 {letterSettings.text || "A"}
               </Text>
 
               {geometrySettings.mode === "stencil" && (
                 <Text
+                  font={fontUrl}
                   position={[0, 0, backingThickness / 2 + 0.02]}
                   fontSize={fontSize * 0.9}
                   color="#fbbf24"
@@ -369,7 +390,25 @@ function WebGL3DCanvas() {
                 </Text>
               )}
 
+              {geometrySettings.mode === "outline" && (
+                <Text
+                  font={fontUrl}
+                  position={[0, 0, 0]}
+                  fontSize={fontSize}
+                  color="transparent"
+                  anchorX="center"
+                  anchorY="middle"
+                  strokeWidth={channelRadius * 2 || 0.15}
+                  strokeColor="#fbbf24"
+                  fillOpacity={0}
+                  strokeOpacity={0.9}
+                >
+                  {letterSettings.text || "A"}
+                </Text>
+              )}
+
               <Text
+                font={fontUrl}
                 position={[0, 0, geometrySettings.mode === "flat" ? -letterHeight / 2 - 0.02 : -backingThickness - 0.02]}
                 fontSize={fontSize}
                 rotation={[0, Math.PI, 0]}
@@ -479,6 +518,7 @@ function WebGL3DCanvas() {
           {geometrySettings.mode === "stencil" && "Cut-Out Stencil"}
           {geometrySettings.mode === "layered" && "Layered Parts"}
           {geometrySettings.mode === "flat" && "Flat Letters"}
+          {geometrySettings.mode === "outline" && "Outline (Neon Style)"}
         </div>
         {geometrySettings.mode !== "flat" && geometrySettings.mode !== "stencil" && (
           <div className="flex items-center gap-2 text-[10px]">

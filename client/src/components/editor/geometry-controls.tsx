@@ -36,6 +36,10 @@ const geometryModeLabels: Record<string, { name: string; description: string }> 
     name: "Flat / Engraved",
     description: "Letters engraved into surface - for subtle signage or CNC routing",
   },
+  outline: {
+    name: "Outline / Neon Tube",
+    description: "Hollow tube following letter contours - thread LED strips or filament lights through",
+  },
 };
 
 const materialLabels: Record<string, { name: string; color: string }> = {

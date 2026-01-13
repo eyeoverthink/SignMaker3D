@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSignage, generateMultiPartExport, type ExportedPart } from "./stl-generator";
@@ -19,6 +20,21 @@ import archiver from "archiver";
 import path from "path";
 import fs from "fs";
 
+const fontFileMap: Record<string, string> = {
+  "inter": "Inter-Bold.ttf",
+  "roboto": "Roboto-Bold.ttf",
+  "poppins": "Poppins-Bold.ttf",
+  "montserrat": "Montserrat-Bold.ttf",
+  "open-sans": "OpenSans-Bold.ttf",
+  "playfair": "PlayfairDisplay-Bold.ttf",
+  "merriweather": "Merriweather-Bold.ttf",
+  "lora": "Lora-Bold.ttf",
+  "space-grotesk": "SpaceGrotesk-Bold.ttf",
+  "outfit": "Outfit-Bold.ttf",
+  "architects-daughter": "ArchitectsDaughter-Regular.ttf",
+  "oxanium": "Oxanium-Bold.ttf",
+};
+
 const exportRequestSchema = z.object({
   letterSettings: letterSettingsSchema,
   geometrySettings: geometrySettingsSchema.optional(),
@@ -31,8 +47,24 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  app.use("/fonts", express.static(path.join(process.cwd(), "server/fonts")));
+
   app.get("/api/fonts", (_req, res) => {
     res.json(fontOptions);
+  });
+
+  app.get("/api/fonts/:fontId/file", (req, res) => {
+    const fontId = req.params.fontId;
+    const fileName = fontFileMap[fontId];
+    if (!fileName) {
+      return res.status(404).json({ error: "Font not found" });
+    }
+    const filePath = path.join(process.cwd(), "server/fonts", fileName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Font file not found" });
+    }
+    res.setHeader("Content-Type", "font/ttf");
+    fs.createReadStream(filePath).pipe(res);
   });
 
   app.get("/api/templates", (_req, res) => {

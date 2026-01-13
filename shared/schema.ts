@@ -36,7 +36,7 @@ export type BaseTemplate = typeof baseTemplates[number];
 export const exportFormats = ["stl", "obj", "3mf"] as const;
 export type ExportFormat = typeof exportFormats[number];
 
-export const geometryModes = ["raised", "stencil", "layered", "flat"] as const;
+export const geometryModes = ["raised", "stencil", "layered", "flat", "outline"] as const;
 export type GeometryMode = typeof geometryModes[number];
 
 export const materialTypes = ["opaque", "transparent", "diffuser"] as const;
