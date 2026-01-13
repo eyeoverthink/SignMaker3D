@@ -49,6 +49,11 @@ function loadFontSync(fontId: string = "roboto"): opentype.Font {
   const fontFileName = fontFileMap[fontId] || "Roboto-Bold.ttf";
   const fontPath = path.join(process.cwd(), "server/fonts", fontFileName);
   
+  const parseBuffer = (buf: Buffer): opentype.Font => {
+    const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+    return opentype.parse(arrayBuffer);
+  };
+  
   if (!fs.existsSync(fontPath)) {
     console.warn(`Font file not found: ${fontPath}, falling back to Roboto`);
     const fallbackPath = path.join(process.cwd(), "server/fonts/Roboto-Bold.ttf");
@@ -56,13 +61,13 @@ function loadFontSync(fontId: string = "roboto"): opentype.Font {
       throw new Error(`Default font file not found at ${fallbackPath}`);
     }
     const buffer = fs.readFileSync(fallbackPath);
-    const font = opentype.parse(buffer.buffer as ArrayBuffer);
+    const font = parseBuffer(buffer);
     fontCache.set(fontId, font);
     return font;
   }
   
   const buffer = fs.readFileSync(fontPath);
-  const font = opentype.parse(buffer.buffer as ArrayBuffer);
+  const font = parseBuffer(buffer);
   fontCache.set(fontId, font);
   return font;
 }
