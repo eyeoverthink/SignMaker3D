@@ -1061,8 +1061,9 @@ function extractContours(
   const contours: { x: number; y: number }[][] = [];
   const visited = new Set<number>();
   
-  // Max distance between consecutive points before splitting
-  const maxJumpDistance = simplify * 3;
+  // Strict max distance - only allow immediate neighbors (diagonal = sqrt(2) ≈ 1.41)
+  // This prevents connecting separate strokes
+  const maxJumpDistance = 2.0;
 
   const getPixel = (x: number, y: number): boolean => {
     if (x < 0 || x >= width || y < 0 || y >= height) return false;
@@ -1094,17 +1095,16 @@ function extractContours(
       if (visited.has(key)) continue;
       if (!isEdge(x, y)) continue;
       
-      // Skip isolated pixels (noise) - must have at least 1 neighbor
-      if (countEdgeNeighbors(x, y) < 1) {
+      // Skip isolated pixels (noise) - must have at least 2 neighbors for real edges
+      if (countEdgeNeighbors(x, y) < 2) {
         visited.add(key);
         continue;
       }
 
       let contour: { x: number; y: number }[] = [];
       let cx = x, cy = y;
-      let lastX = x, lastY = y;
       
-      // Prioritize cardinal directions first, then diagonals
+      // Only check immediate 8-connected neighbors
       const directions = [
         [1, 0], [0, 1], [-1, 0], [0, -1],
         [1, 1], [-1, 1], [-1, -1], [1, -1]
@@ -1118,39 +1118,25 @@ function extractContours(
         if (visited.has(ckey)) break;
         visited.add(ckey);
 
-        // Check if we jumped too far - split contour
-        const jumpDist = Math.sqrt((cx - lastX) ** 2 + (cy - lastY) ** 2);
-        if (contour.length > 0 && jumpDist > maxJumpDistance) {
-          // Save current contour if long enough
-          if (contour.length >= minLength) {
-            contours.push(contour);
-          }
-          contour = [];
-        }
-
         contour.push({ x: cx, y: cy });
-        lastX = cx;
-        lastY = cy;
 
         let found = false;
         let bestDist = Infinity;
         let bestX = cx, bestY = cy;
         
-        // Find closest unvisited edge neighbor
+        // Find closest unvisited edge neighbor - only immediate neighbors
         for (const [dx, dy] of directions) {
-          for (let mult = 1; mult <= simplify; mult++) {
-            const nx = cx + dx * mult;
-            const ny = cy + dy * mult;
-            const nkey = ny * width + nx;
-            
-            if (!visited.has(nkey) && isEdge(nx, ny)) {
-              const dist = Math.sqrt((nx - cx) ** 2 + (ny - cy) ** 2);
-              if (dist < bestDist) {
-                bestDist = dist;
-                bestX = nx;
-                bestY = ny;
-                found = true;
-              }
+          const nx = cx + dx;
+          const ny = cy + dy;
+          const nkey = ny * width + nx;
+          
+          if (!visited.has(nkey) && isEdge(nx, ny)) {
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestX = nx;
+              bestY = ny;
+              found = true;
             }
           }
         }
