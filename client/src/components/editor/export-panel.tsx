@@ -62,20 +62,36 @@ export function ExportPanel() {
         throw new Error("Export failed");
       }
 
+      const isMultiPart = response.headers.get("X-Multi-Part-Export") === "true";
+      const partCount = response.headers.get("X-Part-Count");
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${letterSettings.text.replace(/\s/g, "_")}_signage.${format}`;
+      
+      if (isMultiPart) {
+        a.download = `${letterSettings.text.replace(/\s/g, "_")}_multipart_${geometrySettings.mode}.zip`;
+      } else {
+        a.download = `${letterSettings.text.replace(/\s/g, "_")}_signage.${format}`;
+      }
+      
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast({
-        title: "Export successful",
-        description: `Your ${format.toUpperCase()} file has been downloaded.`,
-      });
+      if (isMultiPart) {
+        toast({
+          title: "Multi-part export successful",
+          description: `Downloaded ZIP with ${partCount} separate ${format.toUpperCase()} files for multi-material printing.`,
+        });
+      } else {
+        toast({
+          title: "Export successful",
+          description: `Your ${format.toUpperCase()} file has been downloaded.`,
+        });
+      }
     } catch (error) {
       toast({
         title: "Export failed",

@@ -557,27 +557,39 @@ export function generateSignage(
   return trianglesToSTL(combined);
 }
 
+export interface ExportedPart {
+  filename: string;
+  content: Buffer | string;
+  partType: string;
+  material: string;
+}
+
 export function generateMultiPartExport(
   letterSettings: LetterSettings,
   geometrySettings: GeometrySettings,
   wiringSettings: WiringSettings,
   mountingSettings: MountingSettings,
   format: "stl" | "obj"
-): Map<string, Buffer | string> {
+): ExportedPart[] {
   const { parts } = generateSignageParts(letterSettings, geometrySettings, wiringSettings, mountingSettings);
-  const files = new Map<string, Buffer | string>();
+  const exportedParts: ExportedPart[] = [];
 
   const textSlug = letterSettings.text.replace(/\s/g, "_");
 
   for (const part of parts) {
     const filename = `${textSlug}_${part.name}_${part.material}.${format}`;
     
-    if (format === "obj") {
-      files.set(filename, trianglesToOBJ(part.triangles, part.name));
-    } else {
-      files.set(filename, trianglesToSTL(part.triangles, `SignCraft 3D - ${part.name}`));
-    }
+    const content = format === "obj" 
+      ? trianglesToOBJ(part.triangles, part.name)
+      : trianglesToSTL(part.triangles, `SignCraft 3D - ${part.name}`);
+    
+    exportedParts.push({
+      filename,
+      content,
+      partType: part.name,
+      material: part.material,
+    });
   }
 
-  return files;
+  return exportedParts;
 }

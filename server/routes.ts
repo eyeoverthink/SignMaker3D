@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateSignage, generateMultiPartExport } from "./stl-generator";
+import { generateSignage, generateMultiPartExport, type ExportedPart } from "./stl-generator";
 import {
   letterSettingsSchema,
   geometrySettingsSchema,
@@ -14,6 +14,7 @@ import {
   defaultMountingSettings,
 } from "@shared/schema";
 import { z } from "zod";
+import archiver from "archiver";
 
 const exportRequestSchema = z.object({
   letterSettings: letterSettingsSchema,
@@ -105,7 +106,7 @@ export async function registerRoutes(
         (geometrySettings.mode === "layered" || geometrySettings.mode === "raised");
 
       if (shouldExportSeparate && format !== "3mf") {
-        const files = generateMultiPartExport(
+        const exportedParts = generateMultiPartExport(
           letterSettings,
           geometrySettings,
           wiringSettings,
@@ -114,29 +115,50 @@ export async function registerRoutes(
         );
 
         const textSlug = letterSettings.text.replace(/\s/g, "_");
+        const zipFilename = `${textSlug}_multipart_${geometrySettings.mode}.zip`;
         
-        let combinedContent = "";
-        let combinedBuffer = Buffer.alloc(0);
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+        res.setHeader("X-Multi-Part-Export", "true");
+        res.setHeader("X-Part-Count", exportedParts.length.toString());
         
-        if (format === "obj") {
-          combinedContent = `# SignCraft 3D Multi-Part Export\n# Parts: ${files.size}\n\n`;
-          files.forEach((content, filename) => {
-            combinedContent += `# === ${filename} ===\n${content}\n\n`;
-          });
-          res.setHeader("Content-Type", "text/plain");
-          res.setHeader("Content-Disposition", `attachment; filename="${textSlug}_multipart.${format}"`);
-          res.send(combinedContent);
-        } else {
-          const entries = Array.from(files.entries());
-          if (entries.length > 0) {
-            const [filename, content] = entries[0];
-            if (Buffer.isBuffer(content)) {
-              res.setHeader("Content-Type", "application/octet-stream");
-              res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-              res.send(content);
-            }
+        const archive = archiver("zip", { zlib: { level: 9 } });
+        
+        archive.on("error", (err) => {
+          console.error("Archive error:", err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: "Failed to create archive" });
+          }
+        });
+        
+        res.on("close", () => {
+          archive.abort();
+        });
+        
+        archive.pipe(res);
+        
+        const manifestData = {
+          version: "1.0",
+          mode: geometrySettings.mode,
+          letterMaterial: geometrySettings.letterMaterial,
+          backingMaterial: geometrySettings.backingMaterial,
+          parts: exportedParts.map(part => ({
+            filename: part.filename,
+            partType: part.partType,
+            material: part.material,
+          })),
+        };
+        
+        for (const part of exportedParts) {
+          if (Buffer.isBuffer(part.content)) {
+            archive.append(part.content, { name: part.filename });
+          } else {
+            archive.append(part.content, { name: part.filename });
           }
         }
+        
+        archive.append(JSON.stringify(manifestData, null, 2), { name: "manifest.json" });
+        await archive.finalize();
         return;
       }
 
