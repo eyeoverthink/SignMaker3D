@@ -3,18 +3,34 @@ import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Upload, Wand2 } from "lucide-react";
+import { Upload, Wand2, Image as ImageIcon } from "lucide-react";
 import type { SketchPath } from "@shared/schema";
 
 export function ImageTracer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [threshold, setThreshold] = useState(128);
   const [simplify, setSimplify] = useState(2);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { uploadedImageData, setTracedPaths, addSketchPath, showGrid } = useEditorStore();
+  const { uploadedImageData, setUploadedImageData, setTracedPaths, addSketchPath, showGrid } = useEditorStore();
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setUploadedImageData(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, [setUploadedImageData]);
+
+  const openFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   const traceImage = useCallback(() => {
     const canvas = canvasRef.current;
@@ -121,11 +137,40 @@ export function ImageTracer() {
   if (!uploadedImageData) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted/30">
-        <div className="text-center p-8">
-          <Upload className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">Upload an Image</h3>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            Upload a photo of handwriting, a drawing, or any shape to trace it into neon tube paths.
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+          data-testid="input-image-file"
+        />
+        <div 
+          className="text-center p-12 border-2 border-dashed border-muted-foreground/30 rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors max-w-md"
+          onClick={openFilePicker}
+          data-testid="upload-drop-zone"
+        >
+          <div className="bg-primary/10 rounded-full p-4 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+            <ImageIcon className="h-10 w-10 text-primary" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">Click to Upload Image</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Upload a photo of handwriting, a logo, or any shape to trace it into neon tube paths
+          </p>
+          <Button 
+            variant="default" 
+            size="lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              openFilePicker();
+            }}
+            data-testid="button-upload-image"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Choose Image
+          </Button>
+          <p className="text-xs text-muted-foreground mt-4">
+            Supports JPG, PNG, GIF, SVG
           </p>
         </div>
       </div>
