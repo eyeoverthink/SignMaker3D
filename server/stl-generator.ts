@@ -1213,128 +1213,188 @@ export function generateMultiPartExport(
   return exportedParts;
 }
 
-function generateSnapTab(
+function generateSnapTabBase(
   x: number, y: number, 
   nx: number, ny: number,
   tabWidth: number, tabHeight: number, 
-  wallHeight: number, chamferAngle: number,
-  isBase: boolean
+  wallHeight: number, chamferAngle: number
 ): Triangle[] {
   const triangles: Triangle[] = [];
-  const chamferOffset = tabHeight * Math.tan((90 - chamferAngle) * Math.PI / 180);
+  const chamferLen = tabHeight * 0.5;
   const halfTab = tabWidth / 2;
   const tx = ny;
   const ty = -nx;
   
-  if (isBase) {
-    const tabBase = wallHeight - tabHeight - chamferOffset;
-    const tabTop = wallHeight;
-    const b1: Vector3 = { x: x - tx * halfTab, y: y - ty * halfTab, z: tabBase };
-    const b2: Vector3 = { x: x + tx * halfTab, y: y + ty * halfTab, z: tabBase };
-    const m1: Vector3 = { x: x - tx * halfTab + nx * tabHeight, y: y - ty * halfTab + ny * tabHeight, z: tabBase + chamferOffset };
-    const m2: Vector3 = { x: x + tx * halfTab + nx * tabHeight, y: y + ty * halfTab + ny * tabHeight, z: tabBase + chamferOffset };
-    const t1: Vector3 = { x: x - tx * halfTab + nx * tabHeight, y: y - ty * halfTab + ny * tabHeight, z: tabTop };
-    const t2: Vector3 = { x: x + tx * halfTab + nx * tabHeight, y: y + ty * halfTab + ny * tabHeight, z: tabTop };
-    
-    triangles.push(
-      { normal: { x: nx, y: ny, z: 0 }, v1: m1, v2: m2, v3: t1 },
-      { normal: { x: nx, y: ny, z: 0 }, v1: t1, v2: m2, v3: t2 }
-    );
-    const chamferNorm = Math.sqrt(1 + chamferOffset * chamferOffset);
-    triangles.push(
-      { normal: { x: nx / chamferNorm, y: ny / chamferNorm, z: -1 / chamferNorm }, v1: b1, v2: b2, v3: m1 },
-      { normal: { x: nx / chamferNorm, y: ny / chamferNorm, z: -1 / chamferNorm }, v1: m1, v2: b2, v3: m2 }
-    );
-    triangles.push(
-      { normal: { x: -tx, y: -ty, z: 0 }, v1: b1, v2: m1, v3: t1 },
-      { normal: { x: tx, y: ty, z: 0 }, v1: b2, v2: t2, v3: m2 }
-    );
-  }
+  const tabBase = wallHeight - tabHeight * 2;
+  const tabMid = wallHeight - tabHeight;
+  const tabTop = wallHeight;
+  
+  const b1: Vector3 = { x: x - tx * halfTab, y: y - ty * halfTab, z: tabBase };
+  const b2: Vector3 = { x: x + tx * halfTab, y: y + ty * halfTab, z: tabBase };
+  const m1: Vector3 = { x: x - tx * halfTab + nx * tabHeight, y: y - ty * halfTab + ny * tabHeight, z: tabMid };
+  const m2: Vector3 = { x: x + tx * halfTab + nx * tabHeight, y: y + ty * halfTab + ny * tabHeight, z: tabMid };
+  const t1: Vector3 = { x: x - tx * halfTab + nx * tabHeight, y: y - ty * halfTab + ny * tabHeight, z: tabTop };
+  const t2: Vector3 = { x: x + tx * halfTab + nx * tabHeight, y: y + ty * halfTab + ny * tabHeight, z: tabTop };
+  
+  triangles.push(
+    { normal: { x: nx, y: ny, z: 0 }, v1: m1, v2: m2, v3: t1 },
+    { normal: { x: nx, y: ny, z: 0 }, v1: t1, v2: m2, v3: t2 }
+  );
+  
+  const chamferAngleRad = chamferAngle * Math.PI / 180;
+  const nzChamfer = Math.sin(chamferAngleRad);
+  const nxyChamfer = Math.cos(chamferAngleRad);
+  triangles.push(
+    { normal: { x: nx * nxyChamfer, y: ny * nxyChamfer, z: -nzChamfer }, v1: b1, v2: b2, v3: m1 },
+    { normal: { x: nx * nxyChamfer, y: ny * nxyChamfer, z: -nzChamfer }, v1: m1, v2: b2, v3: m2 }
+  );
+  
+  triangles.push(
+    { normal: { x: -tx, y: -ty, z: 0 }, v1: b1, v2: m1, v3: t1 },
+    { normal: { x: tx, y: ty, z: 0 }, v1: b2, v2: t2, v3: m2 }
+  );
+  
+  triangles.push(
+    { normal: { x: 0, y: 0, z: 1 }, v1: t1, v2: t2, v3: { x: x, y: y, z: tabTop } }
+  );
+  
   return triangles;
 }
 
-function generateRegistrationPin(
+function generateSnapTabRecess(
+  x: number, y: number,
+  nx: number, ny: number,
+  tabWidth: number, tabHeight: number,
+  capThickness: number, tolerance: number
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const halfTab = (tabWidth + tolerance * 2) / 2;
+  const recessDepth = tabHeight + tolerance;
+  const tx = ny;
+  const ty = -nx;
+  
+  const t1: Vector3 = { x: x - tx * halfTab - nx * recessDepth, y: y - ty * halfTab - ny * recessDepth, z: 0 };
+  const t2: Vector3 = { x: x + tx * halfTab - nx * recessDepth, y: y + ty * halfTab - ny * recessDepth, z: 0 };
+  const t3: Vector3 = { x: x + tx * halfTab - nx * recessDepth, y: y + ty * halfTab - ny * recessDepth, z: capThickness };
+  const t4: Vector3 = { x: x - tx * halfTab - nx * recessDepth, y: y - ty * halfTab - ny * recessDepth, z: capThickness };
+  
+  const b1: Vector3 = { x: x - tx * halfTab, y: y - ty * halfTab, z: 0 };
+  const b2: Vector3 = { x: x + tx * halfTab, y: y + ty * halfTab, z: 0 };
+  const b3: Vector3 = { x: x + tx * halfTab, y: y + ty * halfTab, z: capThickness };
+  const b4: Vector3 = { x: x - tx * halfTab, y: y - ty * halfTab, z: capThickness };
+  
+  triangles.push(
+    { normal: { x: -nx, y: -ny, z: 0 }, v1: t1, v2: t2, v3: t3 },
+    { normal: { x: -nx, y: -ny, z: 0 }, v1: t1, v2: t3, v3: t4 }
+  );
+  
+  triangles.push(
+    { normal: { x: -tx, y: -ty, z: 0 }, v1: b1, v2: t1, v3: t4 },
+    { normal: { x: -tx, y: -ty, z: 0 }, v1: b1, v2: t4, v3: b4 }
+  );
+  triangles.push(
+    { normal: { x: tx, y: ty, z: 0 }, v1: t2, v2: b2, v3: b3 },
+    { normal: { x: tx, y: ty, z: 0 }, v1: t2, v2: b3, v3: t3 }
+  );
+  
+  triangles.push(
+    { normal: { x: 0, y: 0, z: -1 }, v1: b1, v2: b2, v3: t1 },
+    { normal: { x: 0, y: 0, z: -1 }, v1: t1, v2: b2, v3: t2 }
+  );
+  
+  return triangles;
+}
+
+function generateRegistrationPinBase(
   x: number, y: number,
   diameter: number, height: number,
-  isBase: boolean
+  wallHeight: number
 ): Triangle[] {
   const triangles: Triangle[] = [];
   const radius = diameter / 2;
   const segments = 12;
-  const chamferH = radius * 0.4;
-  const chamferR = radius * 0.7;
+  const chamferH = radius * 0.3;
+  const chamferR = radius * 0.6;
   
-  if (isBase) {
-    for (let i = 0; i < segments; i++) {
-      const a1 = (i / segments) * Math.PI * 2;
-      const a2 = ((i + 1) / segments) * Math.PI * 2;
-      const c1 = Math.cos(a1), s1 = Math.sin(a1);
-      const c2 = Math.cos(a2), s2 = Math.sin(a2);
-      
-      const baseZ = 0;
-      const topZ = height - chamferH;
-      const tipZ = height;
-      
-      const b1: Vector3 = { x: x + c1 * radius, y: y + s1 * radius, z: baseZ };
-      const b2: Vector3 = { x: x + c2 * radius, y: y + s2 * radius, z: baseZ };
-      const t1: Vector3 = { x: x + c1 * radius, y: y + s1 * radius, z: topZ };
-      const t2: Vector3 = { x: x + c2 * radius, y: y + s2 * radius, z: topZ };
-      const tip1: Vector3 = { x: x + c1 * chamferR, y: y + s1 * chamferR, z: tipZ };
-      const tip2: Vector3 = { x: x + c2 * chamferR, y: y + s2 * chamferR, z: tipZ };
-      
-      triangles.push(
-        { normal: { x: c1, y: s1, z: 0 }, v1: b1, v2: b2, v3: t1 },
-        { normal: { x: c2, y: s2, z: 0 }, v1: t1, v2: b2, v3: t2 }
-      );
-      const tipNx = (c1 + c2) / 2, tipNy = (s1 + s2) / 2;
-      const tipLen = Math.sqrt(tipNx * tipNx + tipNy * tipNy + 0.5 * 0.5);
-      triangles.push(
-        { normal: { x: tipNx / tipLen, y: tipNy / tipLen, z: 0.5 / tipLen }, v1: t1, v2: t2, v3: tip1 },
-        { normal: { x: tipNx / tipLen, y: tipNy / tipLen, z: 0.5 / tipLen }, v1: tip1, v2: t2, v3: tip2 }
-      );
-    }
-    for (let i = 1; i < segments - 1; i++) {
-      const a1 = (i / segments) * Math.PI * 2;
-      const a2 = ((i + 1) / segments) * Math.PI * 2;
-      triangles.push({
-        normal: { x: 0, y: 0, z: 1 },
-        v1: { x: x + chamferR, y: y, z: height },
-        v2: { x: x + Math.cos(a1) * chamferR, y: y + Math.sin(a1) * chamferR, z: height },
-        v3: { x: x + Math.cos(a2) * chamferR, y: y + Math.sin(a2) * chamferR, z: height }
-      });
-    }
-  } else {
-    const holeRadius = radius + 0.15;
-    const holeDepth = height + 0.5;
-    for (let i = 0; i < segments; i++) {
-      const a1 = (i / segments) * Math.PI * 2;
-      const a2 = ((i + 1) / segments) * Math.PI * 2;
-      const c1 = Math.cos(a1), s1 = Math.sin(a1);
-      const c2 = Math.cos(a2), s2 = Math.sin(a2);
-      
-      triangles.push({
-        normal: { x: -c1, y: -s1, z: 0 },
-        v1: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: 0 },
-        v2: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: 0 },
-        v3: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: -holeDepth }
-      });
-      triangles.push({
-        normal: { x: -c2, y: -s2, z: 0 },
-        v1: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: -holeDepth },
-        v2: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: 0 },
-        v3: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: -holeDepth }
-      });
-    }
-    for (let i = 1; i < segments - 1; i++) {
-      const a1 = (i / segments) * Math.PI * 2;
-      const a2 = ((i + 1) / segments) * Math.PI * 2;
-      triangles.push({
-        normal: { x: 0, y: 0, z: -1 },
-        v1: { x: x + holeRadius, y: y, z: -holeDepth },
-        v2: { x: x + Math.cos(a2) * holeRadius, y: y + Math.sin(a2) * holeRadius, z: -holeDepth },
-        v3: { x: x + Math.cos(a1) * holeRadius, y: y + Math.sin(a1) * holeRadius, z: -holeDepth }
-      });
-    }
+  for (let i = 0; i < segments; i++) {
+    const a1 = (i / segments) * Math.PI * 2;
+    const a2 = ((i + 1) / segments) * Math.PI * 2;
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const c2 = Math.cos(a2), s2 = Math.sin(a2);
+    
+    const baseZ = wallHeight;
+    const topZ = wallHeight + height - chamferH;
+    const tipZ = wallHeight + height;
+    
+    const b1: Vector3 = { x: x + c1 * radius, y: y + s1 * radius, z: baseZ };
+    const b2: Vector3 = { x: x + c2 * radius, y: y + s2 * radius, z: baseZ };
+    const t1: Vector3 = { x: x + c1 * radius, y: y + s1 * radius, z: topZ };
+    const t2: Vector3 = { x: x + c2 * radius, y: y + s2 * radius, z: topZ };
+    const tip1: Vector3 = { x: x + c1 * chamferR, y: y + s1 * chamferR, z: tipZ };
+    const tip2: Vector3 = { x: x + c2 * chamferR, y: y + s2 * chamferR, z: tipZ };
+    
+    triangles.push(
+      { normal: { x: c1, y: s1, z: 0 }, v1: b1, v2: b2, v3: t1 },
+      { normal: { x: c2, y: s2, z: 0 }, v1: t1, v2: b2, v3: t2 }
+    );
+    const tipNx = (c1 + c2) / 2, tipNy = (s1 + s2) / 2;
+    const tipLen = Math.sqrt(tipNx * tipNx + tipNy * tipNy + 0.5 * 0.5);
+    triangles.push(
+      { normal: { x: tipNx / tipLen, y: tipNy / tipLen, z: 0.5 / tipLen }, v1: t1, v2: t2, v3: tip1 },
+      { normal: { x: tipNx / tipLen, y: tipNy / tipLen, z: 0.5 / tipLen }, v1: tip1, v2: t2, v3: tip2 }
+    );
+  }
+  for (let i = 1; i < segments - 1; i++) {
+    const a1 = (i / segments) * Math.PI * 2;
+    const a2 = ((i + 1) / segments) * Math.PI * 2;
+    triangles.push({
+      normal: { x: 0, y: 0, z: 1 },
+      v1: { x: x + chamferR, y: y, z: wallHeight + height },
+      v2: { x: x + Math.cos(a1) * chamferR, y: y + Math.sin(a1) * chamferR, z: wallHeight + height },
+      v3: { x: x + Math.cos(a2) * chamferR, y: y + Math.sin(a2) * chamferR, z: wallHeight + height }
+    });
+  }
+  return triangles;
+}
+
+function generateRegistrationHoleCap(
+  x: number, y: number,
+  diameter: number, height: number,
+  capThickness: number, tolerance: number
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const holeRadius = diameter / 2 + tolerance;
+  const holeDepth = Math.min(height + tolerance, capThickness * 0.8);
+  const segments = 12;
+  
+  for (let i = 0; i < segments; i++) {
+    const a1 = (i / segments) * Math.PI * 2;
+    const a2 = ((i + 1) / segments) * Math.PI * 2;
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const c2 = Math.cos(a2), s2 = Math.sin(a2);
+    
+    triangles.push({
+      normal: { x: c1, y: s1, z: 0 },
+      v1: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: 0 },
+      v2: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: holeDepth },
+      v3: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: 0 }
+    });
+    triangles.push({
+      normal: { x: c2, y: s2, z: 0 },
+      v1: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: 0 },
+      v2: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: holeDepth },
+      v3: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: holeDepth }
+    });
+  }
+  for (let i = 1; i < segments - 1; i++) {
+    const a1 = (i / segments) * Math.PI * 2;
+    const a2 = ((i + 1) / segments) * Math.PI * 2;
+    triangles.push({
+      normal: { x: 0, y: 0, z: 1 },
+      v1: { x: x + holeRadius, y: y, z: holeDepth },
+      v2: { x: x + Math.cos(a1) * holeRadius, y: y + Math.sin(a1) * holeRadius, z: holeDepth },
+      v3: { x: x + Math.cos(a2) * holeRadius, y: y + Math.sin(a2) * holeRadius, z: holeDepth }
+    });
   }
   return triangles;
 }
@@ -1342,7 +1402,7 @@ function generateRegistrationPin(
 function generateDiffusionRib(
   x1: number, y1: number, x2: number, y2: number,
   ribHeight: number, ribWidth: number,
-  baseZ: number
+  capThickness: number
 ): Triangle[] {
   const triangles: Triangle[] = [];
   const dx = x2 - x1, dy = y2 - y1;
@@ -1352,18 +1412,26 @@ function generateDiffusionRib(
   const nx = -dy / len * ribWidth / 2;
   const ny = dx / len * ribWidth / 2;
   
-  const b1: Vector3 = { x: x1 - nx, y: y1 - ny, z: baseZ };
-  const b2: Vector3 = { x: x1 + nx, y: y1 + ny, z: baseZ };
-  const b3: Vector3 = { x: x2 + nx, y: y2 + ny, z: baseZ };
-  const b4: Vector3 = { x: x2 - nx, y: y2 - ny, z: baseZ };
-  const t1: Vector3 = { x: x1, y: y1, z: baseZ - ribHeight };
-  const t2: Vector3 = { x: x2, y: y2, z: baseZ - ribHeight };
+  const topZ = capThickness;
+  const ribZ = capThickness - ribHeight;
+  
+  const t1: Vector3 = { x: x1 - nx, y: y1 - ny, z: topZ };
+  const t2: Vector3 = { x: x1 + nx, y: y1 + ny, z: topZ };
+  const t3: Vector3 = { x: x2 + nx, y: y2 + ny, z: topZ };
+  const t4: Vector3 = { x: x2 - nx, y: y2 - ny, z: topZ };
+  const r1: Vector3 = { x: x1, y: y1, z: ribZ };
+  const r2: Vector3 = { x: x2, y: y2, z: ribZ };
+  
+  const normLen = Math.sqrt(nx * nx + ny * ny + (ribHeight/2) * (ribHeight/2));
+  const nxNorm = nx / normLen;
+  const nyNorm = ny / normLen;
+  const nzNorm = (ribHeight/2) / normLen;
   
   triangles.push(
-    { normal: { x: -nx / (ribWidth/2), y: -ny / (ribWidth/2), z: -0.5 }, v1: b1, v2: b4, v3: t1 },
-    { normal: { x: -nx / (ribWidth/2), y: -ny / (ribWidth/2), z: -0.5 }, v1: t1, v2: b4, v3: t2 },
-    { normal: { x: nx / (ribWidth/2), y: ny / (ribWidth/2), z: -0.5 }, v1: b2, v2: t1, v3: b3 },
-    { normal: { x: nx / (ribWidth/2), y: ny / (ribWidth/2), z: -0.5 }, v1: t1, v2: t2, v3: b3 }
+    { normal: { x: -nxNorm, y: -nyNorm, z: nzNorm }, v1: t1, v2: t4, v3: r1 },
+    { normal: { x: -nxNorm, y: -nyNorm, z: nzNorm }, v1: r1, v2: t4, v3: r2 },
+    { normal: { x: nxNorm, y: nyNorm, z: nzNorm }, v1: t2, v2: r1, v3: t3 },
+    { normal: { x: nxNorm, y: nyNorm, z: nzNorm }, v1: r1, v2: r2, v3: t3 }
   );
   
   return triangles;
@@ -1504,11 +1572,13 @@ export function generateTwoPartSystem(
           const tabPos = (t + 0.5) / Math.max(1, numTabs);
           const tabX = x1 + dx * tabPos - nx * (halfWidth + wallThickness / 2);
           const tabY = y1 + dy * tabPos - ny * (halfWidth + wallThickness / 2);
-          baseTriangles.push(...generateSnapTab(tabX, tabY, -nx, -ny, snapTabWidth, snapTabHeight, wallHeight, chamferAngle, true));
+          baseTriangles.push(...generateSnapTabBase(tabX, tabY, -nx, -ny, snapTabWidth, snapTabHeight, wallHeight, chamferAngle));
+          capTriangles.push(...generateSnapTabRecess(tabX, tabY, -nx, -ny, snapTabWidth, snapTabHeight, capThickness, snapTolerance));
           
           const tabXR = x1 + dx * tabPos + nx * (halfWidth + wallThickness / 2);
           const tabYR = y1 + dy * tabPos + ny * (halfWidth + wallThickness / 2);
-          baseTriangles.push(...generateSnapTab(tabXR, tabYR, nx, ny, snapTabWidth, snapTabHeight, wallHeight, chamferAngle, true));
+          baseTriangles.push(...generateSnapTabBase(tabXR, tabYR, nx, ny, snapTabWidth, snapTabHeight, wallHeight, chamferAngle));
+          capTriangles.push(...generateSnapTabRecess(tabXR, tabYR, nx, ny, snapTabWidth, snapTabHeight, capThickness, snapTolerance));
         }
       }
       
@@ -1517,7 +1587,8 @@ export function generateTwoPartSystem(
         if (pinAccumulator >= pinSpacing) {
           const pinX = (x1 + x2) / 2;
           const pinY = (y1 + y2) / 2;
-          baseTriangles.push(...generateRegistrationPin(pinX, pinY, pinDiameter, pinHeight + wallHeight, true));
+          baseTriangles.push(...generateRegistrationPinBase(pinX, pinY, pinDiameter, pinHeight, wallHeight));
+          capTriangles.push(...generateRegistrationHoleCap(pinX, pinY, pinDiameter, pinHeight, capThickness, snapTolerance));
           pinAccumulator = 0;
         }
       }
@@ -1563,45 +1634,40 @@ export function generateTwoPartSystem(
           const ry1 = y1 + dy * ribPos - ny * halfWidth * 0.8;
           const rx2 = x1 + dx * ribPos + nx * halfWidth * 0.8;
           const ry2 = y1 + dy * ribPos + ny * halfWidth * 0.8;
-          capTriangles.push(...generateDiffusionRib(rx1, ry1, rx2, ry2, ribHeight, ribWidth, 0));
+          capTriangles.push(...generateDiffusionRib(rx1, ry1, rx2, ry2, ribHeight, ribWidth, capThickness));
         }
-      }
-      
-      if (registrationPinsEnabled && pinAccumulator < pinSpacing / 2) {
-        const holeX = (x1 + x2) / 2;
-        const holeY = (y1 + y2) / 2;
-        capTriangles.push(...generateRegistrationPin(holeX, holeY, pinDiameter, pinHeight, false));
       }
       
       accumulatedLength += len;
     }
     
-    if (cableChannelEnabled && contours.length > 1) {
+    if (cableChannelEnabled) {
       const firstX = contour[0] - centerX;
       const firstY = -(contour[1] - centerY);
       const channelHalf = cableChannelWidth / 2;
-      const channelZ = cableChannelDepth;
+      const channelTop = wallHeight;
+      const channelBottom = wallHeight - cableChannelDepth;
       
-      const c1: Vector3 = { x: firstX - channelHalf, y: firstY - channelHalf, z: 0 };
-      const c2: Vector3 = { x: firstX + channelHalf, y: firstY - channelHalf, z: 0 };
-      const c3: Vector3 = { x: firstX + channelHalf, y: firstY + channelHalf, z: 0 };
-      const c4: Vector3 = { x: firstX - channelHalf, y: firstY + channelHalf, z: 0 };
-      const b1: Vector3 = { x: firstX - channelHalf, y: firstY - channelHalf, z: -channelZ };
-      const b2: Vector3 = { x: firstX + channelHalf, y: firstY - channelHalf, z: -channelZ };
-      const b3: Vector3 = { x: firstX + channelHalf, y: firstY + channelHalf, z: -channelZ };
-      const b4: Vector3 = { x: firstX - channelHalf, y: firstY + channelHalf, z: -channelZ };
+      const t1: Vector3 = { x: firstX - channelHalf, y: firstY - channelHalf, z: channelTop };
+      const t2: Vector3 = { x: firstX + channelHalf, y: firstY - channelHalf, z: channelTop };
+      const t3: Vector3 = { x: firstX + channelHalf, y: firstY + channelHalf, z: channelTop };
+      const t4: Vector3 = { x: firstX - channelHalf, y: firstY + channelHalf, z: channelTop };
+      const b1: Vector3 = { x: firstX - channelHalf, y: firstY - channelHalf, z: channelBottom };
+      const b2: Vector3 = { x: firstX + channelHalf, y: firstY - channelHalf, z: channelBottom };
+      const b3: Vector3 = { x: firstX + channelHalf, y: firstY + channelHalf, z: channelBottom };
+      const b4: Vector3 = { x: firstX - channelHalf, y: firstY + channelHalf, z: channelBottom };
       
       baseTriangles.push(
-        { normal: { x: 0, y: -1, z: 0 }, v1: c1, v2: c2, v3: b1 },
-        { normal: { x: 0, y: -1, z: 0 }, v1: b1, v2: c2, v3: b2 },
-        { normal: { x: 1, y: 0, z: 0 }, v1: c2, v2: c3, v3: b2 },
-        { normal: { x: 1, y: 0, z: 0 }, v1: b2, v2: c3, v3: b3 },
-        { normal: { x: 0, y: 1, z: 0 }, v1: c3, v2: c4, v3: b3 },
-        { normal: { x: 0, y: 1, z: 0 }, v1: b3, v2: c4, v3: b4 },
-        { normal: { x: -1, y: 0, z: 0 }, v1: c4, v2: c1, v3: b4 },
-        { normal: { x: -1, y: 0, z: 0 }, v1: b4, v2: c1, v3: b1 },
-        { normal: { x: 0, y: 0, z: -1 }, v1: b1, v2: b2, v3: b3 },
-        { normal: { x: 0, y: 0, z: -1 }, v1: b1, v2: b3, v3: b4 }
+        { normal: { x: 0, y: 1, z: 0 }, v1: t1, v2: b1, v3: t2 },
+        { normal: { x: 0, y: 1, z: 0 }, v1: t2, v2: b1, v3: b2 },
+        { normal: { x: -1, y: 0, z: 0 }, v1: t2, v2: b2, v3: t3 },
+        { normal: { x: -1, y: 0, z: 0 }, v1: t3, v2: b2, v3: b3 },
+        { normal: { x: 0, y: -1, z: 0 }, v1: t3, v2: b3, v3: t4 },
+        { normal: { x: 0, y: -1, z: 0 }, v1: t4, v2: b3, v3: b4 },
+        { normal: { x: 1, y: 0, z: 0 }, v1: t4, v2: b4, v3: t1 },
+        { normal: { x: 1, y: 0, z: 0 }, v1: t1, v2: b4, v3: b1 },
+        { normal: { x: 0, y: 0, z: -1 }, v1: b1, v2: b4, v3: b2 },
+        { normal: { x: 0, y: 0, z: -1 }, v1: b2, v2: b4, v3: b3 }
       );
     }
   }

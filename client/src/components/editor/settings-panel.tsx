@@ -281,19 +281,49 @@ export function SettingsPanel() {
                 </div>
 
                 {twoPartSystem.snapTabsEnabled && (
-                  <div className="space-y-2 pl-2 border-l-2 border-muted">
-                    <div className="flex justify-between">
-                      <Label className="text-xs">Tab Spacing</Label>
-                      <span className="text-xs text-muted-foreground">{twoPartSystem.snapTabSpacing ?? 25}mm</span>
+                  <div className="space-y-3 pl-2 border-l-2 border-muted">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label className="text-xs">Tab Height</Label>
+                        <span className="text-xs text-muted-foreground">{twoPartSystem.snapTabHeight ?? 2}mm</span>
+                      </div>
+                      <Slider
+                        value={[twoPartSystem.snapTabHeight ?? 2]}
+                        onValueChange={([v]) => setTwoPartSystem({ snapTabHeight: v })}
+                        min={1}
+                        max={4}
+                        step={0.5}
+                        data-testid="slider-snap-tab-height"
+                      />
                     </div>
-                    <Slider
-                      value={[twoPartSystem.snapTabSpacing ?? 25]}
-                      onValueChange={([v]) => setTwoPartSystem({ snapTabSpacing: v })}
-                      min={10}
-                      max={50}
-                      step={5}
-                      data-testid="slider-snap-tab-spacing"
-                    />
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label className="text-xs">Tab Width</Label>
+                        <span className="text-xs text-muted-foreground">{twoPartSystem.snapTabWidth ?? 4}mm</span>
+                      </div>
+                      <Slider
+                        value={[twoPartSystem.snapTabWidth ?? 4]}
+                        onValueChange={([v]) => setTwoPartSystem({ snapTabWidth: v })}
+                        min={2}
+                        max={8}
+                        step={1}
+                        data-testid="slider-snap-tab-width"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label className="text-xs">Tab Spacing</Label>
+                        <span className="text-xs text-muted-foreground">{twoPartSystem.snapTabSpacing ?? 25}mm</span>
+                      </div>
+                      <Slider
+                        value={[twoPartSystem.snapTabSpacing ?? 25]}
+                        onValueChange={([v]) => setTwoPartSystem({ snapTabSpacing: v })}
+                        min={10}
+                        max={50}
+                        step={5}
+                        data-testid="slider-snap-tab-spacing"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -310,19 +340,49 @@ export function SettingsPanel() {
                 </div>
 
                 {twoPartSystem.registrationPinsEnabled && (
-                  <div className="space-y-2 pl-2 border-l-2 border-muted">
-                    <div className="flex justify-between">
-                      <Label className="text-xs">Pin Diameter</Label>
-                      <span className="text-xs text-muted-foreground">{twoPartSystem.pinDiameter ?? 2.5}mm</span>
+                  <div className="space-y-3 pl-2 border-l-2 border-muted">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label className="text-xs">Pin Diameter</Label>
+                        <span className="text-xs text-muted-foreground">{twoPartSystem.pinDiameter ?? 2.5}mm</span>
+                      </div>
+                      <Slider
+                        value={[twoPartSystem.pinDiameter ?? 2.5]}
+                        onValueChange={([v]) => setTwoPartSystem({ pinDiameter: v })}
+                        min={1.5}
+                        max={4}
+                        step={0.5}
+                        data-testid="slider-pin-diameter"
+                      />
                     </div>
-                    <Slider
-                      value={[twoPartSystem.pinDiameter ?? 2.5]}
-                      onValueChange={([v]) => setTwoPartSystem({ pinDiameter: v })}
-                      min={1.5}
-                      max={4}
-                      step={0.5}
-                      data-testid="slider-pin-diameter"
-                    />
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label className="text-xs">Pin Height</Label>
+                        <span className="text-xs text-muted-foreground">{twoPartSystem.pinHeight ?? 3}mm</span>
+                      </div>
+                      <Slider
+                        value={[twoPartSystem.pinHeight ?? 3]}
+                        onValueChange={([v]) => setTwoPartSystem({ pinHeight: v })}
+                        min={2}
+                        max={6}
+                        step={0.5}
+                        data-testid="slider-pin-height"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label className="text-xs">Pin Spacing</Label>
+                        <span className="text-xs text-muted-foreground">{twoPartSystem.pinSpacing ?? 30}mm</span>
+                      </div>
+                      <Slider
+                        value={[twoPartSystem.pinSpacing ?? 30]}
+                        onValueChange={([v]) => setTwoPartSystem({ pinSpacing: v })}
+                        min={15}
+                        max={60}
+                        step={5}
+                        data-testid="slider-pin-spacing"
+                      />
+                    </div>
                   </div>
                 )}
 
