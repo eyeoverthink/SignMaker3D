@@ -3,19 +3,44 @@ import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Upload, Wand2, Image as ImageIcon, X } from "lucide-react";
+import { 
+  Upload, Wand2, Image as ImageIcon, X, Pencil, Circle, Minus, Square, 
+  Undo2, Trash2, MousePointer2, Sparkles
+} from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { SketchPath } from "@shared/schema";
+
+type TraceMode = "auto" | "manual";
+type DrawingTool = "freehand" | "line" | "circle" | "rectangle";
 
 export function ImageTracer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
+  const drawingRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Auto trace state
   const [threshold, setThreshold] = useState(128);
   const [simplify, setSimplify] = useState(2);
+  const [minContourLength, setMinContourLength] = useState(15);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Mode and manual trace state
+  const [traceMode, setTraceMode] = useState<TraceMode>("auto");
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
+  const [manualPaths, setManualPaths] = useState<{ points: { x: number; y: number }[]; closed: boolean }[]>([]);
+  const [brushSize, setBrushSize] = useState(8);
+  const [activeTool, setActiveTool] = useState<DrawingTool>("freehand");
+  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [imageSize, setImageSize] = useState<{ width: number; height: number }>({ width: 600, height: 400 });
 
-  const { uploadedImageData, setUploadedImageData, setTracedPaths, addSketchPath, showGrid } = useEditorStore();
+  const { uploadedImageData, setUploadedImageData, setTracedPaths, setSketchPaths } = useEditorStore();
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -24,6 +49,7 @@ export function ImageTracer() {
     const reader = new FileReader();
     reader.onload = (event) => {
       setUploadedImageData(event.target?.result as string);
+      setManualPaths([]);
     };
     reader.readAsDataURL(file);
   }, [setUploadedImageData]);
@@ -32,6 +58,171 @@ export function ImageTracer() {
     fileInputRef.current?.click();
   }, []);
 
+  // Drawing helpers
+  const getCanvasPoint = useCallback((e: React.MouseEvent | React.TouchEvent): { x: number; y: number } | null => {
+    const canvas = drawingRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+  }, []);
+
+  const smoothPath = useCallback((points: { x: number; y: number }[]): { x: number; y: number }[] => {
+    if (points.length < 3) return points;
+    
+    const smoothed: { x: number; y: number }[] = [points[0]];
+    
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const next = points[i + 1];
+      
+      smoothed.push({
+        x: (prev.x + curr.x * 2 + next.x) / 4,
+        y: (prev.y + curr.y * 2 + next.y) / 4,
+      });
+    }
+    
+    smoothed.push(points[points.length - 1]);
+    return smoothed;
+  }, []);
+
+  const generateShapePoints = useCallback((
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    tool: DrawingTool
+  ): { x: number; y: number }[] => {
+    if (tool === "line") {
+      return [start, end];
+    }
+    
+    if (tool === "circle") {
+      const cx = (start.x + end.x) / 2;
+      const cy = (start.y + end.y) / 2;
+      const rx = Math.abs(end.x - start.x) / 2;
+      const ry = Math.abs(end.y - start.y) / 2;
+      
+      const points: { x: number; y: number }[] = [];
+      const segments = 32;
+      
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        points.push({
+          x: cx + Math.cos(angle) * rx,
+          y: cy + Math.sin(angle) * ry,
+        });
+      }
+      
+      return points;
+    }
+    
+    if (tool === "rectangle") {
+      return [
+        start,
+        { x: end.x, y: start.y },
+        end,
+        { x: start.x, y: end.y },
+        start,
+      ];
+    }
+    
+    return [start, end];
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (traceMode !== "manual") return;
+    
+    const point = getCanvasPoint(e);
+    if (!point) return;
+
+    setIsDrawing(true);
+    setStartPoint(point);
+    
+    if (activeTool === "freehand") {
+      setCurrentPath([point]);
+    } else {
+      setCurrentPath([point, point]);
+    }
+  }, [getCanvasPoint, activeTool, traceMode]);
+
+  const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing || traceMode !== "manual") return;
+
+    const point = getCanvasPoint(e);
+    if (!point) return;
+
+    if (activeTool === "freehand") {
+      setCurrentPath(prev => [...prev, point]);
+    } else if (startPoint) {
+      setCurrentPath(generateShapePoints(startPoint, point, activeTool));
+    }
+  }, [isDrawing, getCanvasPoint, activeTool, startPoint, generateShapePoints, traceMode]);
+
+  const handlePointerUp = useCallback(() => {
+    if (!isDrawing || currentPath.length < 2) {
+      setIsDrawing(false);
+      setCurrentPath([]);
+      setStartPoint(null);
+      return;
+    }
+
+    // Check minimum path size using bounding box diagonal for shapes
+    const minDistance = 10;
+    let pathSize = 0;
+    
+    if (activeTool === "freehand") {
+      // For freehand, sum segment lengths
+      for (let i = 1; i < currentPath.length; i++) {
+        const dx = currentPath[i].x - currentPath[i-1].x;
+        const dy = currentPath[i].y - currentPath[i-1].y;
+        pathSize += Math.sqrt(dx * dx + dy * dy);
+      }
+    } else {
+      // For shapes, use bounding box diagonal
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const p of currentPath) {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+      }
+      pathSize = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2);
+    }
+    
+    if (pathSize < minDistance) {
+      setIsDrawing(false);
+      setCurrentPath([]);
+      setStartPoint(null);
+      return;
+    }
+
+    let finalPath = currentPath;
+    if (activeTool === "freehand") {
+      finalPath = smoothPath(currentPath);
+    }
+
+    const isClosed = activeTool === "circle" || activeTool === "rectangle";
+    setManualPaths(prev => [...prev, { points: finalPath, closed: isClosed }]);
+    setIsDrawing(false);
+    setCurrentPath([]);
+    setStartPoint(null);
+  }, [isDrawing, currentPath, activeTool, smoothPath]);
+
+  const handleUndo = useCallback(() => {
+    setManualPaths(prev => prev.slice(0, -1));
+  }, []);
+
+  const handleClear = useCallback(() => {
+    setManualPaths([]);
+  }, []);
+
+  // Auto trace function
   const traceImage = useCallback(() => {
     const canvas = canvasRef.current;
     const preview = previewRef.current;
@@ -45,6 +236,8 @@ export function ImageTracer() {
       const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
       const width = Math.floor(img.width * scale);
       const height = Math.floor(img.height * scale);
+
+      setImageSize({ width, height });
 
       canvas.width = width;
       canvas.height = height;
@@ -73,7 +266,6 @@ export function ImageTracer() {
       for (let y = 1; y < height - 1; y++) {
         for (let x = 1; x < width - 1; x++) {
           const idx = y * width + x;
-          // Sobel kernels
           const gx = 
             -gray[(y-1)*width + (x-1)] + gray[(y-1)*width + (x+1)] +
             -2*gray[y*width + (x-1)] + 2*gray[y*width + (x+1)] +
@@ -85,13 +277,11 @@ export function ImageTracer() {
         }
       }
       
-      // Find max edge value for normalization
       let maxEdge = 0;
       for (let i = 0; i < edges.length; i++) {
         if (edges[i] > maxEdge) maxEdge = edges[i];
       }
       
-      // Apply threshold to edges
       const edgeThreshold = (threshold / 255) * maxEdge * 0.5;
       for (let i = 0; i < data.length; i += 4) {
         const edgeVal = edges[i / 4];
@@ -103,10 +293,12 @@ export function ImageTracer() {
 
       ctx.putImageData(imageData, 0, 0);
 
-      const contours = extractContours(data, width, height, simplify);
+      const contours = extractContours(data, width, height, simplify, minContourLength);
 
-      // Draw sharp preview
-      previewCtx.fillStyle = '#0f0f1a';
+      // Draw preview with original image underneath
+      previewCtx.drawImage(img, 0, 0, width, height);
+      // Add semi-transparent overlay
+      previewCtx.fillStyle = 'rgba(15, 15, 26, 0.7)';
       previewCtx.fillRect(0, 0, width, height);
 
       const paths: SketchPath[] = [];
@@ -116,7 +308,6 @@ export function ImageTracer() {
       for (const contour of contours) {
         if (contour.length < 3) continue;
 
-        // Draw crisp lines without blur
         previewCtx.strokeStyle = '#00ff88';
         previewCtx.lineWidth = 2;
         previewCtx.lineCap = 'round';
@@ -148,20 +339,107 @@ export function ImageTracer() {
     };
 
     img.src = uploadedImageData;
-  }, [uploadedImageData, threshold, simplify, setTracedPaths]);
+  }, [uploadedImageData, threshold, simplify, minContourLength, setTracedPaths]);
+
+  // Draw manual paths on drawing canvas
+  useEffect(() => {
+    const drawing = drawingRef.current;
+    if (!drawing || !uploadedImageData) return;
+
+    const ctx = drawing.getContext('2d');
+    if (!ctx) return;
+
+    // Load and draw background image
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 600;
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      const width = Math.floor(img.width * scale);
+      const height = Math.floor(img.height * scale);
+
+      drawing.width = width;
+      drawing.height = height;
+      setImageSize({ width, height });
+
+      // Draw image with overlay
+      ctx.drawImage(img, 0, 0, width, height);
+      ctx.fillStyle = 'rgba(15, 15, 26, 0.5)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw existing manual paths
+      ctx.strokeStyle = '#ff6b9d';
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = '#ff6b9d';
+      ctx.shadowBlur = 10;
+
+      for (const pathObj of manualPaths) {
+        if (pathObj.points.length < 2) continue;
+        ctx.beginPath();
+        ctx.moveTo(pathObj.points[0].x, pathObj.points[0].y);
+        for (let i = 1; i < pathObj.points.length; i++) {
+          ctx.lineTo(pathObj.points[i].x, pathObj.points[i].y);
+        }
+        if (pathObj.closed) {
+          ctx.closePath();
+        }
+        ctx.stroke();
+      }
+
+      // Draw current path
+      if (currentPath.length > 1) {
+        ctx.strokeStyle = '#00ff88';
+        ctx.shadowColor = '#00ff88';
+        ctx.beginPath();
+        ctx.moveTo(currentPath[0].x, currentPath[0].y);
+        for (let i = 1; i < currentPath.length; i++) {
+          ctx.lineTo(currentPath[i].x, currentPath[i].y);
+        }
+        ctx.stroke();
+      }
+
+      ctx.shadowBlur = 0;
+    };
+    img.src = uploadedImageData;
+  }, [uploadedImageData, manualPaths, currentPath, brushSize]);
 
   const applyTracedPaths = useCallback(() => {
-    const { tracedPaths, setSketchPaths } = useEditorStore.getState();
-    // Replace existing paths with traced paths (not add to them)
-    setSketchPaths(tracedPaths);
+    if (traceMode === "auto") {
+      const { tracedPaths } = useEditorStore.getState();
+      setSketchPaths(tracedPaths);
+    } else {
+      // Convert manual paths to sketch paths
+      const { width, height } = imageSize;
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      const paths: SketchPath[] = manualPaths.map((pathObj, idx) => ({
+        id: `manual-${Date.now()}-${idx}`,
+        points: pathObj.points.map(p => ({
+          x: (p.x - centerX) * 0.5,
+          y: (centerY - p.y) * 0.5,
+        })),
+        closed: pathObj.closed,
+      }));
+
+      setSketchPaths(paths);
+    }
     useEditorStore.getState().setInputMode("draw");
-  }, []);
+  }, [traceMode, manualPaths, imageSize, setSketchPaths]);
 
   useEffect(() => {
-    if (uploadedImageData) {
+    if (uploadedImageData && traceMode === "auto") {
       traceImage();
     }
-  }, [uploadedImageData, traceImage]);
+  }, [uploadedImageData, traceImage, traceMode]);
+
+  const tools: { id: DrawingTool; icon: typeof Pencil; label: string }[] = [
+    { id: "freehand", icon: Pencil, label: "Freehand" },
+    { id: "line", icon: Minus, label: "Line" },
+    { id: "circle", icon: Circle, label: "Circle/Oval" },
+    { id: "rectangle", icon: Square, label: "Rectangle" },
+  ];
 
   if (!uploadedImageData) {
     return (
@@ -208,55 +486,213 @@ export function ImageTracer() {
 
   return (
     <div ref={containerRef} className="w-full h-full flex flex-col">
-      <div className="flex-1 flex items-center justify-center p-4 bg-muted/30">
-        <div className="relative">
-          <canvas ref={canvasRef} className="hidden" />
-          <canvas
-            ref={previewRef}
-            className="max-w-full max-h-full rounded-lg shadow-lg"
-            data-testid="image-preview-canvas"
-          />
-          {isProcessing && (
-            <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
-              <div className="text-sm text-muted-foreground">Processing...</div>
+      {/* Mode Toggle */}
+      <div className="p-3 border-b bg-card flex items-center gap-2">
+        <Button
+          variant={traceMode === "auto" ? "default" : "outline"}
+          size="sm"
+          onClick={() => {
+            setTraceMode("auto");
+            traceImage();
+          }}
+          data-testid="button-auto-trace-mode"
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          Auto Trace
+        </Button>
+        <Button
+          variant={traceMode === "manual" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTraceMode("manual")}
+          data-testid="button-manual-trace-mode"
+        >
+          <MousePointer2 className="h-4 w-4 mr-2" />
+          Manual Trace
+        </Button>
+        
+        <div className="flex-1" />
+        
+        <span className="text-xs text-muted-foreground">
+          {traceMode === "auto" 
+            ? `${useEditorStore.getState().tracedPaths.length} paths detected`
+            : `${manualPaths.length} paths drawn`
+          }
+        </span>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center p-4 bg-muted/30 relative">
+        {traceMode === "auto" ? (
+          <div className="relative">
+            <canvas ref={canvasRef} className="hidden" />
+            <canvas
+              ref={previewRef}
+              className="max-w-full max-h-full rounded-lg shadow-lg"
+              data-testid="image-preview-canvas"
+            />
+            {isProcessing && (
+              <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
+                <div className="text-sm text-muted-foreground">Processing...</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Manual trace drawing canvas */}
+            <canvas
+              ref={drawingRef}
+              onMouseDown={handlePointerDown}
+              onMouseMove={handlePointerMove}
+              onMouseUp={handlePointerUp}
+              onMouseLeave={handlePointerUp}
+              onTouchStart={handlePointerDown}
+              onTouchMove={handlePointerMove}
+              onTouchEnd={handlePointerUp}
+              className="max-w-full max-h-full rounded-lg shadow-lg cursor-crosshair touch-none"
+              data-testid="manual-trace-canvas"
+            />
+            
+            {/* Drawing tools overlay */}
+            <div className="absolute top-8 left-8 flex flex-col gap-3">
+              <div className="bg-card/90 backdrop-blur-sm rounded-lg p-3 border shadow-lg">
+                <div className="flex gap-1 mb-3">
+                  {tools.map((tool) => (
+                    <Tooltip key={tool.id}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant={activeTool === tool.id ? "default" : "ghost"}
+                          onClick={() => setActiveTool(tool.id)}
+                          data-testid={`tool-${tool.id}`}
+                        >
+                          <tool.icon className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>{tool.label}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-xs">Brush Size</Label>
+                    <span className="text-xs text-muted-foreground font-mono">{brushSize}px</span>
+                  </div>
+                  <Slider
+                    value={[brushSize]}
+                    onValueChange={([v]) => setBrushSize(v)}
+                    min={2}
+                    max={20}
+                    step={1}
+                    className="w-32"
+                    data-testid="slider-brush-size"
+                  />
+                </div>
+              </div>
+              
+              <div className="bg-card/90 backdrop-blur-sm rounded-lg p-2 border shadow-lg flex gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleUndo}
+                      disabled={manualPaths.length === 0}
+                      data-testid="button-undo"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Undo Last Stroke</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleClear}
+                      disabled={manualPaths.length === 0}
+                      data-testid="button-clear"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Clear All Strokes</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
-          )}
-        </div>
+
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg">
+              <p className="text-xs text-muted-foreground text-center">
+                Trace over the image with your mouse or finger
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="p-4 border-t bg-card space-y-4">
-        <div className="flex gap-6">
-          <div className="flex-1 space-y-2">
-            <div className="flex justify-between">
-              <Label className="text-sm">Edge Sensitivity</Label>
-              <span className="text-xs text-muted-foreground">{threshold}</span>
+        {traceMode === "auto" ? (
+          <>
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Edge Sensitivity</Label>
+                  <span className="text-xs text-muted-foreground">{threshold}</span>
+                </div>
+                <Slider
+                  value={[threshold]}
+                  onValueChange={([v]) => setThreshold(v)}
+                  min={20}
+                  max={200}
+                  step={5}
+                  data-testid="slider-threshold"
+                />
+                <p className="text-xs text-muted-foreground">Lower = more edges</p>
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Detail Level</Label>
+                  <span className="text-xs text-muted-foreground">{simplify}</span>
+                </div>
+                <Slider
+                  value={[simplify]}
+                  onValueChange={([v]) => setSimplify(v)}
+                  min={1}
+                  max={5}
+                  step={1}
+                  data-testid="slider-simplify"
+                />
+                <p className="text-xs text-muted-foreground">Lower = more detail</p>
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Min Path Length</Label>
+                  <span className="text-xs text-muted-foreground">{minContourLength}</span>
+                </div>
+                <Slider
+                  value={[minContourLength]}
+                  onValueChange={([v]) => setMinContourLength(v)}
+                  min={5}
+                  max={50}
+                  step={5}
+                  data-testid="slider-min-contour"
+                />
+                <p className="text-xs text-muted-foreground">Higher = less noise</p>
+              </div>
             </div>
-            <Slider
-              value={[threshold]}
-              onValueChange={([v]) => setThreshold(v)}
-              min={20}
-              max={200}
-              step={5}
-              data-testid="slider-threshold"
-            />
-            <p className="text-xs text-muted-foreground">Lower = more edges detected</p>
+          </>
+        ) : (
+          <div className="text-sm text-muted-foreground text-center py-2">
+            Draw paths directly on the image above. Use the tools on the left to switch between freehand, line, circle, and rectangle.
           </div>
-          <div className="flex-1 space-y-2">
-            <div className="flex justify-between">
-              <Label className="text-sm">Detail Level</Label>
-              <span className="text-xs text-muted-foreground">{simplify}</span>
-            </div>
-            <Slider
-              value={[simplify]}
-              onValueChange={([v]) => setSimplify(v)}
-              min={1}
-              max={5}
-              step={1}
-              data-testid="slider-simplify"
-            />
-            <p className="text-xs text-muted-foreground">Lower = more detail</p>
-          </div>
-        </div>
+        )}
 
         <div className="flex gap-2">
           <input
@@ -273,6 +709,7 @@ export function ImageTracer() {
             onClick={() => {
               setUploadedImageData(null);
               setTracedPaths([]);
+              setManualPaths([]);
             }}
             data-testid="button-clear-image"
             title="Remove image"
@@ -288,23 +725,25 @@ export function ImageTracer() {
             <Upload className="h-4 w-4 mr-2" />
             Change
           </Button>
-          <Button
-            variant="outline"
-            onClick={traceImage}
-            disabled={isProcessing}
-            data-testid="button-retrace"
-          >
-            <Wand2 className="h-4 w-4 mr-2" />
-            Re-trace
-          </Button>
+          {traceMode === "auto" && (
+            <Button
+              variant="outline"
+              onClick={traceImage}
+              disabled={isProcessing}
+              data-testid="button-retrace"
+            >
+              <Wand2 className="h-4 w-4 mr-2" />
+              Re-trace
+            </Button>
+          )}
           <Button
             variant="default"
             className="flex-1"
             onClick={applyTracedPaths}
-            disabled={isProcessing}
+            disabled={isProcessing || (traceMode === "auto" ? useEditorStore.getState().tracedPaths.length === 0 : manualPaths.length === 0)}
             data-testid="button-apply-trace"
           >
-            Apply Traced Paths
+            Apply {traceMode === "auto" ? "Traced" : "Manual"} Paths
           </Button>
         </div>
       </div>
@@ -316,7 +755,8 @@ function extractContours(
   data: Uint8ClampedArray,
   width: number,
   height: number,
-  simplify: number
+  simplify: number,
+  minLength: number
 ): { x: number; y: number }[][] {
   const contours: { x: number; y: number }[][] = [];
   const visited = new Set<number>();
@@ -376,7 +816,8 @@ function extractContours(
         steps++;
       }
 
-      if (contour.length >= 4) {
+      // Only include contours that meet minimum length
+      if (contour.length >= minLength) {
         contours.push(contour);
       }
     }
