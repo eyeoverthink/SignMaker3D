@@ -685,11 +685,10 @@ function createDiffuserCap(
   const capBottomZ = baseThickness + wallHeight;
   const capTopZ = capBottomZ + capThickness;
   
-  // Cap width spans the entire base (channel + both walls) plus small overlap
-  // Total base width = channelWidth + 2*wallThickness
-  // Cap should be slightly smaller to fit between outer edges with tolerance for snap fit
-  const totalBaseWidth = channelWidth + (2 * wallThickness);
-  const halfWidth = (totalBaseWidth / 2) - tolerance;
+  // Cap sits ON TOP of the walls, slightly wider than channel opening
+  // The extra width creates a lip that rests on the wall tops for snap-fit
+  // halfWidth = channel radius + small overlap for resting on walls
+  const halfWidth = (channelWidth / 2) + tolerance;
   
   // Build profile for each path point - simple rectangle cross-section
   interface CapProfile {
