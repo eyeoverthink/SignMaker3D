@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { fontOptions } from "@shared/schema";
-import { Upload } from "lucide-react";
+import { Upload, FlipHorizontal2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCallback } from "react";
 
@@ -20,6 +20,8 @@ export function SettingsPanel() {
     setTubeSettings,
     twoPartSystem,
     setTwoPartSystem,
+    geometrySettings,
+    setGeometrySettings,
     setUploadedImageData,
   } = useEditorStore();
 
@@ -432,6 +434,48 @@ export function SettingsPanel() {
                   </p>
                 </div>
               </>
+            )}
+          </section>
+
+          <Separator />
+
+          <section className="space-y-4">
+            <h3 className="text-sm font-medium">Export Options</h3>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FlipHorizontal2 className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <Label className="text-xs">Mirror (Flip)</Label>
+                  <p className="text-xs text-muted-foreground">For back-lit mounting</p>
+                </div>
+              </div>
+              <Switch
+                checked={geometrySettings.mirrorX || false}
+                onCheckedChange={(checked) => setGeometrySettings({ mirrorX: checked })}
+                data-testid="switch-mirror-x"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <Label className="text-xs">Diffuser Cap</Label>
+                  <p className="text-xs text-muted-foreground">Snap-on lid for light diffusion</p>
+                </div>
+              </div>
+              <Switch
+                checked={geometrySettings.generateDiffuserCap || false}
+                onCheckedChange={(checked) => setGeometrySettings({ generateDiffuserCap: checked })}
+                data-testid="switch-diffuser-cap"
+              />
+            </div>
+            
+            {geometrySettings.generateDiffuserCap && (
+              <p className="text-xs text-muted-foreground pl-6">
+                Print cap in translucent filament for best light diffusion
+              </p>
             )}
           </section>
         </div>
