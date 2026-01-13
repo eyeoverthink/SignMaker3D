@@ -184,7 +184,11 @@ export function SettingsPanel() {
                 </div>
                 <Slider
                   value={[tubeSettings.filamentDiameter]}
-                  onValueChange={([v]) => setTubeSettings({ filamentDiameter: v })}
+                  onValueChange={([v]) => setTubeSettings({ 
+                    filamentDiameter: v, 
+                    neonTubeDiameter: v,
+                    neonTubeSize: `${v}mm` as any
+                  })}
                   min={8}
                   max={20}
                   step={1}
@@ -220,6 +224,21 @@ export function SettingsPanel() {
                 max={5}
                 step={0.5}
                 data-testid="slider-wall-thickness"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label>Wall Height</Label>
+                <span className="text-xs text-muted-foreground">{tubeSettings.wallHeight}mm</span>
+              </div>
+              <Slider
+                value={[tubeSettings.wallHeight]}
+                onValueChange={([v]) => setTubeSettings({ wallHeight: v })}
+                min={5}
+                max={30}
+                step={1}
+                data-testid="slider-wall-height"
               />
             </div>
           </section>
