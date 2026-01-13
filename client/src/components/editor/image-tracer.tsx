@@ -1157,8 +1157,42 @@ function extractContours(
     }
   }
 
-  // Post-process: remove contours that are likely noise (too short or circular with small area)
-  return contours.filter(contour => {
+  // Post-process: split contours that have large jumps between points
+  const splitContours: { x: number; y: number }[][] = [];
+  const maxPointDistance = 3; // Max distance between consecutive points
+  
+  for (const contour of contours) {
+    let segment: { x: number; y: number }[] = [];
+    
+    for (let i = 0; i < contour.length; i++) {
+      const point = contour[i];
+      
+      if (segment.length === 0) {
+        segment.push(point);
+      } else {
+        const lastPoint = segment[segment.length - 1];
+        const dist = Math.sqrt((point.x - lastPoint.x) ** 2 + (point.y - lastPoint.y) ** 2);
+        
+        if (dist <= maxPointDistance) {
+          segment.push(point);
+        } else {
+          // Large jump detected - save current segment and start new one
+          if (segment.length >= minLength) {
+            splitContours.push(segment);
+          }
+          segment = [point];
+        }
+      }
+    }
+    
+    // Don't forget the last segment
+    if (segment.length >= minLength) {
+      splitContours.push(segment);
+    }
+  }
+
+  // Final filter: remove tiny contours
+  return splitContours.filter(contour => {
     if (contour.length < minLength) return false;
     
     // Calculate bounding box
