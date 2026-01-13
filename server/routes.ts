@@ -187,6 +187,8 @@ export async function registerRoutes(
       
       console.log(`[Export] inputMode: ${inputMode}, sketchPaths count: ${sketchPaths.length}`);
       console.log(`[Export] twoPartSystem.enabled: ${twoPartSystem.enabled}, geometrySettings.mode: ${geometrySettings.mode}, format: ${format}`);
+      console.log(`[Export] tubeSettings: diameter=${tubeSettings.neonTubeDiameter}, wallHeight=${tubeSettings.wallHeight}`);
+      console.log(`[Export] twoPartSystem: wallHeight=${twoPartSystem.baseWallHeight}, wallThickness=${twoPartSystem.baseWallThickness}`);
       if (sketchPaths.length > 0) {
         console.log(`[Export] First path has ${sketchPaths[0].points.length} points`);
       }

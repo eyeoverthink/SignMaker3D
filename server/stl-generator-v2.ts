@@ -818,12 +818,15 @@ export function generateNeonSignV2(
   inputMode: "text" | "draw" | "image" = "text",
   options: NeonSignOptions = {}
 ): ExportedPart[] {
-  // Channel dimensions from settings
+  // Channel dimensions from settings - prioritize tubeSettings, fallback to twoPartSystem
   const channelWidth = tubeSettings.neonTubeDiameter || 12;
   const wallThickness = twoPartSystem.baseWallThickness || 2;
-  const wallHeight = twoPartSystem.baseWallHeight || 15;
+  // Use tubeSettings.wallHeight if set, otherwise fall back to twoPartSystem.baseWallHeight
+  const wallHeight = tubeSettings.wallHeight || twoPartSystem.baseWallHeight || 15;
   const baseThickness = 3;
   const capThickness = twoPartSystem.capThickness || 2;
+  
+  console.log(`[V2 Generator] channelWidth=${channelWidth}, wallHeight=${wallHeight}, wallThickness=${wallThickness}`);
   
   let allTriangles: Triangle[] = [];
   let capTriangles: Triangle[] = [];
