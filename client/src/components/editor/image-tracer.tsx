@@ -151,12 +151,11 @@ export function ImageTracer() {
   }, [uploadedImageData, threshold, simplify, setTracedPaths]);
 
   const applyTracedPaths = useCallback(() => {
-    const { tracedPaths } = useEditorStore.getState();
-    for (const path of tracedPaths) {
-      addSketchPath(path);
-    }
+    const { tracedPaths, setSketchPaths } = useEditorStore.getState();
+    // Replace existing paths with traced paths (not add to them)
+    setSketchPaths(tracedPaths);
     useEditorStore.getState().setInputMode("draw");
-  }, [addSketchPath]);
+  }, []);
 
   useEffect(() => {
     if (uploadedImageData) {
@@ -271,7 +270,10 @@ export function ImageTracer() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setUploadedImageData(null)}
+            onClick={() => {
+              setUploadedImageData(null);
+              setTracedPaths([]);
+            }}
             data-testid="button-clear-image"
             title="Remove image"
           >
