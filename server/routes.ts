@@ -184,6 +184,11 @@ export async function registerRoutes(
       const twoPartSystem = parsed.data.twoPartSystem || defaultTwoPartSystem;
       const sketchPaths = parsed.data.sketchPaths || [];
       const inputMode = parsed.data.inputMode || "text";
+      
+      console.log(`[Export] inputMode: ${inputMode}, sketchPaths count: ${sketchPaths.length}`);
+      if (sketchPaths.length > 0) {
+        console.log(`[Export] First path has ${sketchPaths[0].points.length} points`);
+      }
 
       if (twoPartSystem.enabled && geometrySettings.mode === "outline" && format !== "3mf") {
         const exportedParts = generateNeonSignV2(
