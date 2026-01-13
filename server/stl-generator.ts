@@ -1,4 +1,4 @@
-import type { LetterSettings, WiringSettings, MountingSettings } from "@shared/schema";
+import type { LetterSettings, WiringSettings, MountingSettings, GeometrySettings } from "@shared/schema";
 
 interface Vector3 {
   x: number;
@@ -11,6 +11,12 @@ interface Triangle {
   v1: Vector3;
   v2: Vector3;
   v3: Vector3;
+}
+
+interface GeneratedPart {
+  name: string;
+  triangles: Triangle[];
+  material: string;
 }
 
 function normalize(v: Vector3): Vector3 {
@@ -140,7 +146,7 @@ function generateCylinderTriangles(
   return triangles;
 }
 
-function trianglesToSTL(triangles: Triangle[]): Buffer {
+function trianglesToSTL(triangles: Triangle[], header: string = "SignCraft 3D STL Export"): Buffer {
   const headerSize = 80;
   const triangleCountSize = 4;
   const triangleSize = 50;
@@ -149,7 +155,6 @@ function trianglesToSTL(triangles: Triangle[]): Buffer {
   const buffer = Buffer.alloc(bufferSize);
   let offset = 0;
 
-  const header = "SignCraft 3D STL Export";
   buffer.write(header, 0, "ascii");
   offset = headerSize;
 
@@ -184,7 +189,7 @@ function trianglesToSTL(triangles: Triangle[]): Buffer {
   return buffer;
 }
 
-function trianglesToOBJ(triangles: Triangle[]): string {
+function trianglesToOBJ(triangles: Triangle[], objectName: string = "signage"): string {
   const vertices: Vector3[] = [];
   const vertexIndices: Map<string, number> = new Map();
   const faces: number[][] = [];
@@ -210,6 +215,7 @@ function trianglesToOBJ(triangles: Triangle[]): string {
   let obj = "# SignCraft 3D OBJ Export\n";
   obj += `# Vertices: ${vertices.length}\n`;
   obj += `# Faces: ${faces.length}\n\n`;
+  obj += `o ${objectName}\n`;
 
   for (const v of vertices) {
     obj += `v ${v.x.toFixed(6)} ${v.y.toFixed(6)} ${v.z.toFixed(6)}\n`;
@@ -224,63 +230,253 @@ function trianglesToOBJ(triangles: Triangle[]): string {
   return obj;
 }
 
-export function generateSignage(
-  letterSettings: LetterSettings,
-  wiringSettings: WiringSettings,
-  mountingSettings: MountingSettings,
-  format: "stl" | "obj" | "3mf"
-): Buffer | string {
+function generateLetterGeometry(
+  text: string,
+  scale: number,
+  letterHeight: number,
+  zOffset: number
+): Triangle[] {
   const triangles: Triangle[] = [];
-
   const charWidth = 30;
-  const charHeight = 45;
+  const charHeightBase = 45;
   const spacing = 5;
-  const text = letterSettings.text || "A";
 
   for (let i = 0; i < text.length; i++) {
-    const charOffset = (i - (text.length - 1) / 2) * (charWidth + spacing) * letterSettings.scale;
+    const charOffset = (i - (text.length - 1) / 2) * (charWidth + spacing) * scale;
 
     const letterTriangles = generateBoxTriangles(
-      charWidth * letterSettings.scale,
-      charHeight * letterSettings.scale,
-      letterSettings.depth,
+      charWidth * scale,
+      charHeightBase * scale,
+      letterHeight,
       charOffset,
       0,
-      0
+      zOffset + letterHeight / 2
     );
     triangles.push(...letterTriangles);
   }
 
+  return triangles;
+}
+
+function generateBackingPlate(
+  text: string,
+  scale: number,
+  backingThickness: number,
+  paddingX: number = 10,
+  paddingY: number = 8
+): Triangle[] {
+  const charWidth = 30;
+  const charHeight = 45;
+  const spacing = 5;
+
+  const totalWidth = (text.length * (charWidth + spacing) - spacing) * scale + paddingX * 2;
+  const totalHeight = charHeight * scale + paddingY * 2;
+
+  return generateBoxTriangles(
+    totalWidth,
+    totalHeight,
+    backingThickness,
+    0,
+    0,
+    -backingThickness / 2
+  );
+}
+
+function generateStencilCutouts(
+  text: string,
+  scale: number,
+  backingThickness: number,
+  paddingX: number = 10,
+  paddingY: number = 8
+): { backing: Triangle[]; cutouts: Triangle[] } {
+  const charWidth = 30;
+  const charHeight = 45;
+  const spacing = 5;
+
+  const totalWidth = (text.length * (charWidth + spacing) - spacing) * scale + paddingX * 2;
+  const totalHeight = charHeight * scale + paddingY * 2;
+
+  const backing = generateBoxTriangles(
+    totalWidth,
+    totalHeight,
+    backingThickness,
+    0,
+    0,
+    0
+  );
+
+  const cutouts: Triangle[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const charOffset = (i - (text.length - 1) / 2) * (charWidth + spacing) * scale;
+    const cutoutTriangles = generateBoxTriangles(
+      charWidth * scale * 0.85,
+      charHeight * scale * 0.85,
+      backingThickness + 2,
+      charOffset,
+      0,
+      0
+    );
+    cutouts.push(...cutoutTriangles);
+  }
+
+  return { backing, cutouts };
+}
+
+export interface GeneratedSignage {
+  parts: GeneratedPart[];
+  combined: Triangle[];
+}
+
+export function generateSignageParts(
+  letterSettings: LetterSettings,
+  geometrySettings: GeometrySettings,
+  wiringSettings: WiringSettings,
+  mountingSettings: MountingSettings
+): GeneratedSignage {
+  const parts: GeneratedPart[] = [];
+  const text = letterSettings.text || "A";
+  const scale = letterSettings.scale;
+  
+  const charWidth = 30;
+  const charHeight = 45;
+  const spacing = 5;
+  const paddingX = 10;
+  const paddingY = 8;
+  const totalWidth = (text.length * (charWidth + spacing) - spacing) * scale + paddingX * 2;
+  const totalHeight = charHeight * scale + paddingY * 2;
+
+  switch (geometrySettings.mode) {
+    case "raised": {
+      const backingTriangles = generateBackingPlate(
+        text, 
+        scale, 
+        geometrySettings.backingThickness,
+        paddingX,
+        paddingY
+      );
+      parts.push({
+        name: "backing",
+        triangles: backingTriangles,
+        material: geometrySettings.backingMaterial,
+      });
+
+      const letterZOffset = geometrySettings.letterOffset;
+      const letterTriangles = generateLetterGeometry(
+        text,
+        scale,
+        geometrySettings.letterHeight,
+        letterZOffset
+      );
+      parts.push({
+        name: "letters",
+        triangles: letterTriangles,
+        material: geometrySettings.letterMaterial,
+      });
+      break;
+    }
+
+    case "stencil": {
+      const backingTriangles = generateBoxTriangles(
+        totalWidth,
+        totalHeight,
+        geometrySettings.backingThickness,
+        0,
+        0,
+        0
+      );
+      parts.push({
+        name: "backing_with_cutouts",
+        triangles: backingTriangles,
+        material: geometrySettings.backingMaterial,
+      });
+      break;
+    }
+
+    case "layered": {
+      const backingTriangles = generateBackingPlate(
+        text,
+        scale,
+        geometrySettings.backingThickness,
+        paddingX,
+        paddingY
+      );
+      parts.push({
+        name: "backing_plate",
+        triangles: backingTriangles,
+        material: geometrySettings.backingMaterial,
+      });
+
+      const letterTriangles = generateLetterGeometry(
+        text,
+        scale,
+        geometrySettings.letterHeight,
+        geometrySettings.backingThickness / 2 + geometrySettings.letterOffset
+      );
+      parts.push({
+        name: "letters_separate",
+        triangles: letterTriangles,
+        material: geometrySettings.letterMaterial,
+      });
+      break;
+    }
+
+    case "flat":
+    default: {
+      const flatTriangles: Triangle[] = [];
+      for (let i = 0; i < text.length; i++) {
+        const charOffset = (i - (text.length - 1) / 2) * (charWidth + spacing) * scale;
+        const letterTris = generateBoxTriangles(
+          charWidth * scale,
+          charHeight * scale,
+          letterSettings.depth,
+          charOffset,
+          0,
+          0
+        );
+        flatTriangles.push(...letterTris);
+      }
+      parts.push({
+        name: "flat_letters",
+        triangles: flatTriangles,
+        material: geometrySettings.letterMaterial,
+      });
+      break;
+    }
+  }
+
   if (wiringSettings.channelType !== "none") {
     const channelRadius = wiringSettings.channelDiameter / 2;
-    const totalWidth = text.length * (charWidth + spacing) * letterSettings.scale;
+    const channelWidth = totalWidth * 0.9;
 
     const yOffset =
       wiringSettings.channelType === "back"
-        ? (-charHeight * letterSettings.scale) / 3
+        ? (-charHeight * scale) / 3
         : 0;
     const zOffset =
       wiringSettings.channelType === "back"
-        ? -letterSettings.depth / 2 + channelRadius
-        : 0;
+        ? -geometrySettings.backingThickness / 2 - channelRadius
+        : geometrySettings.letterHeight / 2;
 
     const channelTriangles = generateCylinderTriangles(
       channelRadius,
-      totalWidth,
+      channelWidth,
       16,
       0,
       yOffset,
       zOffset,
       true
     );
-    triangles.push(...channelTriangles);
+    parts.push({
+      name: "wiring_channel",
+      triangles: channelTriangles,
+      material: "opaque",
+    });
   }
 
   if (mountingSettings.pattern !== "none") {
     const holeRadius = mountingSettings.holeDiameter / 2;
-    const totalWidth = text.length * (charWidth + spacing) * letterSettings.scale;
-    const baseX = totalWidth / 2 - mountingSettings.insetFromEdge;
-    const baseY = (charHeight * letterSettings.scale) / 2 - mountingSettings.insetFromEdge;
+    const baseX = totalWidth / 2 - mountingSettings.insetFromEdge - paddingX;
+    const baseY = totalHeight / 2 - mountingSettings.insetFromEdge - paddingY;
 
     const holePositions: [number, number][] = [];
 
@@ -308,22 +504,80 @@ export function generateSignage(
         break;
     }
 
+    const holeTriangles: Triangle[] = [];
     for (const [x, y] of holePositions) {
-      const holeTriangles = generateCylinderTriangles(
+      const holeTris = generateCylinderTriangles(
         holeRadius,
         mountingSettings.holeDepth,
         16,
         x,
         y,
-        letterSettings.depth / 2 - mountingSettings.holeDepth / 2
+        -geometrySettings.backingThickness / 2
       );
-      triangles.push(...holeTriangles);
+      holeTriangles.push(...holeTris);
+    }
+    
+    if (holeTriangles.length > 0) {
+      parts.push({
+        name: "mounting_holes",
+        triangles: holeTriangles,
+        material: "opaque",
+      });
     }
   }
 
+  const combined = parts.flatMap(p => p.triangles);
+
+  return { parts, combined };
+}
+
+export function generateSignage(
+  letterSettings: LetterSettings,
+  wiringSettings: WiringSettings,
+  mountingSettings: MountingSettings,
+  format: "stl" | "obj" | "3mf",
+  geometrySettings?: GeometrySettings
+): Buffer | string {
+  const geo = geometrySettings || {
+    mode: "flat" as const,
+    letterHeight: letterSettings.depth,
+    backingThickness: 5,
+    letterOffset: 0,
+    letterMaterial: "opaque" as const,
+    backingMaterial: "opaque" as const,
+    separateFiles: false,
+  };
+
+  const { combined } = generateSignageParts(letterSettings, geo, wiringSettings, mountingSettings);
+
   if (format === "obj") {
-    return trianglesToOBJ(triangles);
+    return trianglesToOBJ(combined, letterSettings.text.replace(/\s/g, "_"));
   }
 
-  return trianglesToSTL(triangles);
+  return trianglesToSTL(combined);
+}
+
+export function generateMultiPartExport(
+  letterSettings: LetterSettings,
+  geometrySettings: GeometrySettings,
+  wiringSettings: WiringSettings,
+  mountingSettings: MountingSettings,
+  format: "stl" | "obj"
+): Map<string, Buffer | string> {
+  const { parts } = generateSignageParts(letterSettings, geometrySettings, wiringSettings, mountingSettings);
+  const files = new Map<string, Buffer | string>();
+
+  const textSlug = letterSettings.text.replace(/\s/g, "_");
+
+  for (const part of parts) {
+    const filename = `${textSlug}_${part.name}_${part.material}.${format}`;
+    
+    if (format === "obj") {
+      files.set(filename, trianglesToOBJ(part.triangles, part.name));
+    } else {
+      files.set(filename, trianglesToSTL(part.triangles, `SignCraft 3D - ${part.name}`));
+    }
+  }
+
+  return files;
 }

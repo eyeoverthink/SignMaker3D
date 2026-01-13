@@ -1,18 +1,23 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateSignage } from "./stl-generator";
+import { generateSignage, generateMultiPartExport } from "./stl-generator";
 import {
   letterSettingsSchema,
+  geometrySettingsSchema,
   wiringSettingsSchema,
   mountingSettingsSchema,
   insertProjectSchema,
   fontOptions,
+  defaultGeometrySettings,
+  defaultWiringSettings,
+  defaultMountingSettings,
 } from "@shared/schema";
 import { z } from "zod";
 
 const exportRequestSchema = z.object({
   letterSettings: letterSettingsSchema,
+  geometrySettings: geometrySettingsSchema.optional(),
   wiringSettings: wiringSettingsSchema.optional(),
   mountingSettings: mountingSettingsSchema.optional(),
   format: z.enum(["stl", "obj", "3mf"]).default("stl"),
@@ -92,24 +97,55 @@ export async function registerRoutes(
       }
 
       const { letterSettings, format } = parsed.data;
-      const wiringSettings = parsed.data.wiringSettings || {
-        channelType: "none" as const,
-        channelDiameter: 6,
-        channelDepth: 15,
-      };
-      const mountingSettings = parsed.data.mountingSettings || {
-        pattern: "none" as const,
-        holeDiameter: 4,
-        holeDepth: 15,
-        holeCount: 4,
-        insetFromEdge: 8,
-      };
+      const geometrySettings = parsed.data.geometrySettings || defaultGeometrySettings;
+      const wiringSettings = parsed.data.wiringSettings || defaultWiringSettings;
+      const mountingSettings = parsed.data.mountingSettings || defaultMountingSettings;
+
+      const shouldExportSeparate = geometrySettings.separateFiles && 
+        (geometrySettings.mode === "layered" || geometrySettings.mode === "raised");
+
+      if (shouldExportSeparate && format !== "3mf") {
+        const files = generateMultiPartExport(
+          letterSettings,
+          geometrySettings,
+          wiringSettings,
+          mountingSettings,
+          format as "stl" | "obj"
+        );
+
+        const textSlug = letterSettings.text.replace(/\s/g, "_");
+        
+        let combinedContent = "";
+        let combinedBuffer = Buffer.alloc(0);
+        
+        if (format === "obj") {
+          combinedContent = `# SignCraft 3D Multi-Part Export\n# Parts: ${files.size}\n\n`;
+          files.forEach((content, filename) => {
+            combinedContent += `# === ${filename} ===\n${content}\n\n`;
+          });
+          res.setHeader("Content-Type", "text/plain");
+          res.setHeader("Content-Disposition", `attachment; filename="${textSlug}_multipart.${format}"`);
+          res.send(combinedContent);
+        } else {
+          const entries = Array.from(files.entries());
+          if (entries.length > 0) {
+            const [filename, content] = entries[0];
+            if (Buffer.isBuffer(content)) {
+              res.setHeader("Content-Type", "application/octet-stream");
+              res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+              res.send(content);
+            }
+          }
+        }
+        return;
+      }
 
       const result = generateSignage(
         letterSettings,
         wiringSettings,
         mountingSettings,
-        format
+        format,
+        geometrySettings
       );
 
       const filename = `${letterSettings.text.replace(/\s/g, "_")}_signage.${format}`;

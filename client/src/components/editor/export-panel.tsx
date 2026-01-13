@@ -1,8 +1,9 @@
-import { Download, FileBox, Loader2, Info } from "lucide-react";
+import { Download, FileBox, Loader2, Info, Package } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -20,9 +21,16 @@ const formatDescriptions: Record<ExportFormat, string> = {
   "3mf": "Modern format with material info",
 };
 
+const geometryModeLabels: Record<string, string> = {
+  raised: "Raised Letters",
+  stencil: "Cut-Out Stencil",
+  layered: "Layered Parts",
+  flat: "Flat/Engraved",
+};
+
 export function ExportPanel() {
   const [format, setFormat] = useState<ExportFormat>("stl");
-  const { letterSettings, wiringSettings, mountingSettings, isExporting, setIsExporting } = useEditorStore();
+  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, isExporting, setIsExporting } = useEditorStore();
   const { toast } = useToast();
 
   const handleExport = async () => {
@@ -43,6 +51,7 @@ export function ExportPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           letterSettings,
+          geometrySettings,
           wiringSettings,
           mountingSettings,
           format,
@@ -121,19 +130,56 @@ export function ExportPanel() {
           </p>
         </div>
 
-        <div className="p-3 bg-muted/50 rounded-md space-y-2">
+        <div className="p-3 bg-muted/50 rounded-md space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <Info className="h-4 w-4 text-muted-foreground" />
-            Estimates
+            <Package className="h-4 w-4 text-muted-foreground" />
+            Export Summary
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span className="text-muted-foreground">File size:</span>
-              <span className="ml-1 font-mono">~{estimatedSize}KB</span>
+          
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Geometry:</span>
+              <Badge variant="secondary" className="text-[10px]">
+                {geometryModeLabels[geometrySettings.mode]}
+              </Badge>
             </div>
-            <div>
-              <span className="text-muted-foreground">Print time:</span>
-              <span className="ml-1 font-mono">~{estimatedPrintTime}min</span>
+            
+            {geometrySettings.separateFiles && (geometrySettings.mode === "layered" || geometrySettings.mode === "raised") && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Multi-part:</span>
+                <Badge variant="outline" className="text-[10px] border-purple-500/50 text-purple-400">
+                  Separate files
+                </Badge>
+              </div>
+            )}
+            
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Letters:</span>
+              <span className="font-mono">{geometrySettings.letterMaterial}</span>
+            </div>
+            
+            {geometrySettings.mode !== "flat" && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Backing:</span>
+                <span className="font-mono">{geometrySettings.backingMaterial}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="pt-2 border-t border-muted-foreground/20">
+            <div className="flex items-center gap-2 text-xs font-medium mb-1">
+              <Info className="h-3 w-3 text-muted-foreground" />
+              Estimates
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-muted-foreground">File size:</span>
+                <span className="ml-1 font-mono">~{estimatedSize}KB</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Print time:</span>
+                <span className="ml-1 font-mono">~{estimatedPrintTime}min</span>
+              </div>
             </div>
           </div>
         </div>

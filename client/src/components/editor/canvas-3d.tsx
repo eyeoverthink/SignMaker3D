@@ -130,13 +130,17 @@ function Canvas2DFallback() {
 }
 
 function WebGL3DCanvas() {
-  const { letterSettings, wiringSettings, mountingSettings, showGrid, showWireframe, showMeasurements } = useEditorStore();
+  const { letterSettings, geometrySettings, wiringSettings, mountingSettings, showGrid, showWireframe, showMeasurements } = useEditorStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedFont = fontOptions.find((f) => f.id === letterSettings.fontId);
-  const depth = (letterSettings.depth / 20) * letterSettings.scale;
+  
+  const backingThickness = (geometrySettings.backingThickness / 20) * letterSettings.scale;
+  const letterHeight = (geometrySettings.letterHeight / 20) * letterSettings.scale;
+  const letterOffset = (geometrySettings.letterOffset / 20) * letterSettings.scale;
+  
   const fontSize = 2 * letterSettings.scale;
   const channelRadius = (wiringSettings.channelDiameter / 40) * letterSettings.scale;
   const channelLength = 4 * letterSettings.scale;
@@ -144,39 +148,51 @@ function WebGL3DCanvas() {
   const textHeight = 2.6 * letterSettings.scale;
   const width = letterSettings.text.length * 40 * letterSettings.scale;
   const height = 60 * letterSettings.scale;
+  
+  const materialColors = {
+    opaque: "#6b21a8",
+    transparent: "#93c5fd",
+    diffuser: "#f5f5f5",
+  };
+  
+  const letterColor = materialColors[geometrySettings.letterMaterial];
+  const backingColor = materialColors[geometrySettings.backingMaterial];
 
+  const totalDepth = geometrySettings.mode === "flat" ? letterHeight : backingThickness + letterHeight + letterOffset;
+  
   const mountingHoles = useMemo(() => {
     if (mountingSettings.pattern === "none") return [];
     const holes: { position: [number, number, number] }[] = [];
     const offset = (mountingSettings.insetFromEdge / 20) * letterSettings.scale;
     const baseX = textWidth / 2 - offset;
     const baseY = textHeight / 2 - offset;
+    const zPos = totalDepth / 2 + 0.01;
 
     switch (mountingSettings.pattern) {
       case "2-point":
-        holes.push({ position: [-baseX, 0, depth / 2 + 0.01] }, { position: [baseX, 0, depth / 2 + 0.01] });
+        holes.push({ position: [-baseX, 0, zPos] }, { position: [baseX, 0, zPos] });
         break;
       case "4-corner":
         holes.push(
-          { position: [-baseX, baseY, depth / 2 + 0.01] },
-          { position: [baseX, baseY, depth / 2 + 0.01] },
-          { position: [-baseX, -baseY, depth / 2 + 0.01] },
-          { position: [baseX, -baseY, depth / 2 + 0.01] }
+          { position: [-baseX, baseY, zPos] },
+          { position: [baseX, baseY, zPos] },
+          { position: [-baseX, -baseY, zPos] },
+          { position: [baseX, -baseY, zPos] }
         );
         break;
       case "6-point":
         holes.push(
-          { position: [-baseX, baseY, depth / 2 + 0.01] },
-          { position: [0, baseY, depth / 2 + 0.01] },
-          { position: [baseX, baseY, depth / 2 + 0.01] },
-          { position: [-baseX, -baseY, depth / 2 + 0.01] },
-          { position: [0, -baseY, depth / 2 + 0.01] },
-          { position: [baseX, -baseY, depth / 2 + 0.01] }
+          { position: [-baseX, baseY, zPos] },
+          { position: [0, baseY, zPos] },
+          { position: [baseX, baseY, zPos] },
+          { position: [-baseX, -baseY, zPos] },
+          { position: [0, -baseY, zPos] },
+          { position: [baseX, -baseY, zPos] }
         );
         break;
     }
     return holes;
-  }, [mountingSettings, letterSettings.scale, textWidth, textHeight, depth]);
+  }, [mountingSettings, letterSettings.scale, textWidth, textHeight, totalDepth]);
 
   const [ThreeModules, setThreeModules] = useState<{
     Canvas: any;
@@ -270,30 +286,91 @@ function WebGL3DCanvas() {
 
           <Center>
             <group>
-              <RoundedBox
-                args={[textWidth + 0.4, textHeight + 0.3, depth]}
-                radius={letterSettings.bevelEnabled ? 0.15 * letterSettings.scale : 0.03}
-                smoothness={4}
-              >
-                {showWireframe ? (
-                  <meshBasicMaterial color="#a855f7" wireframe />
-                ) : (
-                  <meshStandardMaterial color="#a855f7" metalness={0.25} roughness={0.4} />
-                )}
-              </RoundedBox>
+              {geometrySettings.mode !== "flat" && geometrySettings.mode !== "stencil" && (
+                <RoundedBox
+                  args={[textWidth + 0.5, textHeight + 0.4, backingThickness]}
+                  radius={0.05}
+                  smoothness={4}
+                  position={[0, 0, -backingThickness / 2]}
+                >
+                  {showWireframe ? (
+                    <meshBasicMaterial color={backingColor} wireframe />
+                  ) : (
+                    <meshStandardMaterial 
+                      color={backingColor} 
+                      metalness={0.1} 
+                      roughness={0.6}
+                      transparent={geometrySettings.backingMaterial !== "opaque"}
+                      opacity={geometrySettings.backingMaterial === "opaque" ? 1 : 0.7}
+                    />
+                  )}
+                </RoundedBox>
+              )}
+
+              {geometrySettings.mode === "stencil" && (
+                <RoundedBox
+                  args={[textWidth + 0.5, textHeight + 0.4, backingThickness]}
+                  radius={0.05}
+                  smoothness={4}
+                  position={[0, 0, 0]}
+                >
+                  {showWireframe ? (
+                    <meshBasicMaterial color={backingColor} wireframe />
+                  ) : (
+                    <meshStandardMaterial 
+                      color={backingColor} 
+                      metalness={0.1} 
+                      roughness={0.6}
+                    />
+                  )}
+                </RoundedBox>
+              )}
+
+              {geometrySettings.mode !== "stencil" && (
+                <RoundedBox
+                  args={[textWidth + 0.3, textHeight + 0.2, letterHeight]}
+                  radius={letterSettings.bevelEnabled ? 0.1 * letterSettings.scale : 0.03}
+                  smoothness={4}
+                  position={[0, 0, letterOffset + letterHeight / 2]}
+                >
+                  {showWireframe ? (
+                    <meshBasicMaterial color={letterColor} wireframe />
+                  ) : (
+                    <meshStandardMaterial 
+                      color={letterColor} 
+                      metalness={geometrySettings.letterMaterial === "transparent" ? 0.3 : 0.15} 
+                      roughness={geometrySettings.letterMaterial === "diffuser" ? 0.8 : 0.4}
+                      transparent={geometrySettings.letterMaterial !== "opaque"}
+                      opacity={geometrySettings.letterMaterial === "opaque" ? 1 : 0.75}
+                    />
+                  )}
+                </RoundedBox>
+              )}
 
               <Text
-                position={[0, 0, depth / 2 + 0.02]}
+                position={[0, 0, letterOffset + letterHeight + 0.02]}
                 fontSize={fontSize}
-                color={showWireframe ? "#d946ef" : "#1e1b4b"}
+                color={showWireframe ? "#d946ef" : (geometrySettings.letterMaterial === "opaque" ? "#1e1b4b" : "#1e3a5f")}
                 anchorX="center"
                 anchorY="middle"
               >
                 {letterSettings.text || "A"}
               </Text>
 
+              {geometrySettings.mode === "stencil" && (
+                <Text
+                  position={[0, 0, backingThickness / 2 + 0.02]}
+                  fontSize={fontSize * 0.9}
+                  color="#fbbf24"
+                  anchorX="center"
+                  anchorY="middle"
+                >
+                  {letterSettings.text || "A"}
+                </Text>
+              )}
+
               <Text
-                position={[0, 0, -depth / 2 - 0.02]}
+                position={[0, 0, geometrySettings.mode === "flat" ? -letterHeight / 2 - 0.02 : -backingThickness - 0.02]}
                 fontSize={fontSize}
                 rotation={[0, Math.PI, 0]}
                 color={showWireframe ? "#d946ef" : "#1e1b4b"}
@@ -308,7 +385,9 @@ function WebGL3DCanvas() {
                   position={[
                     0,
                     wiringSettings.channelType === "back" ? -textHeight / 3 : 0,
-                    wiringSettings.channelType === "back" ? -depth / 2 + channelRadius : 0,
+                    wiringSettings.channelType === "back" 
+                      ? -backingThickness - channelRadius 
+                      : letterOffset + letterHeight / 2,
                   ]}
                   rotation={[0, 0, Math.PI / 2]}
                 >
@@ -395,9 +474,21 @@ function WebGL3DCanvas() {
       </div>
 
       <div className="absolute top-4 right-4 flex flex-col gap-1.5 bg-zinc-900/60 backdrop-blur-sm border border-zinc-800 rounded-md p-2">
+        <div className="text-[9px] text-zinc-500 font-medium uppercase tracking-wide mb-1">
+          {geometrySettings.mode === "raised" && "Raised Letters"}
+          {geometrySettings.mode === "stencil" && "Cut-Out Stencil"}
+          {geometrySettings.mode === "layered" && "Layered Parts"}
+          {geometrySettings.mode === "flat" && "Flat Letters"}
+        </div>
+        {geometrySettings.mode !== "flat" && geometrySettings.mode !== "stencil" && (
+          <div className="flex items-center gap-2 text-[10px]">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: backingColor }} />
+            <span className="text-zinc-400">Backing ({geometrySettings.backingMaterial})</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 text-[10px]">
-          <div className="w-2 h-2 rounded-full bg-purple-500" />
-          <span className="text-zinc-400">Letter body</span>
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: letterColor }} />
+          <span className="text-zinc-400">Letters ({geometrySettings.letterMaterial})</span>
         </div>
         <div className="flex items-center gap-2 text-[10px]">
           <div className="w-2 h-2 rounded-full bg-yellow-500" />
