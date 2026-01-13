@@ -233,7 +233,7 @@ export function SettingsPanel() {
             {twoPartSystem.enabled && (
               <>
                 <p className="text-xs text-muted-foreground">
-                  Base holds the light with walls on both sides. Cap snaps on top as diffuser.
+                  LEGO-style snap-fit system with precision alignment
                 </p>
 
                 <div className="space-y-2">
@@ -264,6 +264,108 @@ export function SettingsPanel() {
                     step={0.5}
                     data-testid="slider-cap-thickness"
                   />
+                </div>
+
+                <Separator className="my-3" />
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs">Snap-Fit Tabs</Label>
+                    <p className="text-xs text-muted-foreground">Click-fit assembly</p>
+                  </div>
+                  <Switch
+                    checked={twoPartSystem.snapTabsEnabled ?? true}
+                    onCheckedChange={(checked) => setTwoPartSystem({ snapTabsEnabled: checked })}
+                    data-testid="switch-snap-tabs"
+                  />
+                </div>
+
+                {twoPartSystem.snapTabsEnabled && (
+                  <div className="space-y-2 pl-2 border-l-2 border-muted">
+                    <div className="flex justify-between">
+                      <Label className="text-xs">Tab Spacing</Label>
+                      <span className="text-xs text-muted-foreground">{twoPartSystem.snapTabSpacing ?? 25}mm</span>
+                    </div>
+                    <Slider
+                      value={[twoPartSystem.snapTabSpacing ?? 25]}
+                      onValueChange={([v]) => setTwoPartSystem({ snapTabSpacing: v })}
+                      min={10}
+                      max={50}
+                      step={5}
+                      data-testid="slider-snap-tab-spacing"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs">Registration Pins</Label>
+                    <p className="text-xs text-muted-foreground">Perfect alignment</p>
+                  </div>
+                  <Switch
+                    checked={twoPartSystem.registrationPinsEnabled ?? true}
+                    onCheckedChange={(checked) => setTwoPartSystem({ registrationPinsEnabled: checked })}
+                    data-testid="switch-registration-pins"
+                  />
+                </div>
+
+                {twoPartSystem.registrationPinsEnabled && (
+                  <div className="space-y-2 pl-2 border-l-2 border-muted">
+                    <div className="flex justify-between">
+                      <Label className="text-xs">Pin Diameter</Label>
+                      <span className="text-xs text-muted-foreground">{twoPartSystem.pinDiameter ?? 2.5}mm</span>
+                    </div>
+                    <Slider
+                      value={[twoPartSystem.pinDiameter ?? 2.5]}
+                      onValueChange={([v]) => setTwoPartSystem({ pinDiameter: v })}
+                      min={1.5}
+                      max={4}
+                      step={0.5}
+                      data-testid="slider-pin-diameter"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs">Diffusion Ribs</Label>
+                    <p className="text-xs text-muted-foreground">Even light spread</p>
+                  </div>
+                  <Switch
+                    checked={twoPartSystem.diffusionRibsEnabled ?? true}
+                    onCheckedChange={(checked) => setTwoPartSystem({ diffusionRibsEnabled: checked })}
+                    data-testid="switch-diffusion-ribs"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs">Cable Channels</Label>
+                    <p className="text-xs text-muted-foreground">Wire routing</p>
+                  </div>
+                  <Switch
+                    checked={twoPartSystem.cableChannelEnabled ?? true}
+                    onCheckedChange={(checked) => setTwoPartSystem({ cableChannelEnabled: checked })}
+                    data-testid="switch-cable-channel"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label className="text-xs">Print Tolerance</Label>
+                    <span className="text-xs text-muted-foreground">{twoPartSystem.snapTolerance ?? 0.2}mm</span>
+                  </div>
+                  <Slider
+                    value={[twoPartSystem.snapTolerance ?? 0.2]}
+                    onValueChange={([v]) => setTwoPartSystem({ snapTolerance: v })}
+                    min={0.1}
+                    max={0.5}
+                    step={0.05}
+                    data-testid="slider-snap-tolerance"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Adjust for your 3D printer accuracy
+                  </p>
                 </div>
               </>
             )}

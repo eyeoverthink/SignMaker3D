@@ -1213,6 +1213,162 @@ export function generateMultiPartExport(
   return exportedParts;
 }
 
+function generateSnapTab(
+  x: number, y: number, 
+  nx: number, ny: number,
+  tabWidth: number, tabHeight: number, 
+  wallHeight: number, chamferAngle: number,
+  isBase: boolean
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const chamferOffset = tabHeight * Math.tan((90 - chamferAngle) * Math.PI / 180);
+  const halfTab = tabWidth / 2;
+  const tx = ny;
+  const ty = -nx;
+  
+  if (isBase) {
+    const tabBase = wallHeight - tabHeight - chamferOffset;
+    const tabTop = wallHeight;
+    const b1: Vector3 = { x: x - tx * halfTab, y: y - ty * halfTab, z: tabBase };
+    const b2: Vector3 = { x: x + tx * halfTab, y: y + ty * halfTab, z: tabBase };
+    const m1: Vector3 = { x: x - tx * halfTab + nx * tabHeight, y: y - ty * halfTab + ny * tabHeight, z: tabBase + chamferOffset };
+    const m2: Vector3 = { x: x + tx * halfTab + nx * tabHeight, y: y + ty * halfTab + ny * tabHeight, z: tabBase + chamferOffset };
+    const t1: Vector3 = { x: x - tx * halfTab + nx * tabHeight, y: y - ty * halfTab + ny * tabHeight, z: tabTop };
+    const t2: Vector3 = { x: x + tx * halfTab + nx * tabHeight, y: y + ty * halfTab + ny * tabHeight, z: tabTop };
+    
+    triangles.push(
+      { normal: { x: nx, y: ny, z: 0 }, v1: m1, v2: m2, v3: t1 },
+      { normal: { x: nx, y: ny, z: 0 }, v1: t1, v2: m2, v3: t2 }
+    );
+    const chamferNorm = Math.sqrt(1 + chamferOffset * chamferOffset);
+    triangles.push(
+      { normal: { x: nx / chamferNorm, y: ny / chamferNorm, z: -1 / chamferNorm }, v1: b1, v2: b2, v3: m1 },
+      { normal: { x: nx / chamferNorm, y: ny / chamferNorm, z: -1 / chamferNorm }, v1: m1, v2: b2, v3: m2 }
+    );
+    triangles.push(
+      { normal: { x: -tx, y: -ty, z: 0 }, v1: b1, v2: m1, v3: t1 },
+      { normal: { x: tx, y: ty, z: 0 }, v1: b2, v2: t2, v3: m2 }
+    );
+  }
+  return triangles;
+}
+
+function generateRegistrationPin(
+  x: number, y: number,
+  diameter: number, height: number,
+  isBase: boolean
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const radius = diameter / 2;
+  const segments = 12;
+  const chamferH = radius * 0.4;
+  const chamferR = radius * 0.7;
+  
+  if (isBase) {
+    for (let i = 0; i < segments; i++) {
+      const a1 = (i / segments) * Math.PI * 2;
+      const a2 = ((i + 1) / segments) * Math.PI * 2;
+      const c1 = Math.cos(a1), s1 = Math.sin(a1);
+      const c2 = Math.cos(a2), s2 = Math.sin(a2);
+      
+      const baseZ = 0;
+      const topZ = height - chamferH;
+      const tipZ = height;
+      
+      const b1: Vector3 = { x: x + c1 * radius, y: y + s1 * radius, z: baseZ };
+      const b2: Vector3 = { x: x + c2 * radius, y: y + s2 * radius, z: baseZ };
+      const t1: Vector3 = { x: x + c1 * radius, y: y + s1 * radius, z: topZ };
+      const t2: Vector3 = { x: x + c2 * radius, y: y + s2 * radius, z: topZ };
+      const tip1: Vector3 = { x: x + c1 * chamferR, y: y + s1 * chamferR, z: tipZ };
+      const tip2: Vector3 = { x: x + c2 * chamferR, y: y + s2 * chamferR, z: tipZ };
+      
+      triangles.push(
+        { normal: { x: c1, y: s1, z: 0 }, v1: b1, v2: b2, v3: t1 },
+        { normal: { x: c2, y: s2, z: 0 }, v1: t1, v2: b2, v3: t2 }
+      );
+      const tipNx = (c1 + c2) / 2, tipNy = (s1 + s2) / 2;
+      const tipLen = Math.sqrt(tipNx * tipNx + tipNy * tipNy + 0.5 * 0.5);
+      triangles.push(
+        { normal: { x: tipNx / tipLen, y: tipNy / tipLen, z: 0.5 / tipLen }, v1: t1, v2: t2, v3: tip1 },
+        { normal: { x: tipNx / tipLen, y: tipNy / tipLen, z: 0.5 / tipLen }, v1: tip1, v2: t2, v3: tip2 }
+      );
+    }
+    for (let i = 1; i < segments - 1; i++) {
+      const a1 = (i / segments) * Math.PI * 2;
+      const a2 = ((i + 1) / segments) * Math.PI * 2;
+      triangles.push({
+        normal: { x: 0, y: 0, z: 1 },
+        v1: { x: x + chamferR, y: y, z: height },
+        v2: { x: x + Math.cos(a1) * chamferR, y: y + Math.sin(a1) * chamferR, z: height },
+        v3: { x: x + Math.cos(a2) * chamferR, y: y + Math.sin(a2) * chamferR, z: height }
+      });
+    }
+  } else {
+    const holeRadius = radius + 0.15;
+    const holeDepth = height + 0.5;
+    for (let i = 0; i < segments; i++) {
+      const a1 = (i / segments) * Math.PI * 2;
+      const a2 = ((i + 1) / segments) * Math.PI * 2;
+      const c1 = Math.cos(a1), s1 = Math.sin(a1);
+      const c2 = Math.cos(a2), s2 = Math.sin(a2);
+      
+      triangles.push({
+        normal: { x: -c1, y: -s1, z: 0 },
+        v1: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: 0 },
+        v2: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: 0 },
+        v3: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: -holeDepth }
+      });
+      triangles.push({
+        normal: { x: -c2, y: -s2, z: 0 },
+        v1: { x: x + c1 * holeRadius, y: y + s1 * holeRadius, z: -holeDepth },
+        v2: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: 0 },
+        v3: { x: x + c2 * holeRadius, y: y + s2 * holeRadius, z: -holeDepth }
+      });
+    }
+    for (let i = 1; i < segments - 1; i++) {
+      const a1 = (i / segments) * Math.PI * 2;
+      const a2 = ((i + 1) / segments) * Math.PI * 2;
+      triangles.push({
+        normal: { x: 0, y: 0, z: -1 },
+        v1: { x: x + holeRadius, y: y, z: -holeDepth },
+        v2: { x: x + Math.cos(a2) * holeRadius, y: y + Math.sin(a2) * holeRadius, z: -holeDepth },
+        v3: { x: x + Math.cos(a1) * holeRadius, y: y + Math.sin(a1) * holeRadius, z: -holeDepth }
+      });
+    }
+  }
+  return triangles;
+}
+
+function generateDiffusionRib(
+  x1: number, y1: number, x2: number, y2: number,
+  ribHeight: number, ribWidth: number,
+  baseZ: number
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 0.01) return triangles;
+  
+  const nx = -dy / len * ribWidth / 2;
+  const ny = dx / len * ribWidth / 2;
+  
+  const b1: Vector3 = { x: x1 - nx, y: y1 - ny, z: baseZ };
+  const b2: Vector3 = { x: x1 + nx, y: y1 + ny, z: baseZ };
+  const b3: Vector3 = { x: x2 + nx, y: y2 + ny, z: baseZ };
+  const b4: Vector3 = { x: x2 - nx, y: y2 - ny, z: baseZ };
+  const t1: Vector3 = { x: x1, y: y1, z: baseZ - ribHeight };
+  const t2: Vector3 = { x: x2, y: y2, z: baseZ - ribHeight };
+  
+  triangles.push(
+    { normal: { x: -nx / (ribWidth/2), y: -ny / (ribWidth/2), z: -0.5 }, v1: b1, v2: b4, v3: t1 },
+    { normal: { x: -nx / (ribWidth/2), y: -ny / (ribWidth/2), z: -0.5 }, v1: t1, v2: b4, v3: t2 },
+    { normal: { x: nx / (ribWidth/2), y: ny / (ribWidth/2), z: -0.5 }, v1: b2, v2: t1, v3: b3 },
+    { normal: { x: nx / (ribWidth/2), y: ny / (ribWidth/2), z: -0.5 }, v1: t1, v2: t2, v3: b3 }
+  );
+  
+  return triangles;
+}
+
 export function generateTwoPartSystem(
   contours: number[][],
   tubeSettings: TubeSettings,
@@ -1232,6 +1388,28 @@ export function generateTwoPartSystem(
   const capThickness = twoPartSystem.capThickness;
   const capOverhang = twoPartSystem.capOverhang;
   const snapTolerance = twoPartSystem.snapTolerance;
+  
+  const snapTabsEnabled = twoPartSystem.snapTabsEnabled ?? true;
+  const snapTabHeight = twoPartSystem.snapTabHeight ?? 2;
+  const snapTabWidth = twoPartSystem.snapTabWidth ?? 4;
+  const snapTabSpacing = twoPartSystem.snapTabSpacing ?? 25;
+  const chamferAngle = twoPartSystem.chamferAngle ?? 45;
+  
+  const registrationPinsEnabled = twoPartSystem.registrationPinsEnabled ?? true;
+  const pinDiameter = twoPartSystem.pinDiameter ?? 2.5;
+  const pinHeight = twoPartSystem.pinHeight ?? 3;
+  const pinSpacing = twoPartSystem.pinSpacing ?? 30;
+  
+  const diffusionRibsEnabled = twoPartSystem.diffusionRibsEnabled ?? true;
+  const ribHeight = twoPartSystem.ribHeight ?? 1;
+  const ribSpacing = twoPartSystem.ribSpacing ?? 5;
+  
+  const cableChannelEnabled = twoPartSystem.cableChannelEnabled ?? true;
+  const cableChannelWidth = twoPartSystem.cableChannelWidth ?? 5;
+  const cableChannelDepth = twoPartSystem.cableChannelDepth ?? 3;
+  
+  let accumulatedLength = 0;
+  let pinAccumulator = 0;
   
   for (const contour of contours) {
     const numPoints = contour.length / 2;
@@ -1320,8 +1498,31 @@ export function generateTwoPartSystem(
         { normal: { x: 0, y: 0, z: -1 }, v1: bottomLeftWall2, v2: bottomRightWall1, v3: bottomRightWall2 }
       );
       
+      if (snapTabsEnabled && len > snapTabWidth * 2) {
+        const numTabs = Math.floor(len / snapTabSpacing);
+        for (let t = 0; t < numTabs; t++) {
+          const tabPos = (t + 0.5) / Math.max(1, numTabs);
+          const tabX = x1 + dx * tabPos - nx * (halfWidth + wallThickness / 2);
+          const tabY = y1 + dy * tabPos - ny * (halfWidth + wallThickness / 2);
+          baseTriangles.push(...generateSnapTab(tabX, tabY, -nx, -ny, snapTabWidth, snapTabHeight, wallHeight, chamferAngle, true));
+          
+          const tabXR = x1 + dx * tabPos + nx * (halfWidth + wallThickness / 2);
+          const tabYR = y1 + dy * tabPos + ny * (halfWidth + wallThickness / 2);
+          baseTriangles.push(...generateSnapTab(tabXR, tabYR, nx, ny, snapTabWidth, snapTabHeight, wallHeight, chamferAngle, true));
+        }
+      }
+      
+      if (registrationPinsEnabled) {
+        pinAccumulator += len;
+        if (pinAccumulator >= pinSpacing) {
+          const pinX = (x1 + x2) / 2;
+          const pinY = (y1 + y2) / 2;
+          baseTriangles.push(...generateRegistrationPin(pinX, pinY, pinDiameter, pinHeight + wallHeight, true));
+          pinAccumulator = 0;
+        }
+      }
+      
       const capHalfWidth = outerHalfWidth + capOverhang;
-      const capInnerHalf = halfWidth - snapTolerance;
       
       const capOuterL1: Vector3 = { x: x1 - nx * capHalfWidth, y: y1 - ny * capHalfWidth, z: 0 };
       const capOuterL2: Vector3 = { x: x2 - nx * capHalfWidth, y: y2 - ny * capHalfWidth, z: 0 };
@@ -1351,6 +1552,56 @@ export function generateTwoPartSystem(
       capTriangles.push(
         { normal: { x: 0, y: 0, z: -1 }, v1: capOuterL1, v2: capOuterR1, v3: capOuterL2 },
         { normal: { x: 0, y: 0, z: -1 }, v1: capOuterL2, v2: capOuterR1, v3: capOuterR2 }
+      );
+      
+      if (diffusionRibsEnabled && len > ribSpacing * 2) {
+        const numRibs = Math.floor(len / ribSpacing);
+        const ribWidth = 0.8;
+        for (let r = 1; r < numRibs; r++) {
+          const ribPos = r / numRibs;
+          const rx1 = x1 + dx * ribPos - nx * halfWidth * 0.8;
+          const ry1 = y1 + dy * ribPos - ny * halfWidth * 0.8;
+          const rx2 = x1 + dx * ribPos + nx * halfWidth * 0.8;
+          const ry2 = y1 + dy * ribPos + ny * halfWidth * 0.8;
+          capTriangles.push(...generateDiffusionRib(rx1, ry1, rx2, ry2, ribHeight, ribWidth, 0));
+        }
+      }
+      
+      if (registrationPinsEnabled && pinAccumulator < pinSpacing / 2) {
+        const holeX = (x1 + x2) / 2;
+        const holeY = (y1 + y2) / 2;
+        capTriangles.push(...generateRegistrationPin(holeX, holeY, pinDiameter, pinHeight, false));
+      }
+      
+      accumulatedLength += len;
+    }
+    
+    if (cableChannelEnabled && contours.length > 1) {
+      const firstX = contour[0] - centerX;
+      const firstY = -(contour[1] - centerY);
+      const channelHalf = cableChannelWidth / 2;
+      const channelZ = cableChannelDepth;
+      
+      const c1: Vector3 = { x: firstX - channelHalf, y: firstY - channelHalf, z: 0 };
+      const c2: Vector3 = { x: firstX + channelHalf, y: firstY - channelHalf, z: 0 };
+      const c3: Vector3 = { x: firstX + channelHalf, y: firstY + channelHalf, z: 0 };
+      const c4: Vector3 = { x: firstX - channelHalf, y: firstY + channelHalf, z: 0 };
+      const b1: Vector3 = { x: firstX - channelHalf, y: firstY - channelHalf, z: -channelZ };
+      const b2: Vector3 = { x: firstX + channelHalf, y: firstY - channelHalf, z: -channelZ };
+      const b3: Vector3 = { x: firstX + channelHalf, y: firstY + channelHalf, z: -channelZ };
+      const b4: Vector3 = { x: firstX - channelHalf, y: firstY + channelHalf, z: -channelZ };
+      
+      baseTriangles.push(
+        { normal: { x: 0, y: -1, z: 0 }, v1: c1, v2: c2, v3: b1 },
+        { normal: { x: 0, y: -1, z: 0 }, v1: b1, v2: c2, v3: b2 },
+        { normal: { x: 1, y: 0, z: 0 }, v1: c2, v2: c3, v3: b2 },
+        { normal: { x: 1, y: 0, z: 0 }, v1: b2, v2: c3, v3: b3 },
+        { normal: { x: 0, y: 1, z: 0 }, v1: c3, v2: c4, v3: b3 },
+        { normal: { x: 0, y: 1, z: 0 }, v1: b3, v2: c4, v3: b4 },
+        { normal: { x: -1, y: 0, z: 0 }, v1: c4, v2: c1, v3: b4 },
+        { normal: { x: -1, y: 0, z: 0 }, v1: b4, v2: c1, v3: b1 },
+        { normal: { x: 0, y: 0, z: -1 }, v1: b1, v2: b2, v3: b3 },
+        { normal: { x: 0, y: 0, z: -1 }, v1: b1, v2: b3, v3: b4 }
       );
     }
   }

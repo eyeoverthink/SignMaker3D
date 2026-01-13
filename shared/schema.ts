@@ -105,6 +105,21 @@ export const twoPartSystemSchema = z.object({
   capOverhang: z.number().min(0.5).max(3),
   capThickness: z.number().min(1).max(5),
   snapTolerance: z.number().min(0.1).max(0.5),
+  snapTabsEnabled: z.boolean(),
+  snapTabHeight: z.number().min(1).max(4),
+  snapTabWidth: z.number().min(2).max(8),
+  snapTabSpacing: z.number().min(10).max(50),
+  chamferAngle: z.number().min(30).max(60),
+  registrationPinsEnabled: z.boolean(),
+  pinDiameter: z.number().min(1.5).max(4),
+  pinHeight: z.number().min(2).max(6),
+  pinSpacing: z.number().min(15).max(60),
+  diffusionRibsEnabled: z.boolean(),
+  ribHeight: z.number().min(0.5).max(2),
+  ribSpacing: z.number().min(3).max(10),
+  cableChannelEnabled: z.boolean(),
+  cableChannelWidth: z.number().min(3).max(8),
+  cableChannelDepth: z.number().min(2).max(5),
 });
 
 export type TwoPartSystem = z.infer<typeof twoPartSystemSchema>;
@@ -116,6 +131,21 @@ export const defaultTwoPartSystem: TwoPartSystem = {
   capOverhang: 1,
   capThickness: 2,
   snapTolerance: 0.2,
+  snapTabsEnabled: true,
+  snapTabHeight: 2,
+  snapTabWidth: 4,
+  snapTabSpacing: 25,
+  chamferAngle: 45,
+  registrationPinsEnabled: true,
+  pinDiameter: 2.5,
+  pinHeight: 3,
+  pinSpacing: 30,
+  diffusionRibsEnabled: true,
+  ribHeight: 1,
+  ribSpacing: 5,
+  cableChannelEnabled: true,
+  cableChannelWidth: 5,
+  cableChannelDepth: 3,
 };
 
 export const wiringSettingsSchema = z.object({
