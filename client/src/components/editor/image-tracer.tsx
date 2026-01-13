@@ -37,6 +37,11 @@ export function ImageTracer() {
   const [minContourLength, setMinContourLength] = useState(15);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // Image adjustment state
+  const [invert, setInvert] = useState(false);
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(0);
+  
   // Mode and manual trace state
   const [traceMode, setTraceMode] = useState<TraceMode>("auto");
   const [isDrawing, setIsDrawing] = useState(false);
@@ -364,32 +369,37 @@ export function ImageTracer() {
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
       
-      // Step 1: Create brightness/saturation mask to filter out dark areas
-      // This prevents picking up background elements like grid lines
-      const brightMask = new Uint8Array(width * height);
+      // Step 1: Apply image adjustments (brightness, contrast, invert)
+      const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        const brightness = (r + g + b) / 3;
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        const saturation = max === 0 ? 0 : (max - min) / max;
+        let r = data[i], g = data[i + 1], b = data[i + 2];
         
-        // Keep pixels that are either bright OR saturated (colored)
-        // This preserves neon signs which are bright and colored
-        const isBright = brightness > 80;
-        const isColorful = saturation > 0.2 && brightness > 40;
-        brightMask[i / 4] = (isBright || isColorful) ? 1 : 0;
+        // Apply brightness
+        r = Math.min(255, Math.max(0, r + brightness));
+        g = Math.min(255, Math.max(0, g + brightness));
+        b = Math.min(255, Math.max(0, b + brightness));
+        
+        // Apply contrast
+        r = Math.min(255, Math.max(0, contrastFactor * (r - 128) + 128));
+        g = Math.min(255, Math.max(0, contrastFactor * (g - 128) + 128));
+        b = Math.min(255, Math.max(0, contrastFactor * (b - 128) + 128));
+        
+        // Apply invert
+        if (invert) {
+          r = 255 - r;
+          g = 255 - g;
+          b = 255 - b;
+        }
+        
+        data[i] = r;
+        data[i + 1] = g;
+        data[i + 2] = b;
       }
       
-      // Step 2: Convert to grayscale with brightness mask
+      // Step 2: Convert to grayscale
       const gray = new Float32Array(width * height);
       for (let i = 0; i < data.length; i += 4) {
-        const idx = i / 4;
-        if (brightMask[idx]) {
-          gray[idx] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        } else {
-          gray[idx] = 255; // Treat dark areas as background (white = no edge)
-        }
+        gray[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
       }
       
       // Step 3: Apply Sobel edge detection
@@ -415,10 +425,8 @@ export function ImageTracer() {
       
       const edgeThreshold = (threshold / 255) * maxEdge * 0.5;
       for (let i = 0; i < data.length; i += 4) {
-        const idx = i / 4;
-        const edgeVal = edges[idx];
-        // Only mark as edge if also passes brightness mask
-        const binary = (edgeVal > edgeThreshold && brightMask[idx]) ? 0 : 255;
+        const edgeVal = edges[i / 4];
+        const binary = edgeVal > edgeThreshold ? 0 : 255;
         data[i] = binary;
         data[i + 1] = binary;
         data[i + 2] = binary;
@@ -472,7 +480,7 @@ export function ImageTracer() {
     };
 
     img.src = uploadedImageData;
-  }, [uploadedImageData, threshold, simplify, minContourLength, setTracedPaths]);
+  }, [uploadedImageData, threshold, simplify, minContourLength, setTracedPaths, invert, brightness, contrast]);
 
   // Draw manual paths on drawing canvas
   useEffect(() => {
@@ -889,6 +897,49 @@ export function ImageTracer() {
       <div className="p-4 border-t bg-card space-y-4">
         {traceMode === "auto" ? (
           <>
+            <div className="flex items-center gap-4 mb-3">
+              <Label className="text-sm font-medium">Image Adjustments:</Label>
+              <Button
+                variant={invert ? "default" : "outline"}
+                size="sm"
+                onClick={() => setInvert(!invert)}
+                data-testid="button-invert"
+              >
+                Invert (Negative)
+              </Button>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Brightness</Label>
+                  <span className="text-xs text-muted-foreground">{brightness}</span>
+                </div>
+                <Slider
+                  value={[brightness]}
+                  onValueChange={([v]) => setBrightness(v)}
+                  min={-100}
+                  max={100}
+                  step={5}
+                  data-testid="slider-brightness"
+                />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Contrast</Label>
+                  <span className="text-xs text-muted-foreground">{contrast}</span>
+                </div>
+                <Slider
+                  value={[contrast]}
+                  onValueChange={([v]) => setContrast(v)}
+                  min={-100}
+                  max={100}
+                  step={5}
+                  data-testid="slider-contrast"
+                />
+              </div>
+            </div>
+
             <div className="flex gap-4">
               <div className="flex-1 space-y-2">
                 <div className="flex justify-between">
