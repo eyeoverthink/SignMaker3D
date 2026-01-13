@@ -346,6 +346,42 @@ export async function registerRoutes(
         res.setHeader("Content-Type", "text/plain");
         res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
         res.send(result);
+      } else if (format === "3mf") {
+        // 3MF is a ZIP file with specific structure
+        const archive = archiver("zip", { zlib: { level: 9 } });
+        
+        archive.on("error", (err) => {
+          console.error("3MF Archive error:", err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: "Failed to create 3MF file" });
+          }
+        });
+        
+        res.setHeader("Content-Type", "application/vnd.ms-package.3dmanufacturing-3dmodel+xml");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        
+        archive.pipe(res);
+        
+        // Add Content_Types.xml (required for 3MF)
+        const contentTypes = `<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml" />
+</Types>`;
+        archive.append(contentTypes, { name: "[Content_Types].xml" });
+        
+        // Add _rels/.rels (required for 3MF)
+        const rels = `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" />
+</Relationships>`;
+        archive.append(rels, { name: "_rels/.rels" });
+        
+        // Add the model XML (result contains the model XML)
+        archive.append(result, { name: "3D/3dmodel.model" });
+        
+        await archive.finalize();
+        return;
       } else {
         res.setHeader("Content-Type", "application/octet-stream");
         res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

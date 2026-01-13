@@ -667,7 +667,7 @@ function mirrorTrianglesX(triangles: Triangle[]): Triangle[] {
 }
 
 // Create diffuser cap that fits on top of U-channel
-// Simple solid rectangular cap that sits over the channel opening
+// Simple solid rectangular cap that sits over the channel opening and walls
 function createDiffuserCap(
   path: number[][],
   channelWidth: number,
@@ -685,8 +685,11 @@ function createDiffuserCap(
   const capBottomZ = baseThickness + wallHeight;
   const capTopZ = capBottomZ + capThickness;
   
-  // Cap width slightly larger than channel for overlap onto walls
-  const halfWidth = (channelWidth / 2) + tolerance;
+  // Cap width spans the entire base (channel + both walls) plus small overlap
+  // Total base width = channelWidth + 2*wallThickness
+  // Cap should be slightly smaller to fit between outer edges with tolerance for snap fit
+  const totalBaseWidth = channelWidth + (2 * wallThickness);
+  const halfWidth = (totalBaseWidth / 2) - tolerance;
   
   // Build profile for each path point - simple rectangle cross-section
   interface CapProfile {

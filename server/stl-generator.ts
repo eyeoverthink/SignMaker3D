@@ -1173,6 +1173,49 @@ export function generateSignageParts(
   return { parts, combined };
 }
 
+// Generate 3MF model XML content from triangles
+export function trianglesTo3MFModel(triangles: Triangle[], modelName: string = "SignCraft Model"): string {
+  // Collect unique vertices and build index map
+  const vertexMap = new Map<string, number>();
+  const vertices: Vector3[] = [];
+  const triangleIndices: number[][] = [];
+  
+  for (const tri of triangles) {
+    const indices: number[] = [];
+    for (const v of [tri.v1, tri.v2, tri.v3]) {
+      const key = `${v.x.toFixed(6)},${v.y.toFixed(6)},${v.z.toFixed(6)}`;
+      if (!vertexMap.has(key)) {
+        vertexMap.set(key, vertices.length);
+        vertices.push(v);
+      }
+      indices.push(vertexMap.get(key)!);
+    }
+    triangleIndices.push(indices);
+  }
+  
+  // Build 3MF model XML
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+  <metadata name="Title">${modelName}</metadata>
+  <metadata name="Designer">SignCraft 3D</metadata>
+  <resources>
+    <object id="1" type="model">
+      <mesh>
+        <vertices>
+${vertices.map(v => `          <vertex x="${v.x.toFixed(6)}" y="${v.y.toFixed(6)}" z="${v.z.toFixed(6)}" />`).join('\n')}
+        </vertices>
+        <triangles>
+${triangleIndices.map(t => `          <triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}" />`).join('\n')}
+        </triangles>
+      </mesh>
+    </object>
+  </resources>
+  <build>
+    <item objectid="1" />
+  </build>
+</model>`;
+}
+
 export function generateSignage(
   letterSettings: LetterSettings,
   wiringSettings: WiringSettings,
@@ -1191,6 +1234,11 @@ export function generateSignage(
 
   if (format === "obj") {
     return trianglesToOBJ(combined);
+  }
+  
+  if (format === "3mf") {
+    // Return the model XML - routes will package it into proper 3MF ZIP structure
+    return trianglesTo3MFModel(combined, `${letterSettings.text} Sign`);
   }
 
   return trianglesToSTL(combined);
