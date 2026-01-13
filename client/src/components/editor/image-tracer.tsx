@@ -5,7 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { 
   Upload, Wand2, Image as ImageIcon, X, Pencil, Circle, Minus, Square, 
-  Undo2, Trash2, MousePointer2, Sparkles
+  Undo2, Trash2, MousePointer2, Sparkles, PenTool, Check
 } from "lucide-react";
 import { 
   Tooltip,
@@ -15,7 +15,14 @@ import {
 import type { SketchPath } from "@shared/schema";
 
 type TraceMode = "auto" | "manual";
-type DrawingTool = "freehand" | "line" | "circle" | "rectangle";
+type DrawingTool = "freehand" | "line" | "circle" | "rectangle" | "pen";
+
+interface AnchorPoint {
+  x: number;
+  y: number;
+  handleIn?: { x: number; y: number };
+  handleOut?: { x: number; y: number };
+}
 
 export function ImageTracer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,6 +46,11 @@ export function ImageTracer() {
   const [activeTool, setActiveTool] = useState<DrawingTool>("freehand");
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [imageSize, setImageSize] = useState<{ width: number; height: number }>({ width: 600, height: 400 });
+  
+  // Pen tool state
+  const [penAnchors, setPenAnchors] = useState<AnchorPoint[]>([]);
+  const [isDraggingHandle, setIsDraggingHandle] = useState(false);
+  const [selectedAnchorIndex, setSelectedAnchorIndex] = useState<number | null>(null);
 
   const { uploadedImageData, setUploadedImageData, setTracedPaths, setSketchPaths } = useEditorStore();
 
@@ -135,11 +147,66 @@ export function ImageTracer() {
     return [start, end];
   }, []);
 
+  // Convert bezier anchors to path points
+  const bezierToPoints = useCallback((anchors: AnchorPoint[]): { x: number; y: number }[] => {
+    if (anchors.length < 2) return anchors.map(a => ({ x: a.x, y: a.y }));
+    
+    const points: { x: number; y: number }[] = [];
+    const segments = 16; // Points per curve segment
+    
+    for (let i = 0; i < anchors.length - 1; i++) {
+      const p0 = anchors[i];
+      const p3 = anchors[i + 1];
+      
+      // Control points
+      const p1 = p0.handleOut || { x: p0.x, y: p0.y };
+      const p2 = p3.handleIn || { x: p3.x, y: p3.y };
+      
+      for (let t = 0; t <= segments; t++) {
+        const u = t / segments;
+        const u2 = u * u;
+        const u3 = u2 * u;
+        const mu = 1 - u;
+        const mu2 = mu * mu;
+        const mu3 = mu2 * mu;
+        
+        points.push({
+          x: mu3 * p0.x + 3 * mu2 * u * p1.x + 3 * mu * u2 * p2.x + u3 * p3.x,
+          y: mu3 * p0.y + 3 * mu2 * u * p1.y + 3 * mu * u2 * p2.y + u3 * p3.y,
+        });
+      }
+    }
+    
+    return points;
+  }, []);
+
   const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (traceMode !== "manual") return;
     
     const point = getCanvasPoint(e);
     if (!point) return;
+
+    // Pen tool: add anchor point on click
+    if (activeTool === "pen") {
+      // Check if clicking near an existing anchor to select it
+      const clickRadius = 10;
+      for (let i = 0; i < penAnchors.length; i++) {
+        const anchor = penAnchors[i];
+        const dist = Math.sqrt((anchor.x - point.x) ** 2 + (anchor.y - point.y) ** 2);
+        if (dist < clickRadius) {
+          setSelectedAnchorIndex(i);
+          setIsDraggingHandle(true);
+          return;
+        }
+      }
+      
+      // Add new anchor point
+      const newAnchor: AnchorPoint = { x: point.x, y: point.y };
+      setPenAnchors(prev => [...prev, newAnchor]);
+      setSelectedAnchorIndex(penAnchors.length);
+      setIsDraggingHandle(true);
+      return;
+    }
 
     setIsDrawing(true);
     setStartPoint(point);
@@ -149,22 +216,46 @@ export function ImageTracer() {
     } else {
       setCurrentPath([point, point]);
     }
-  }, [getCanvasPoint, activeTool, traceMode]);
+  }, [getCanvasPoint, activeTool, traceMode, penAnchors]);
 
   const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing || traceMode !== "manual") return;
+    if (traceMode !== "manual") return;
 
     const point = getCanvasPoint(e);
     if (!point) return;
+
+    // Pen tool: drag to create bezier handles
+    if (activeTool === "pen" && isDraggingHandle && selectedAnchorIndex !== null) {
+      setPenAnchors(prev => {
+        const updated = [...prev];
+        const anchor = updated[selectedAnchorIndex];
+        if (anchor) {
+          const dx = point.x - anchor.x;
+          const dy = point.y - anchor.y;
+          anchor.handleOut = { x: anchor.x + dx, y: anchor.y + dy };
+          anchor.handleIn = { x: anchor.x - dx, y: anchor.y - dy };
+        }
+        return updated;
+      });
+      return;
+    }
+
+    if (!isDrawing) return;
 
     if (activeTool === "freehand") {
       setCurrentPath(prev => [...prev, point]);
     } else if (startPoint) {
       setCurrentPath(generateShapePoints(startPoint, point, activeTool));
     }
-  }, [isDrawing, getCanvasPoint, activeTool, startPoint, generateShapePoints, traceMode]);
+  }, [isDrawing, getCanvasPoint, activeTool, startPoint, generateShapePoints, traceMode, isDraggingHandle, selectedAnchorIndex]);
 
   const handlePointerUp = useCallback(() => {
+    // Pen tool: stop dragging handle
+    if (activeTool === "pen") {
+      setIsDraggingHandle(false);
+      return;
+    }
+
     if (!isDrawing || currentPath.length < 2) {
       setIsDrawing(false);
       setCurrentPath([]);
@@ -214,12 +305,30 @@ export function ImageTracer() {
     setStartPoint(null);
   }, [isDrawing, currentPath, activeTool, smoothPath]);
 
+  // Finalize pen path and add to manual paths
+  const finalizePenPath = useCallback(() => {
+    if (penAnchors.length < 2) return;
+    
+    const pathPoints = bezierToPoints(penAnchors);
+    if (pathPoints.length >= 2) {
+      setManualPaths(prev => [...prev, { points: pathPoints, closed: false }]);
+    }
+    setPenAnchors([]);
+    setSelectedAnchorIndex(null);
+  }, [penAnchors, bezierToPoints]);
+
   const handleUndo = useCallback(() => {
+    if (activeTool === "pen" && penAnchors.length > 0) {
+      setPenAnchors(prev => prev.slice(0, -1));
+      return;
+    }
     setManualPaths(prev => prev.slice(0, -1));
-  }, []);
+  }, [activeTool, penAnchors]);
 
   const handleClear = useCallback(() => {
     setManualPaths([]);
+    setPenAnchors([]);
+    setSelectedAnchorIndex(null);
   }, []);
 
   // Auto trace function
@@ -399,10 +508,104 @@ export function ImageTracer() {
         ctx.stroke();
       }
 
+      // Draw pen tool anchors and bezier curve preview
+      if (penAnchors.length > 0) {
+        ctx.shadowBlur = 0;
+        
+        // Draw bezier curve preview
+        if (penAnchors.length >= 2) {
+          const bezierPoints = bezierToPointsLocal(penAnchors);
+          ctx.strokeStyle = '#00ff88';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(bezierPoints[0].x, bezierPoints[0].y);
+          for (let i = 1; i < bezierPoints.length; i++) {
+            ctx.lineTo(bezierPoints[i].x, bezierPoints[i].y);
+          }
+          ctx.stroke();
+        }
+        
+        // Draw anchor points and handles
+        for (let i = 0; i < penAnchors.length; i++) {
+          const anchor = penAnchors[i];
+          
+          // Draw handles
+          if (anchor.handleIn || anchor.handleOut) {
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            
+            if (anchor.handleIn) {
+              ctx.beginPath();
+              ctx.moveTo(anchor.x, anchor.y);
+              ctx.lineTo(anchor.handleIn.x, anchor.handleIn.y);
+              ctx.stroke();
+              
+              ctx.fillStyle = '#fff';
+              ctx.beginPath();
+              ctx.arc(anchor.handleIn.x, anchor.handleIn.y, 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            
+            if (anchor.handleOut) {
+              ctx.beginPath();
+              ctx.moveTo(anchor.x, anchor.y);
+              ctx.lineTo(anchor.handleOut.x, anchor.handleOut.y);
+              ctx.stroke();
+              
+              ctx.fillStyle = '#fff';
+              ctx.beginPath();
+              ctx.arc(anchor.handleOut.x, anchor.handleOut.y, 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          
+          // Draw anchor point
+          ctx.fillStyle = selectedAnchorIndex === i ? '#00ff88' : '#fff';
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(anchor.x, anchor.y, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+
       ctx.shadowBlur = 0;
     };
+    
+    // Local bezier function for drawing
+    function bezierToPointsLocal(anchors: AnchorPoint[]): { x: number; y: number }[] {
+      if (anchors.length < 2) return anchors.map(a => ({ x: a.x, y: a.y }));
+      
+      const points: { x: number; y: number }[] = [];
+      const segments = 16;
+      
+      for (let i = 0; i < anchors.length - 1; i++) {
+        const p0 = anchors[i];
+        const p3 = anchors[i + 1];
+        const p1 = p0.handleOut || { x: p0.x, y: p0.y };
+        const p2 = p3.handleIn || { x: p3.x, y: p3.y };
+        
+        for (let t = 0; t <= segments; t++) {
+          const u = t / segments;
+          const u2 = u * u;
+          const u3 = u2 * u;
+          const mu = 1 - u;
+          const mu2 = mu * mu;
+          const mu3 = mu2 * mu;
+          
+          points.push({
+            x: mu3 * p0.x + 3 * mu2 * u * p1.x + 3 * mu * u2 * p2.x + u3 * p3.x,
+            y: mu3 * p0.y + 3 * mu2 * u * p1.y + 3 * mu * u2 * p2.y + u3 * p3.y,
+          });
+        }
+      }
+      
+      return points;
+    }
+    
     img.src = uploadedImageData;
-  }, [uploadedImageData, manualPaths, currentPath, brushSize]);
+  }, [uploadedImageData, manualPaths, currentPath, brushSize, penAnchors, selectedAnchorIndex]);
 
   const applyTracedPaths = useCallback(() => {
     if (traceMode === "auto") {
@@ -436,6 +639,7 @@ export function ImageTracer() {
 
   const tools: { id: DrawingTool; icon: typeof Pencil; label: string }[] = [
     { id: "freehand", icon: Pencil, label: "Freehand" },
+    { id: "pen", icon: PenTool, label: "Pen (Bezier Curves)" },
     { id: "line", icon: Minus, label: "Line" },
     { id: "circle", icon: Circle, label: "Circle/Oval" },
     { id: "rectangle", icon: Square, label: "Rectangle" },
@@ -598,14 +802,14 @@ export function ImageTracer() {
                       size="icon"
                       variant="ghost"
                       onClick={handleUndo}
-                      disabled={manualPaths.length === 0}
+                      disabled={manualPaths.length === 0 && penAnchors.length === 0}
                       data-testid="button-undo"
                     >
                       <Undo2 className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="right">
-                    <p>Undo Last Stroke</p>
+                    <p>{activeTool === "pen" ? "Remove Last Point" : "Undo Last Stroke"}</p>
                   </TooltipContent>
                 </Tooltip>
                 
@@ -615,22 +819,43 @@ export function ImageTracer() {
                       size="icon"
                       variant="ghost"
                       onClick={handleClear}
-                      disabled={manualPaths.length === 0}
+                      disabled={manualPaths.length === 0 && penAnchors.length === 0}
                       data-testid="button-clear"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="right">
-                    <p>Clear All Strokes</p>
+                    <p>Clear All</p>
                   </TooltipContent>
                 </Tooltip>
+                
+                {activeTool === "pen" && penAnchors.length >= 2 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="default"
+                        onClick={finalizePenPath}
+                        data-testid="button-finish-path"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p>Finish Path</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </div>
 
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg">
               <p className="text-xs text-muted-foreground text-center">
-                Trace over the image with your mouse or finger
+                {activeTool === "pen" 
+                  ? "Click to add anchor points, drag to create curves, then click ✓ to finish"
+                  : "Trace over the image with your mouse or finger"
+                }
               </p>
             </div>
           </>
@@ -760,6 +985,9 @@ function extractContours(
 ): { x: number; y: number }[][] {
   const contours: { x: number; y: number }[][] = [];
   const visited = new Set<number>();
+  
+  // Max distance between consecutive points before splitting
+  const maxJumpDistance = simplify * 3;
 
   const getPixel = (x: number, y: number): boolean => {
     if (x < 0 || x >= width || y < 0 || y >= height) return false;
@@ -772,18 +1000,39 @@ function extractContours(
     return !getPixel(x - 1, y) || !getPixel(x + 1, y) || 
            !getPixel(x, y - 1) || !getPixel(x, y + 1);
   };
+  
+  // Count neighboring edge pixels to identify noise vs real edges
+  const countEdgeNeighbors = (x: number, y: number): number => {
+    let count = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        if (isEdge(x + dx, y + dy)) count++;
+      }
+    }
+    return count;
+  };
 
   for (let y = 0; y < height; y += simplify) {
     for (let x = 0; x < width; x += simplify) {
       const key = y * width + x;
       if (visited.has(key)) continue;
       if (!isEdge(x, y)) continue;
+      
+      // Skip isolated pixels (noise) - must have at least 1 neighbor
+      if (countEdgeNeighbors(x, y) < 1) {
+        visited.add(key);
+        continue;
+      }
 
-      const contour: { x: number; y: number }[] = [];
+      let contour: { x: number; y: number }[] = [];
       let cx = x, cy = y;
+      let lastX = x, lastY = y;
+      
+      // Prioritize cardinal directions first, then diagonals
       const directions = [
-        [1, 0], [1, 1], [0, 1], [-1, 1],
-        [-1, 0], [-1, -1], [0, -1], [1, -1]
+        [1, 0], [0, 1], [-1, 0], [0, -1],
+        [1, 1], [-1, 1], [-1, -1], [1, -1]
       ];
 
       let steps = 0;
@@ -794,34 +1043,74 @@ function extractContours(
         if (visited.has(ckey)) break;
         visited.add(ckey);
 
-        if (steps % simplify === 0) {
-          contour.push({ x: cx, y: cy });
+        // Check if we jumped too far - split contour
+        const jumpDist = Math.sqrt((cx - lastX) ** 2 + (cy - lastY) ** 2);
+        if (contour.length > 0 && jumpDist > maxJumpDistance) {
+          // Save current contour if long enough
+          if (contour.length >= minLength) {
+            contours.push(contour);
+          }
+          contour = [];
         }
 
+        contour.push({ x: cx, y: cy });
+        lastX = cx;
+        lastY = cy;
+
         let found = false;
+        let bestDist = Infinity;
+        let bestX = cx, bestY = cy;
+        
+        // Find closest unvisited edge neighbor
         for (const [dx, dy] of directions) {
-          const nx = cx + dx * simplify;
-          const ny = cy + dy * simplify;
-          const nkey = ny * width + nx;
-          
-          if (!visited.has(nkey) && isEdge(nx, ny)) {
-            cx = nx;
-            cy = ny;
-            found = true;
-            break;
+          for (let mult = 1; mult <= simplify; mult++) {
+            const nx = cx + dx * mult;
+            const ny = cy + dy * mult;
+            const nkey = ny * width + nx;
+            
+            if (!visited.has(nkey) && isEdge(nx, ny)) {
+              const dist = Math.sqrt((nx - cx) ** 2 + (ny - cy) ** 2);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestX = nx;
+                bestY = ny;
+                found = true;
+              }
+            }
           }
         }
 
-        if (!found) break;
+        if (found && bestDist <= maxJumpDistance) {
+          cx = bestX;
+          cy = bestY;
+        } else {
+          break;
+        }
         steps++;
       }
 
-      // Only include contours that meet minimum length
+      // Save final contour if long enough
       if (contour.length >= minLength) {
         contours.push(contour);
       }
     }
   }
 
-  return contours;
+  // Post-process: remove contours that are likely noise (too short or circular with small area)
+  return contours.filter(contour => {
+    if (contour.length < minLength) return false;
+    
+    // Calculate bounding box
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of contour) {
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y);
+      maxY = Math.max(maxY, p.y);
+    }
+    
+    // Filter out tiny contours (noise)
+    const boxSize = Math.max(maxX - minX, maxY - minY);
+    return boxSize >= minLength;
+  });
 }
