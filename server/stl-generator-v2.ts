@@ -645,21 +645,192 @@ function trianglesToSTL(triangles: Triangle[], name: string = "SignCraft"): Buff
   return buffer;
 }
 
+// Mirror triangles on X axis (flip horizontally)
+function mirrorTrianglesX(triangles: Triangle[]): Triangle[] {
+  return triangles.map(t => {
+    // Mirror vertices on X axis
+    const v1: Vector3 = { x: -t.v1.x, y: t.v1.y, z: t.v1.z };
+    const v2: Vector3 = { x: -t.v2.x, y: t.v2.y, z: t.v2.z };
+    const v3: Vector3 = { x: -t.v3.x, y: t.v3.y, z: t.v3.z };
+    
+    // Swap v2 and v3 to reverse winding order (flip normal direction)
+    // Then recompute normal from the new vertices
+    const newNormal = calcNormal(v1, v3, v2);
+    
+    return {
+      normal: newNormal,
+      v1: v1,
+      v2: v3,
+      v3: v2
+    };
+  });
+}
+
+// Create diffuser cap that fits on top of U-channel
+// Simple solid rectangular cap that sits over the channel opening
+function createDiffuserCap(
+  path: number[][],
+  channelWidth: number,
+  wallThickness: number,
+  wallHeight: number,
+  baseThickness: number = 3,
+  capThickness: number = 2,
+  tolerance: number = 0.2
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  
+  if (path.length < 2) return triangles;
+  
+  // Cap sits on top of the walls
+  const capBottomZ = baseThickness + wallHeight;
+  const capTopZ = capBottomZ + capThickness;
+  
+  // Cap width slightly larger than channel for overlap onto walls
+  const halfWidth = (channelWidth / 2) + tolerance;
+  
+  // Build profile for each path point - simple rectangle cross-section
+  interface CapProfile {
+    bottomLeft: Vector3;
+    bottomRight: Vector3;
+    topLeft: Vector3;
+    topRight: Vector3;
+  }
+  
+  const profiles: CapProfile[] = [];
+  
+  for (let i = 0; i < path.length; i++) {
+    const [px, py] = path[i];
+    
+    // Calculate perpendicular direction
+    let tangentX = 0, tangentY = 1;
+    if (i === 0 && path.length > 1) {
+      tangentX = path[1][0] - path[0][0];
+      tangentY = path[1][1] - path[0][1];
+    } else if (i === path.length - 1) {
+      tangentX = path[i][0] - path[i-1][0];
+      tangentY = path[i][1] - path[i-1][1];
+    } else {
+      tangentX = path[i+1][0] - path[i-1][0];
+      tangentY = path[i+1][1] - path[i-1][1];
+    }
+    
+    const len = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
+    if (len > 0.001) {
+      tangentX /= len;
+      tangentY /= len;
+    }
+    
+    const perpX = -tangentY;
+    const perpY = tangentX;
+    
+    profiles.push({
+      bottomLeft: { x: px + perpX * (-halfWidth), y: py + perpY * (-halfWidth), z: capBottomZ },
+      bottomRight: { x: px + perpX * halfWidth, y: py + perpY * halfWidth, z: capBottomZ },
+      topLeft: { x: px + perpX * (-halfWidth), y: py + perpY * (-halfWidth), z: capTopZ },
+      topRight: { x: px + perpX * halfWidth, y: py + perpY * halfWidth, z: capTopZ }
+    });
+  }
+  
+  // Connect adjacent profiles to form the cap
+  for (let i = 0; i < profiles.length - 1; i++) {
+    const p1 = profiles[i];
+    const p2 = profiles[i + 1];
+    
+    // Top surface (facing up)
+    triangles.push({
+      normal: { x: 0, y: 0, z: 1 },
+      v1: p1.topLeft, v2: p2.topLeft, v3: p1.topRight
+    });
+    triangles.push({
+      normal: { x: 0, y: 0, z: 1 },
+      v1: p1.topRight, v2: p2.topLeft, v3: p2.topRight
+    });
+    
+    // Bottom surface (facing down)
+    triangles.push({
+      normal: { x: 0, y: 0, z: -1 },
+      v1: p1.bottomLeft, v2: p1.bottomRight, v3: p2.bottomLeft
+    });
+    triangles.push({
+      normal: { x: 0, y: 0, z: -1 },
+      v1: p1.bottomRight, v2: p2.bottomRight, v3: p2.bottomLeft
+    });
+    
+    // Left side (outer)
+    triangles.push({
+      normal: calcNormal(p1.bottomLeft, p1.topLeft, p2.bottomLeft),
+      v1: p1.bottomLeft, v2: p1.topLeft, v3: p2.bottomLeft
+    });
+    triangles.push({
+      normal: calcNormal(p1.topLeft, p2.topLeft, p2.bottomLeft),
+      v1: p1.topLeft, v2: p2.topLeft, v3: p2.bottomLeft
+    });
+    
+    // Right side (outer)
+    triangles.push({
+      normal: calcNormal(p1.bottomRight, p2.bottomRight, p1.topRight),
+      v1: p1.bottomRight, v2: p2.bottomRight, v3: p1.topRight
+    });
+    triangles.push({
+      normal: calcNormal(p1.topRight, p2.bottomRight, p2.topRight),
+      v1: p1.topRight, v2: p2.bottomRight, v3: p2.topRight
+    });
+  }
+  
+  // End caps (start and end of path)
+  const first = profiles[0];
+  const last = profiles[profiles.length - 1];
+  
+  // Start end cap (facing backward along path)
+  triangles.push({
+    normal: calcNormal(first.bottomLeft, first.topLeft, first.bottomRight),
+    v1: first.bottomLeft, v2: first.topLeft, v3: first.bottomRight
+  });
+  triangles.push({
+    normal: calcNormal(first.topLeft, first.topRight, first.bottomRight),
+    v1: first.topLeft, v2: first.topRight, v3: first.bottomRight
+  });
+  
+  // End end cap (facing forward along path)
+  triangles.push({
+    normal: calcNormal(last.bottomLeft, last.bottomRight, last.topLeft),
+    v1: last.bottomLeft, v2: last.bottomRight, v3: last.topLeft
+  });
+  triangles.push({
+    normal: calcNormal(last.topLeft, last.bottomRight, last.topRight),
+    v1: last.topLeft, v2: last.bottomRight, v3: last.topRight
+  });
+  
+  return triangles;
+}
+
+export interface NeonSignOptions {
+  mirrorX?: boolean;
+  generateDiffuserCap?: boolean;
+}
+
 export function generateNeonSignV2(
   letterSettings: LetterSettings,
   tubeSettings: TubeSettings,
   twoPartSystem: TwoPartSystem = defaultTwoPartSystem,
   format: "stl" | "obj" = "stl",
   sketchPaths: SketchPath[] = [],
-  inputMode: "text" | "draw" | "image" = "text"
+  inputMode: "text" | "draw" | "image" = "text",
+  options: NeonSignOptions = {}
 ): ExportedPart[] {
   // Channel dimensions from settings
   const channelWidth = tubeSettings.neonTubeDiameter || 12;
   const wallThickness = twoPartSystem.baseWallThickness || 2;
   const wallHeight = twoPartSystem.baseWallHeight || 15;
+  const baseThickness = 3;
+  const capThickness = twoPartSystem.capThickness || 2;
   
   let allTriangles: Triangle[] = [];
+  let capTriangles: Triangle[] = [];
   let fileSlug = "neon_sign";
+  
+  // Store all smooth paths for cap generation
+  const allSmoothPaths: number[][][] = [];
   
   if (inputMode === "draw" || inputMode === "image") {
     // Use sketch paths directly
@@ -670,6 +841,7 @@ export function generateNeonSignV2(
       
       // Interpolate for smoothness
       const smoothPath = interpolatePath(path2D, channelWidth * 0.25);
+      allSmoothPaths.push(smoothPath);
       
       // Create U-channel with hollow interior for LED insertion
       allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
@@ -702,6 +874,7 @@ export function generateNeonSignV2(
       
       // Interpolate for smoothness
       const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
+      allSmoothPaths.push(smoothPath);
       
       // Create U-channel with hollow interior for LED insertion
       allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
@@ -714,12 +887,50 @@ export function generateNeonSignV2(
     return [];
   }
   
-  const content = trianglesToSTL(allTriangles, `${fileSlug} Neon Sign`);
+  // Generate diffuser cap if requested
+  if (options.generateDiffuserCap) {
+    for (const smoothPath of allSmoothPaths) {
+      capTriangles.push(...createDiffuserCap(
+        smoothPath,
+        channelWidth,
+        wallThickness,
+        wallHeight,
+        baseThickness,
+        capThickness,
+        twoPartSystem.snapTolerance || 0.2
+      ));
+    }
+  }
   
-  return [{
-    filename: `${fileSlug}_neon_channel.stl`,
-    content,
+  // Apply mirror if requested
+  if (options.mirrorX) {
+    allTriangles = mirrorTrianglesX(allTriangles);
+    if (capTriangles.length > 0) {
+      capTriangles = mirrorTrianglesX(capTriangles);
+    }
+  }
+  
+  const results: ExportedPart[] = [];
+  
+  // Base channel
+  const baseContent = trianglesToSTL(allTriangles, `${fileSlug} Neon Sign Base`);
+  results.push({
+    filename: `${fileSlug}_neon_channel${options.mirrorX ? '_mirrored' : ''}.stl`,
+    content: baseContent,
     partType: "base_channel",
     material: "opaque"
-  }];
+  });
+  
+  // Diffuser cap
+  if (capTriangles.length > 0) {
+    const capContent = trianglesToSTL(capTriangles, `${fileSlug} Diffuser Cap`);
+    results.push({
+      filename: `${fileSlug}_diffuser_cap${options.mirrorX ? '_mirrored' : ''}.stl`,
+      content: capContent,
+      partType: "diffuser_cap",
+      material: "diffuser"
+    });
+  }
+  
+  return results;
 }

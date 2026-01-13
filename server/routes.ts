@@ -192,7 +192,11 @@ export async function registerRoutes(
           twoPartSystem,
           format as "stl" | "obj",
           sketchPaths,
-          inputMode
+          inputMode,
+          {
+            mirrorX: geometrySettings.mirrorX || false,
+            generateDiffuserCap: geometrySettings.generateDiffuserCap || false
+          }
         );
 
         if (exportedParts.length > 0) {

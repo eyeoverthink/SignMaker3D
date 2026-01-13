@@ -51,6 +51,8 @@ export const geometrySettingsSchema = z.object({
   backingMaterial: z.enum(materialTypes),
   separateFiles: z.boolean(),
   enableBacking: z.boolean().optional(),
+  mirrorX: z.boolean().optional(),  // Mirror on X axis
+  generateDiffuserCap: z.boolean().optional(),  // Generate matching cap piece
 });
 
 export type GeometrySettings = z.infer<typeof geometrySettingsSchema>;

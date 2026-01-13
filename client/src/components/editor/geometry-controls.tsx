@@ -281,6 +281,65 @@ export function GeometryControls() {
           </div>
         )}
 
+        {geometrySettings.mode === "outline" && (
+          <div className="space-y-3 pt-3 border-t">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-semibold">Export Options</Label>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="mirror-x" className="text-sm font-medium">
+                  Mirror (Flip Horizontal)
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-[200px]">
+                    <p className="text-xs">Flip the model horizontally for back-lit mounting</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                id="mirror-x"
+                data-testid="switch-mirror-x"
+                checked={geometrySettings.mirrorX || false}
+                onCheckedChange={(checked) =>
+                  setGeometrySettings({ mirrorX: checked })
+                }
+              />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="diffuser-cap" className="text-sm font-medium">
+                  Generate Diffuser Cap
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-[200px]">
+                    <p className="text-xs">Creates a matching lid that snaps on top to diffuse the LED light</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                id="diffuser-cap"
+                data-testid="switch-diffuser-cap"
+                checked={geometrySettings.generateDiffuserCap || false}
+                onCheckedChange={(checked) =>
+                  setGeometrySettings({ generateDiffuserCap: checked })
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Print the cap in translucent filament for best light diffusion
+            </p>
+          </div>
+        )}
+
         <Button
           variant="outline"
           size="sm"
