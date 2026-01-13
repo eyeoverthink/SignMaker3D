@@ -41,7 +41,7 @@ export function ImageTracer() {
 
     const img = new Image();
     img.onload = () => {
-      const maxSize = 400;
+      const maxSize = 600;
       const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
       const width = Math.floor(img.width * scale);
       const height = Math.floor(img.height * scale);
@@ -61,10 +61,41 @@ export function ImageTracer() {
 
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
-
+      
+      // Convert to grayscale array for edge detection
+      const gray = new Float32Array(width * height);
       for (let i = 0; i < data.length; i += 4) {
-        const gray = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-        const binary = gray < threshold ? 0 : 255;
+        gray[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      }
+      
+      // Apply Sobel edge detection for sharper edges
+      const edges = new Float32Array(width * height);
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const idx = y * width + x;
+          // Sobel kernels
+          const gx = 
+            -gray[(y-1)*width + (x-1)] + gray[(y-1)*width + (x+1)] +
+            -2*gray[y*width + (x-1)] + 2*gray[y*width + (x+1)] +
+            -gray[(y+1)*width + (x-1)] + gray[(y+1)*width + (x+1)];
+          const gy = 
+            -gray[(y-1)*width + (x-1)] - 2*gray[(y-1)*width + x] - gray[(y-1)*width + (x+1)] +
+            gray[(y+1)*width + (x-1)] + 2*gray[(y+1)*width + x] + gray[(y+1)*width + (x+1)];
+          edges[idx] = Math.sqrt(gx * gx + gy * gy);
+        }
+      }
+      
+      // Find max edge value for normalization
+      let maxEdge = 0;
+      for (let i = 0; i < edges.length; i++) {
+        if (edges[i] > maxEdge) maxEdge = edges[i];
+      }
+      
+      // Apply threshold to edges
+      const edgeThreshold = (threshold / 255) * maxEdge * 0.5;
+      for (let i = 0; i < data.length; i += 4) {
+        const edgeVal = edges[i / 4];
+        const binary = edgeVal > edgeThreshold ? 0 : 255;
         data[i] = binary;
         data[i + 1] = binary;
         data[i + 2] = binary;
@@ -74,23 +105,23 @@ export function ImageTracer() {
 
       const contours = extractContours(data, width, height, simplify);
 
-      previewCtx.fillStyle = '#1a1a2e';
+      // Draw sharp preview
+      previewCtx.fillStyle = '#0f0f1a';
       previewCtx.fillRect(0, 0, width, height);
-
-      previewCtx.strokeStyle = '#ff6b9d';
-      previewCtx.lineWidth = 3;
-      previewCtx.lineCap = 'round';
-      previewCtx.lineJoin = 'round';
-      previewCtx.shadowColor = '#ff6b9d';
-      previewCtx.shadowBlur = 10;
 
       const paths: SketchPath[] = [];
       const centerX = width / 2;
       const centerY = height / 2;
 
       for (const contour of contours) {
-        if (contour.length < 4) continue;
+        if (contour.length < 3) continue;
 
+        // Draw crisp lines without blur
+        previewCtx.strokeStyle = '#00ff88';
+        previewCtx.lineWidth = 2;
+        previewCtx.lineCap = 'round';
+        previewCtx.lineJoin = 'round';
+        
         previewCtx.beginPath();
         previewCtx.moveTo(contour[0].x, contour[0].y);
         
@@ -112,7 +143,6 @@ export function ImageTracer() {
         });
       }
 
-      previewCtx.shadowBlur = 0;
       setTracedPaths(paths);
       setIsProcessing(false);
     };
@@ -199,31 +229,33 @@ export function ImageTracer() {
         <div className="flex gap-6">
           <div className="flex-1 space-y-2">
             <div className="flex justify-between">
-              <Label className="text-sm">Threshold</Label>
+              <Label className="text-sm">Edge Sensitivity</Label>
               <span className="text-xs text-muted-foreground">{threshold}</span>
             </div>
             <Slider
               value={[threshold]}
               onValueChange={([v]) => setThreshold(v)}
-              min={50}
+              min={20}
               max={200}
               step={5}
               data-testid="slider-threshold"
             />
+            <p className="text-xs text-muted-foreground">Lower = more edges detected</p>
           </div>
           <div className="flex-1 space-y-2">
             <div className="flex justify-between">
-              <Label className="text-sm">Simplify</Label>
+              <Label className="text-sm">Detail Level</Label>
               <span className="text-xs text-muted-foreground">{simplify}</span>
             </div>
             <Slider
               value={[simplify]}
               onValueChange={([v]) => setSimplify(v)}
               min={1}
-              max={10}
+              max={5}
               step={1}
               data-testid="slider-simplify"
             />
+            <p className="text-xs text-muted-foreground">Lower = more detail</p>
           </div>
         </div>
 
