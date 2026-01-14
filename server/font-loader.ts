@@ -6,24 +6,24 @@ interface StrokePath {
   points: number[][];
   closed: boolean;
   area?: number;
-  bounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 const fontCache: Map<string, opentype.Font> = new Map();
 
+// Fonts that work well for neon signs (single-stroke or thin outline)
 export const neonFontOptions = [
-  { id: "aerioz", name: "Aerioz (Neon Script)", file: "Aerioz-Demo.otf", scale: 0.08 },
-  { id: "airstream", name: "Airstream", file: "Airstream.ttf", scale: 0.08 },
-  { id: "airstream-nf", name: "Airstream NF", file: "AirstreamNF.ttf", scale: 0.08 },
-  { id: "alliston", name: "Alliston (Script)", file: "Alliston-Demo.ttf", scale: 0.08 },
-  { id: "cookiemonster", name: "Cookie Monster", file: "Cookiemonster.ttf", scale: 0.08 },
-  { id: "darlington", name: "Darlington", file: "Darlington-Demo.ttf", scale: 0.08 },
-  { id: "dirtyboy", name: "Dirtyboy", file: "Dirtyboy.ttf", scale: 0.08 },
-  { id: "future-light", name: "Future Light", file: "FutureLight.ttf", scale: 0.08 },
-  { id: "future-light-italic", name: "Future Light Italic", file: "FutureLightItalic.ttf", scale: 0.08 },
-  { id: "halimun", name: "Halimun (Script)", file: "Halimun.ttf", scale: 0.08 },
-  { id: "hershey-sans", name: "Hershey Sans", file: null, scale: 1 },
-  { id: "hershey-script", name: "Hershey Script", file: null, scale: 1 },
+  { id: "aerioz", name: "Aerioz (Neon Script)", file: "Aerioz-Demo.otf", scale: 0.08, strokeBased: false },
+  { id: "airstream", name: "Airstream", file: "Airstream.ttf", scale: 0.08, strokeBased: false },
+  { id: "airstream-nf", name: "Airstream NF", file: "AirstreamNF.ttf", scale: 0.08, strokeBased: false },
+  { id: "alliston", name: "Alliston (Script)", file: "Alliston-Demo.ttf", scale: 0.08, strokeBased: false },
+  { id: "cookiemonster", name: "Cookie Monster", file: "Cookiemonster.ttf", scale: 0.08, strokeBased: false },
+  { id: "darlington", name: "Darlington", file: "Darlington-Demo.ttf", scale: 0.08, strokeBased: false },
+  { id: "dirtyboy", name: "Dirtyboy", file: "Dirtyboy.ttf", scale: 0.08, strokeBased: false },
+  { id: "future-light", name: "Future Light", file: "FutureLight.ttf", scale: 0.08, strokeBased: false },
+  { id: "future-light-italic", name: "Future Light Italic", file: "FutureLightItalic.ttf", scale: 0.08, strokeBased: false },
+  { id: "halimun", name: "Halimun (Script)", file: "Halimun.ttf", scale: 0.08, strokeBased: false },
+  { id: "hershey-sans", name: "Hershey Sans", file: null, scale: 1, strokeBased: true },
+  { id: "hershey-script", name: "Hershey Script", file: null, scale: 1, strokeBased: true },
 ];
 
 function loadFont(fontFile: string): opentype.Font | null {
@@ -49,8 +49,10 @@ function loadFont(fontFile: string): opentype.Font | null {
   }
 }
 
-function pathCommandsToContours(pathData: opentype.Path, scale: number): StrokePath[] {
-  const paths: StrokePath[] = [];
+// Extract the OUTER contour only from font outlines
+// This gives us a single clean path per letter component
+function extractOuterContour(pathData: opentype.Path, scale: number): number[][][] {
+  const contours: StrokePath[] = [];
   let currentPath: number[][] = [];
   let currentX = 0;
   let currentY = 0;
@@ -59,7 +61,8 @@ function pathCommandsToContours(pathData: opentype.Path, scale: number): StrokeP
     switch (cmd.type) {
       case 'M':
         if (currentPath.length > 1) {
-          paths.push({ points: [...currentPath], closed: false });
+          const area = Math.abs(calculateSignedArea(currentPath));
+          contours.push({ points: [...currentPath], closed: false, area });
         }
         currentPath = [[cmd.x! * scale, cmd.y! * scale]];
         currentX = cmd.x!;
@@ -73,8 +76,8 @@ function pathCommandsToContours(pathData: opentype.Path, scale: number): StrokeP
         break;
         
       case 'C':
-        // Sample bezier curve
-        const steps = 10;
+        // Sample bezier - fewer steps for cleaner output
+        const steps = 6;
         for (let t = 1; t <= steps; t++) {
           const tt = t / steps;
           const t2 = tt * tt;
@@ -92,7 +95,7 @@ function pathCommandsToContours(pathData: opentype.Path, scale: number): StrokeP
         break;
         
       case 'Q':
-        const qSteps = 8;
+        const qSteps = 5;
         for (let t = 1; t <= qSteps; t++) {
           const tt = t / qSteps;
           const mt = 1 - tt;
@@ -106,7 +109,8 @@ function pathCommandsToContours(pathData: opentype.Path, scale: number): StrokeP
         
       case 'Z':
         if (currentPath.length > 1) {
-          paths.push({ points: [...currentPath], closed: true });
+          const area = Math.abs(calculateSignedArea(currentPath));
+          contours.push({ points: [...currentPath], closed: true, area });
         }
         currentPath = [];
         break;
@@ -114,18 +118,32 @@ function pathCommandsToContours(pathData: opentype.Path, scale: number): StrokeP
   }
   
   if (currentPath.length > 1) {
-    paths.push({ points: currentPath, closed: false });
+    const area = Math.abs(calculateSignedArea(currentPath));
+    contours.push({ points: currentPath, closed: true, area });
   }
   
-  // Calculate area for each closed path
-  for (const p of paths) {
-    if (p.closed) {
-      p.area = Math.abs(calculateSignedArea(p.points));
-      p.bounds = calculateBounds(p.points);
+  // For outline fonts, we need to extract paths that represent the letter's stroke
+  // Keep all significant outer contours (positive area) but filter out small inner holes
+  if (contours.length === 0) return [];
+  
+  // Sort by area descending 
+  contours.sort((a, b) => (b.area || 0) - (a.area || 0));
+  
+  // Get the largest contour area as reference
+  const maxArea = contours[0].area || 0;
+  const minAreaThreshold = maxArea * 0.05; // Keep contours at least 5% of largest
+  
+  const result: number[][][] = [];
+  
+  // Keep all significant contours (not just the largest)
+  // This preserves multi-component glyphs like "i", "j", etc.
+  for (const contour of contours) {
+    if ((contour.area || 0) >= minAreaThreshold && contour.points.length >= 3) {
+      result.push(simplifyPath(contour.points, 0.5));
     }
   }
   
-  return paths;
+  return result;
 }
 
 function calculateSignedArea(points: number[][]): number {
@@ -137,258 +155,6 @@ function calculateSignedArea(points: number[][]): number {
     area -= points[j][0] * points[i][1];
   }
   return area / 2;
-}
-
-function calculateBounds(points: number[][]): { minX: number; maxX: number; minY: number; maxY: number } {
-  let minX = Infinity, maxX = -Infinity;
-  let minY = Infinity, maxY = -Infinity;
-  for (const [x, y] of points) {
-    minX = Math.min(minX, x);
-    maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y);
-    maxY = Math.max(maxY, y);
-  }
-  return { minX, maxX, minY, maxY };
-}
-
-// Extract a single skeleton path from font outline using medial axis approximation
-function extractSingleSkeleton(contours: StrokePath[]): number[][][] {
-  if (contours.length === 0) return [];
-  
-  // Separate outer (larger area) and inner (smaller area, holes) contours
-  const closedContours = contours.filter(c => c.closed && c.area && c.area > 10);
-  
-  if (closedContours.length === 0) {
-    // No closed contours - use open paths directly
-    return contours.filter(c => !c.closed && c.points.length >= 2)
-      .map(c => simplifyPath(c.points, 0.2));
-  }
-  
-  // Sort by area - largest first (outer contours)
-  closedContours.sort((a, b) => (b.area || 0) - (a.area || 0));
-  
-  const result: number[][][] = [];
-  const processedBounds = new Set<string>();
-  
-  // Group contours by their bounding box overlap (letters with holes like 'o', 'e', etc)
-  for (const outer of closedContours) {
-    if (!outer.bounds) continue;
-    
-    const boundsKey = `${Math.round(outer.bounds.minX)},${Math.round(outer.bounds.minY)}`;
-    if (processedBounds.has(boundsKey)) continue;
-    
-    // Find inner contours (holes) within this outer contour
-    const innerContours = closedContours.filter(inner => {
-      if (inner === outer || !inner.bounds || !outer.bounds) return false;
-      // Check if inner is fully contained in outer
-      return inner.bounds.minX >= outer.bounds.minX - 1 &&
-             inner.bounds.maxX <= outer.bounds.maxX + 1 &&
-             inner.bounds.minY >= outer.bounds.minY - 1 &&
-             inner.bounds.maxY <= outer.bounds.maxY + 1 &&
-             (inner.area || 0) < (outer.area || 0) * 0.9;
-    });
-    
-    // Mark all involved contours as processed
-    processedBounds.add(boundsKey);
-    for (const inner of innerContours) {
-      if (inner.bounds) {
-        processedBounds.add(`${Math.round(inner.bounds.minX)},${Math.round(inner.bounds.minY)}`);
-      }
-    }
-    
-    // Compute skeleton for this letter
-    if (innerContours.length === 1) {
-      // Letter with hole (like 'o', 'a', 'e') - compute centerline between outer and inner
-      const skeleton = computeMidlinePath(outer.points, innerContours[0].points);
-      if (skeleton.length >= 3) {
-        result.push(simplifyPath(skeleton, 0.3));
-      }
-    } else if (innerContours.length === 0) {
-      // Solid letter - compute medial axis approximation
-      const skeleton = computeMedialAxis(outer.points);
-      if (skeleton.length >= 2) {
-        result.push(simplifyPath(skeleton, 0.3));
-      }
-    } else {
-      // Multiple holes - handle outer contour only with offset
-      const skeleton = computeMedialAxis(outer.points);
-      if (skeleton.length >= 2) {
-        result.push(simplifyPath(skeleton, 0.3));
-      }
-    }
-  }
-  
-  return result;
-}
-
-// Compute midline between outer and inner contour (for letters with holes)
-function computeMidlinePath(outer: number[][], inner: number[][]): number[][] {
-  const midline: number[][] = [];
-  
-  // Sample points along outer contour and find corresponding inner point
-  const step = Math.max(1, Math.floor(outer.length / 60));
-  
-  for (let i = 0; i < outer.length; i += step) {
-    const outerPt = outer[i];
-    
-    // Find closest point on inner contour
-    let minDist = Infinity;
-    let closestInner = inner[0];
-    
-    for (const innerPt of inner) {
-      const dist = Math.hypot(outerPt[0] - innerPt[0], outerPt[1] - innerPt[1]);
-      if (dist < minDist) {
-        minDist = dist;
-        closestInner = innerPt;
-      }
-    }
-    
-    // Midpoint between outer and inner
-    midline.push([
-      (outerPt[0] + closestInner[0]) / 2,
-      (outerPt[1] + closestInner[1]) / 2
-    ]);
-  }
-  
-  // Close the loop if it's circular
-  if (midline.length > 2) {
-    const first = midline[0];
-    const last = midline[midline.length - 1];
-    if (Math.hypot(first[0] - last[0], first[1] - last[1]) < 10) {
-      midline.push([first[0], first[1]]);
-    }
-  }
-  
-  return midline;
-}
-
-// Compute approximate medial axis (skeleton) for solid shapes
-function computeMedialAxis(points: number[][]): number[][] {
-  if (points.length < 4) return points;
-  
-  const bounds = calculateBounds(points);
-  const width = bounds.maxX - bounds.minX;
-  const height = bounds.maxY - bounds.minY;
-  
-  // For script fonts, the skeleton should follow the "flow" of the letter
-  // We'll trace through the shape following the major axis
-  
-  if (width > height * 1.5) {
-    // Horizontal letter - trace left to right through center
-    return traceHorizontalSkeleton(points, bounds);
-  } else if (height > width * 1.5) {
-    // Vertical letter - trace top to bottom through center  
-    return traceVerticalSkeleton(points, bounds);
-  } else {
-    // Roughly square - trace diagonal or use contour offset
-    return traceContourOffset(points, Math.min(width, height) * 0.25);
-  }
-}
-
-function traceHorizontalSkeleton(points: number[][], bounds: { minX: number; maxX: number; minY: number; maxY: number }): number[][] {
-  const skeleton: number[][] = [];
-  const steps = 30;
-  const dx = (bounds.maxX - bounds.minX) / steps;
-  
-  for (let i = 0; i <= steps; i++) {
-    const x = bounds.minX + i * dx;
-    
-    // Find all intersections with vertical line at x
-    const intersections: number[] = [];
-    for (let j = 0; j < points.length; j++) {
-      const p1 = points[j];
-      const p2 = points[(j + 1) % points.length];
-      
-      if ((p1[0] <= x && p2[0] >= x) || (p2[0] <= x && p1[0] >= x)) {
-        if (Math.abs(p2[0] - p1[0]) > 0.001) {
-          const t = (x - p1[0]) / (p2[0] - p1[0]);
-          if (t >= 0 && t <= 1) {
-            intersections.push(p1[1] + t * (p2[1] - p1[1]));
-          }
-        }
-      }
-    }
-    
-    if (intersections.length >= 2) {
-      intersections.sort((a, b) => a - b);
-      // Take middle of intersections
-      const midY = (intersections[0] + intersections[intersections.length - 1]) / 2;
-      skeleton.push([x, midY]);
-    }
-  }
-  
-  return skeleton;
-}
-
-function traceVerticalSkeleton(points: number[][], bounds: { minX: number; maxX: number; minY: number; maxY: number }): number[][] {
-  const skeleton: number[][] = [];
-  const steps = 30;
-  const dy = (bounds.maxY - bounds.minY) / steps;
-  
-  for (let i = 0; i <= steps; i++) {
-    const y = bounds.minY + i * dy;
-    
-    // Find all intersections with horizontal line at y
-    const intersections: number[] = [];
-    for (let j = 0; j < points.length; j++) {
-      const p1 = points[j];
-      const p2 = points[(j + 1) % points.length];
-      
-      if ((p1[1] <= y && p2[1] >= y) || (p2[1] <= y && p1[1] >= y)) {
-        if (Math.abs(p2[1] - p1[1]) > 0.001) {
-          const t = (y - p1[1]) / (p2[1] - p1[1]);
-          if (t >= 0 && t <= 1) {
-            intersections.push(p1[0] + t * (p2[0] - p1[0]));
-          }
-        }
-      }
-    }
-    
-    if (intersections.length >= 2) {
-      intersections.sort((a, b) => a - b);
-      const midX = (intersections[0] + intersections[intersections.length - 1]) / 2;
-      skeleton.push([midX, y]);
-    }
-  }
-  
-  return skeleton;
-}
-
-function traceContourOffset(points: number[][], offset: number): number[][] {
-  // Simple inward offset of contour
-  const result: number[][] = [];
-  const n = points.length;
-  
-  for (let i = 0; i < n; i += Math.max(1, Math.floor(n / 40))) {
-    const prev = points[(i - 1 + n) % n];
-    const curr = points[i];
-    const next = points[(i + 1) % n];
-    
-    // Calculate inward normal
-    const dx1 = curr[0] - prev[0];
-    const dy1 = curr[1] - prev[1];
-    const dx2 = next[0] - curr[0];
-    const dy2 = next[1] - curr[1];
-    
-    const len1 = Math.hypot(dx1, dy1) || 1;
-    const len2 = Math.hypot(dx2, dy2) || 1;
-    
-    const nx = (-dy1 / len1 - dy2 / len2) / 2;
-    const ny = (dx1 / len1 + dx2 / len2) / 2;
-    const nlen = Math.hypot(nx, ny) || 1;
-    
-    result.push([
-      curr[0] + (nx / nlen) * offset,
-      curr[1] + (ny / nlen) * offset
-    ]);
-  }
-  
-  // Close if original was closed
-  if (result.length > 2) {
-    result.push([result[0][0], result[0][1]]);
-  }
-  
-  return result;
 }
 
 function simplifyPath(points: number[][], tolerance: number): number[][] {
@@ -460,10 +226,10 @@ export function getTextStrokePathsFromFont(
     const glyph = glyphs[i];
     const glyphPath = glyph.getPath(currentX, 0, 1000);
     
-    const contours = pathCommandsToContours(glyphPath, scale);
-    const skeletons = extractSingleSkeleton(contours);
+    // Extract only outer contour per glyph
+    const outerContours = extractOuterContour(glyphPath, scale);
     
-    for (const pathPoints of skeletons) {
+    for (const pathPoints of outerContours) {
       const offsetPath = pathPoints.map(([x, y]) => {
         const px = x;
         const py = -y;
@@ -499,7 +265,7 @@ export function getTextStrokePathsFromFont(
     path.map(([x, y]) => [x - centerX, y - centerY])
   );
   
-  console.log(`[FontLoader] Generated ${centeredPaths.length} skeleton paths for "${text}"`);
+  console.log(`[FontLoader] Generated ${centeredPaths.length} paths for "${text}" (outer contours only)`);
   
   return {
     paths: centeredPaths,

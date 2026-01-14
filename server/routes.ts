@@ -226,7 +226,17 @@ export async function registerRoutes(
             generateDiffuserCap: geometrySettings.generateDiffuserCap || false,
             weldLetters: geometrySettings.weldLetters || false,
             addFeedHoles: geometrySettings.addFeedHoles || false,
-            feedHoleDiameter: geometrySettings.feedHoleDiameter || 5
+            feedHoleDiameter: geometrySettings.feedHoleDiameter || 5,
+            // Snap-fit tabs
+            snapTabsEnabled: twoPartSystem.snapTabsEnabled || false,
+            snapTabHeight: twoPartSystem.snapTabHeight || 2,
+            snapTabWidth: twoPartSystem.snapTabWidth || 4,
+            snapTabSpacing: twoPartSystem.snapTabSpacing || 25,
+            // Registration pins
+            registrationPinsEnabled: twoPartSystem.registrationPinsEnabled || false,
+            pinDiameter: twoPartSystem.pinDiameter || 2.5,
+            pinHeight: twoPartSystem.pinHeight || 3,
+            pinSpacing: twoPartSystem.pinSpacing || 30
           }
         );
 

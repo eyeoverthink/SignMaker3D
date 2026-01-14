@@ -812,6 +812,327 @@ export interface NeonSignOptions {
   weldLetters?: boolean;  // Connect all letters with bridges
   addFeedHoles?: boolean;  // Add entry/exit holes in the back
   feedHoleDiameter?: number;  // Diameter of feed holes (mm)
+  // Snap-fit tabs
+  snapTabsEnabled?: boolean;
+  snapTabHeight?: number;
+  snapTabWidth?: number;
+  snapTabSpacing?: number;
+  // Registration pins
+  registrationPinsEnabled?: boolean;
+  pinDiameter?: number;
+  pinHeight?: number;
+  pinSpacing?: number;
+}
+
+// Create snap-fit tabs along the top of walls for secure lid attachment
+// Tabs protrude INWARD from the inner edge of walls to catch the cap
+function createSnapTabs(
+  path: number[][],
+  channelWidth: number,
+  wallThickness: number,
+  wallHeight: number,
+  tabHeight: number = 2,
+  tabWidth: number = 4,
+  tabSpacing: number = 25,
+  baseThickness: number = 3
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  
+  if (path.length < 2) return triangles;
+  
+  // Calculate total path length
+  let totalLength = 0;
+  for (let i = 1; i < path.length; i++) {
+    const dx = path[i][0] - path[i-1][0];
+    const dy = path[i][1] - path[i-1][1];
+    totalLength += Math.sqrt(dx * dx + dy * dy);
+  }
+  
+  // Place tabs at regular intervals
+  const numTabs = Math.max(2, Math.floor(totalLength / tabSpacing));
+  const actualSpacing = totalLength / (numTabs + 1);
+  
+  const halfWidth = channelWidth / 2;
+  const innerHalfWidth = halfWidth - wallThickness;
+  
+  // Tab sits at top of wall and protrudes inward
+  const tabBaseZ = baseThickness + wallHeight - tabHeight; // Start slightly below wall top
+  const tabTopZ = baseThickness + wallHeight; // Flush with wall top
+  const tabDepth = 1.5; // How far tab protrudes inward
+  
+  let distanceTraveled = 0;
+  let pathIndex = 1;
+  let tabCount = 0;
+  
+  while (pathIndex < path.length && tabCount < numTabs) {
+    const targetDist = (tabCount + 1) * actualSpacing;
+    
+    while (pathIndex < path.length) {
+      const dx = path[pathIndex][0] - path[pathIndex-1][0];
+      const dy = path[pathIndex][1] - path[pathIndex-1][1];
+      const segmentLen = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distanceTraveled + segmentLen >= targetDist) {
+        // Place tab here
+        const t = (targetDist - distanceTraveled) / segmentLen;
+        const tabX = path[pathIndex-1][0] + dx * t;
+        const tabY = path[pathIndex-1][1] + dy * t;
+        
+        // Get tangent and perpendicular directions
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const tangentX = dx / len;
+        const tangentY = dy / len;
+        const perpX = -tangentY;
+        const perpY = tangentX;
+        
+        // Create tabs on both sides of the channel (on inner wall faces)
+        for (const side of [-1, 1]) {
+          // Position at inner edge of wall
+          const wallInnerEdge = side * innerHalfWidth;
+          const wallOuterEdge = side * halfWidth;
+          
+          // Tab protrudes from inner wall edge toward channel center
+          const inwardDir = -side;
+          
+          // Tab corners: 8 vertices for a 3D box
+          // Front-left, front-right, back-left, back-right (both bottom and top)
+          const hw = tabWidth / 2;
+          
+          // Bottom corners
+          const b0: Vector3 = { 
+            x: tabX + tangentX * (-hw) + perpX * wallInnerEdge,
+            y: tabY + tangentY * (-hw) + perpY * wallInnerEdge,
+            z: tabBaseZ 
+          };
+          const b1: Vector3 = { 
+            x: tabX + tangentX * hw + perpX * wallInnerEdge,
+            y: tabY + tangentY * hw + perpY * wallInnerEdge,
+            z: tabBaseZ 
+          };
+          const b2: Vector3 = { 
+            x: tabX + tangentX * hw + perpX * (wallInnerEdge + inwardDir * tabDepth),
+            y: tabY + tangentY * hw + perpY * (wallInnerEdge + inwardDir * tabDepth),
+            z: tabBaseZ 
+          };
+          const b3: Vector3 = { 
+            x: tabX + tangentX * (-hw) + perpX * (wallInnerEdge + inwardDir * tabDepth),
+            y: tabY + tangentY * (-hw) + perpY * (wallInnerEdge + inwardDir * tabDepth),
+            z: tabBaseZ 
+          };
+          
+          // Top corners
+          const t0: Vector3 = { x: b0.x, y: b0.y, z: tabTopZ };
+          const t1: Vector3 = { x: b1.x, y: b1.y, z: tabTopZ };
+          const t2: Vector3 = { x: b2.x, y: b2.y, z: tabTopZ };
+          const t3: Vector3 = { x: b3.x, y: b3.y, z: tabTopZ };
+          
+          // Create box faces
+          // Bottom face
+          triangles.push({ normal: { x: 0, y: 0, z: -1 }, v1: b0, v2: b2, v3: b1 });
+          triangles.push({ normal: { x: 0, y: 0, z: -1 }, v1: b0, v2: b3, v3: b2 });
+          
+          // Top face (removed - tab merges with wall top)
+          
+          // Front face (toward channel center)
+          const frontN = { x: perpX * inwardDir, y: perpY * inwardDir, z: 0 };
+          triangles.push({ normal: frontN, v1: b2, v2: b3, v3: t3 });
+          triangles.push({ normal: frontN, v1: b2, v2: t3, v3: t2 });
+          
+          // Side faces
+          const leftN = { x: -tangentX, y: -tangentY, z: 0 };
+          triangles.push({ normal: leftN, v1: b0, v2: b3, v3: t3 });
+          triangles.push({ normal: leftN, v1: b0, v2: t3, v3: t0 });
+          
+          const rightN = { x: tangentX, y: tangentY, z: 0 };
+          triangles.push({ normal: rightN, v1: b1, v2: t1, v3: t2 });
+          triangles.push({ normal: rightN, v1: b1, v2: t2, v3: b2 });
+        }
+        
+        tabCount++;
+        break;
+      }
+      
+      distanceTraveled += segmentLen;
+      pathIndex++;
+    }
+  }
+  
+  console.log(`[V2 Generator] Created ${tabCount * 2} snap-fit tabs`);
+  return triangles;
+}
+
+// Calculate pin positions along a path for registration pins/sockets
+// Returns array of positions with coordinates and perpendicular direction
+function calculatePinPositions(
+  path: number[][],
+  channelWidth: number,
+  wallHeight: number,
+  pinDiameter: number = 2.5,
+  pinSpacing: number = 30,
+  baseThickness: number = 3
+): Array<{ x: number; y: number; perpX: number; perpY: number }> {
+  const positions: Array<{ x: number; y: number; perpX: number; perpY: number }> = [];
+  
+  if (path.length < 2) return positions;
+  
+  // Calculate total path length
+  let totalLength = 0;
+  for (let i = 1; i < path.length; i++) {
+    const dx = path[i][0] - path[i-1][0];
+    const dy = path[i][1] - path[i-1][1];
+    totalLength += Math.sqrt(dx * dx + dy * dy);
+  }
+  
+  // Place pins at start, end, and intervals along path
+  const numPins = Math.max(2, Math.floor(totalLength / pinSpacing) + 1);
+  const actualSpacing = totalLength / (numPins - 1);
+  
+  const halfWidth = channelWidth / 2;
+  
+  let distanceTraveled = 0;
+  let pathIndex = 1;
+  
+  for (let pinIdx = 0; pinIdx < numPins; pinIdx++) {
+    const targetDist = pinIdx * actualSpacing;
+    
+    // Find position along path
+    while (pathIndex < path.length) {
+      const dx = path[pathIndex][0] - path[pathIndex-1][0];
+      const dy = path[pathIndex][1] - path[pathIndex-1][1];
+      const segmentLen = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distanceTraveled + segmentLen >= targetDist || pinIdx === numPins - 1) {
+        const t = segmentLen > 0 ? Math.min(1, (targetDist - distanceTraveled) / segmentLen) : 0;
+        const posX = path[pathIndex-1][0] + dx * t;
+        const posY = path[pathIndex-1][1] + dy * t;
+        
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const perpX = -dy / len;
+        const perpY = dx / len;
+        
+        positions.push({ x: posX, y: posY, perpX, perpY });
+        break;
+      }
+      
+      distanceTraveled += segmentLen;
+      pathIndex++;
+    }
+    
+    // Reset for finding next position
+    if (pinIdx < numPins - 1) {
+      distanceTraveled = 0;
+      pathIndex = 1;
+      // Re-traverse to find next position
+      for (let i = 1; i < path.length; i++) {
+        const dx = path[i][0] - path[i-1][0];
+        const dy = path[i][1] - path[i-1][1];
+        const segmentLen = Math.sqrt(dx * dx + dy * dy);
+        distanceTraveled += segmentLen;
+        if (distanceTraveled >= (pinIdx + 1) * actualSpacing) {
+          pathIndex = i;
+          distanceTraveled -= segmentLen; // Back up one segment
+          break;
+        }
+      }
+    }
+  }
+  
+  return positions;
+}
+
+// Create registration pins for alignment between base and cap
+// Pins are placed on the outer edge of the left wall (outside the channel)
+function createRegistrationPins(
+  path: number[][],
+  channelWidth: number,
+  wallHeight: number,
+  pinDiameter: number = 2.5,
+  pinHeight: number = 3,
+  pinSpacing: number = 30,
+  baseThickness: number = 3
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  
+  if (path.length < 2) return triangles;
+  
+  const halfWidth = channelWidth / 2;
+  const pinBaseZ = baseThickness + wallHeight;
+  const pinTopZ = pinBaseZ + pinHeight;
+  const pinRadius = pinDiameter / 2;
+  const segments = 12;
+  
+  // Create pins at start and end of path
+  const pinPositions: { x: number; y: number; perpX: number; perpY: number }[] = [];
+  
+  // Start pin
+  if (path.length >= 2) {
+    const dx = path[1][0] - path[0][0];
+    const dy = path[1][1] - path[0][1];
+    const len = Math.sqrt(dx * dx + dy * dy);
+    pinPositions.push({
+      x: path[0][0],
+      y: path[0][1],
+      perpX: -dy / len,
+      perpY: dx / len
+    });
+  }
+  
+  // End pin
+  if (path.length >= 2) {
+    const last = path.length - 1;
+    const dx = path[last][0] - path[last-1][0];
+    const dy = path[last][1] - path[last-1][1];
+    const len = Math.sqrt(dx * dx + dy * dy);
+    pinPositions.push({
+      x: path[last][0],
+      y: path[last][1],
+      perpX: -dy / len,
+      perpY: dx / len
+    });
+  }
+  
+  for (const pos of pinPositions) {
+    // Place pin on outer edge of left wall
+    const pinCenterX = pos.x + pos.perpX * (-(halfWidth + pinRadius + 1));
+    const pinCenterY = pos.y + pos.perpY * (-(halfWidth + pinRadius + 1));
+    
+    // Create cylinder for pin
+    const bottomRing: Vector3[] = [];
+    const topRing: Vector3[] = [];
+    
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      
+      bottomRing.push({ x: pinCenterX + cos * pinRadius, y: pinCenterY + sin * pinRadius, z: pinBaseZ });
+      topRing.push({ x: pinCenterX + cos * pinRadius, y: pinCenterY + sin * pinRadius, z: pinTopZ });
+    }
+    
+    // Cylinder walls
+    for (let i = 0; i < segments; i++) {
+      const midAngle = ((i + 0.5) / segments) * Math.PI * 2;
+      const normal = { x: Math.cos(midAngle), y: Math.sin(midAngle), z: 0 };
+      
+      triangles.push({ normal, v1: bottomRing[i], v2: topRing[i], v3: bottomRing[i + 1] });
+      triangles.push({ normal, v1: topRing[i], v2: topRing[i + 1], v3: bottomRing[i + 1] });
+    }
+    
+    // Top cap
+    const topCenter: Vector3 = { x: pinCenterX, y: pinCenterY, z: pinTopZ };
+    for (let i = 0; i < segments; i++) {
+      triangles.push({ normal: { x: 0, y: 0, z: 1 }, v1: topCenter, v2: topRing[i], v3: topRing[i + 1] });
+    }
+    
+    // Bottom (optional - usually sits on wall top)
+    const bottomCenter: Vector3 = { x: pinCenterX, y: pinCenterY, z: pinBaseZ };
+    for (let i = 0; i < segments; i++) {
+      triangles.push({ normal: { x: 0, y: 0, z: -1 }, v1: bottomCenter, v2: bottomRing[i + 1], v3: bottomRing[i] });
+    }
+  }
+  
+  console.log(`[V2 Generator] Created ${pinPositions.length} registration pins`);
+  return triangles;
 }
 
 // Create a bridge/strut connecting two points (for welding letters together)
@@ -1056,6 +1377,49 @@ export function generateNeonSignV2(
       allTriangles.push(...createFeedHole(
         { x: lastPoint[0], y: lastPoint[1] },
         holeDiameter,
+        baseThickness
+      ));
+    }
+  }
+  
+  // Add snap-fit tabs if enabled
+  if (options.snapTabsEnabled && allSmoothPaths.length > 0) {
+    const tabHeight = options.snapTabHeight || 2;
+    const tabWidth = options.snapTabWidth || 4;
+    const tabSpacing = options.snapTabSpacing || 25;
+    
+    console.log(`[V2 Generator] Adding snap-fit tabs: height=${tabHeight}mm, width=${tabWidth}mm, spacing=${tabSpacing}mm`);
+    
+    for (const smoothPath of allSmoothPaths) {
+      allTriangles.push(...createSnapTabs(
+        smoothPath,
+        channelWidth,
+        wallThickness,
+        wallHeight,
+        tabHeight,
+        tabWidth,
+        tabSpacing,
+        baseThickness
+      ));
+    }
+  }
+  
+  // Add registration pins if enabled
+  if (options.registrationPinsEnabled && allSmoothPaths.length > 0) {
+    const pinDiameter = options.pinDiameter || 2.5;
+    const pinHeight = options.pinHeight || 3;
+    const pinSpacing = options.pinSpacing || 30;
+    
+    console.log(`[V2 Generator] Adding registration pins: diameter=${pinDiameter}mm, height=${pinHeight}mm`);
+    
+    for (const smoothPath of allSmoothPaths) {
+      allTriangles.push(...createRegistrationPins(
+        smoothPath,
+        channelWidth,
+        wallHeight,
+        pinDiameter,
+        pinHeight,
+        pinSpacing,
         baseThickness
       ));
     }
