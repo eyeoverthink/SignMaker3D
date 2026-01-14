@@ -9,6 +9,7 @@ import {
   type SketchPath,
   type InputMode,
   type PetTagSettings,
+  type ModularShapeSettings,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
@@ -16,6 +17,7 @@ import {
   defaultTubeSettings,
   defaultTwoPartSystem,
   defaultPetTagSettings,
+  defaultModularShapeSettings,
 } from "@shared/schema";
 
 interface EditorState {
@@ -26,6 +28,7 @@ interface EditorState {
   tubeSettings: TubeSettings;
   twoPartSystem: TwoPartSystem;
   petTagSettings: PetTagSettings;
+  modularShapeSettings: ModularShapeSettings;
   sketchPaths: SketchPath[];
   inputMode: InputMode;
   uploadedImageData: string | null;
@@ -42,6 +45,7 @@ interface EditorState {
   setTubeSettings: (settings: Partial<TubeSettings>) => void;
   setTwoPartSystem: (settings: Partial<TwoPartSystem>) => void;
   setPetTagSettings: (settings: Partial<PetTagSettings>) => void;
+  setModularShapeSettings: (settings: Partial<ModularShapeSettings>) => void;
   setSketchPaths: (paths: SketchPath[]) => void;
   addSketchPath: (path: SketchPath) => void;
   removeSketchPath: (id: string) => void;
@@ -64,6 +68,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   tubeSettings: defaultTubeSettings,
   twoPartSystem: defaultTwoPartSystem,
   petTagSettings: defaultPetTagSettings,
+  modularShapeSettings: defaultModularShapeSettings,
   sketchPaths: [],
   inputMode: "text",
   uploadedImageData: null,
@@ -101,6 +106,10 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       petTagSettings: { ...state.petTagSettings, ...settings },
     })),
+  setModularShapeSettings: (settings) =>
+    set((state) => ({
+      modularShapeSettings: { ...state.modularShapeSettings, ...settings },
+    })),
   setSketchPaths: (paths) => set({ sketchPaths: paths }),
   addSketchPath: (path) =>
     set((state) => ({
@@ -127,6 +136,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       tubeSettings: defaultTubeSettings,
       twoPartSystem: defaultTwoPartSystem,
       petTagSettings: defaultPetTagSettings,
+      modularShapeSettings: defaultModularShapeSettings,
       sketchPaths: [],
       inputMode: "text",
       uploadedImageData: null,

@@ -538,7 +538,38 @@ export async function registerRoutes(
       }
       
       const settings = result.data;
-      console.log(`[Modular Export] Shape: ${settings.shapeType}, Edge: ${settings.edgeLength}mm`);
+      
+      // Validation constants matching frontend and schema
+      const minChannelWidth = 6;
+      const minEdgeLength = 30; // Matches schema minimum
+      
+      // Server-side validation: enforce minimum channelWidth
+      if (settings.channelWidth < minChannelWidth) {
+        return res.status(400).json({
+          error: "Invalid channel width",
+          details: `Channel width (${settings.channelWidth}mm) is below minimum (${minChannelWidth}mm).`
+        });
+      }
+      
+      // Server-side validation: channelWidth must not exceed safe limit
+      const maxChannelWidth = Math.floor((settings.edgeLength - 10) / 2);
+      if (settings.channelWidth > maxChannelWidth) {
+        return res.status(400).json({
+          error: "Invalid channel width",
+          details: `Channel width (${settings.channelWidth}mm) exceeds maximum (${maxChannelWidth}mm) for edge length ${settings.edgeLength}mm. Maximum channel width is (edgeLength - 10) / 2.`
+        });
+      }
+      
+      // Validate minimum inner edge length
+      const innerEdgeLength = settings.edgeLength - settings.channelWidth * 2;
+      if (innerEdgeLength < 10) {
+        return res.status(400).json({
+          error: "Invalid geometry",
+          details: `Inner edge length (${innerEdgeLength}mm) would be less than minimum 10mm. Reduce channel width or increase edge length.`
+        });
+      }
+      
+      console.log(`[Modular Export] Shape: ${settings.shapeType}, Edge: ${settings.edgeLength}mm, Channel: ${settings.channelWidth}mm`);
       
       const parts = generateModularShape(settings);
       
