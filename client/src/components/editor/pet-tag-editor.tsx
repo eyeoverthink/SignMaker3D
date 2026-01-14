@@ -7,9 +7,40 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dog, Lightbulb, Download, Loader2, Link2, Type } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fontOptions } from "@shared/schema";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, Environment, Center, Text } from "@react-three/drei";
+import * as THREE from "three";
+
+const fontFileMap: Record<string, string> = {
+  "aerioz": "Aerioz-Demo.otf",
+  "airstream": "Airstream.ttf",
+  "beon": "Beon-Regular.otf",
+  "cabinetch": "CabinSketch-Regular.ttf",
+  "cocogoose": "Cocogoose-Classic-Light-Trial.ttf",
+  "fatsans": "fatsansround.otf",
+  "fresh": "FreshMarker-Regular.otf",
+  "gasoek": "Gasoek-DoOne.ttf",
+  "goodmood": "GoodMood-Script.otf",
+  "inter": "Inter-Bold.ttf",
+  "lobster": "Lobster-Regular.ttf",
+  "monoton": "Monoton-Regular.ttf",
+  "neoneon": "Neoneon-3zaD6.otf",
+  "neonlight": "Neon-Light-Regular.otf",
+  "neosans": "NeoSans-Black.otf",
+  "pacifico": "Pacifico-Regular.ttf",
+  "questrial": "Questrial-Regular.ttf",
+  "righteous": "Righteous-Regular.ttf",
+  "satisfy": "Satisfy-Regular.ttf",
+  "sono": "Sono-SemiBold.ttf",
+  "urban": "UrbanJungleBold-7pZ0.otf",
+  "hershey-futural": "hershey-futural",
+  "hershey-futuram": "hershey-futuram",
+  "hershey-scripts": "hershey-scripts",
+  "hershey-scriptc": "hershey-scriptc",
+};
 
 export function PetTagEditor() {
   const { petTagSettings, setPetTagSettings } = useEditorStore();
@@ -72,10 +103,8 @@ export function PetTagEditor() {
 
   return (
     <div className="w-full h-full flex">
-      <div className="flex-1 flex items-center justify-center bg-muted/30 p-8">
-        <div className="relative">
-          <NeonTagPreview />
-        </div>
+      <div className="flex-1 relative bg-background">
+        <PetTag3DPreview />
       </div>
       
       <div className="w-80 border-l bg-sidebar p-4 overflow-y-auto">
@@ -272,111 +301,195 @@ export function PetTagEditor() {
   );
 }
 
-function NeonTagPreview() {
+function PetTag3DPreview() {
   const { petTagSettings } = useEditorStore();
+  const [fontLoaded, setFontLoaded] = useState(false);
   
+  const fontUrl = `/fonts/${fontFileMap[petTagSettings.fontId] || "Aerioz-Demo.otf"}`;
   const text = petTagSettings.petName || "NAME";
-  const fontSize = 32 * petTagSettings.fontScale;
-  const channelWidth = petTagSettings.ledChannelWidth;
-  
-  const textWidth = text.length * fontSize * 0.6;
-  const textHeight = fontSize * 1.2;
-  
-  const loopSize = petTagSettings.holeEnabled ? channelWidth + petTagSettings.holeDiameter : 0;
-  const totalWidth = textWidth + loopSize + 40;
-  const totalHeight = textHeight + channelWidth * 2 + 40;
+  const scale = petTagSettings.fontScale || 1;
+  const channelWidth = petTagSettings.ledChannelWidth || 6;
+  const wallHeight = petTagSettings.ledChannelDepth || 8;
   
   return (
-    <div className="relative">
-      <svg 
-        width={Math.max(300, totalWidth)} 
-        height={Math.max(150, totalHeight)} 
-        viewBox={`0 0 ${Math.max(300, totalWidth)} ${Math.max(150, totalHeight)}`}
-        className="drop-shadow-2xl"
+    <div className="w-full h-full">
+      <Canvas
+        camera={{ position: [0, 0, 8], fov: 50 }}
+        style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)" }}
       >
-        <defs>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-          <filter id="innerGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2" result="blur"/>
-            <feMerge>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-        
-        <g transform={`translate(${totalWidth/2}, ${totalHeight/2})`}>
-          {petTagSettings.holeEnabled && (
-            <g transform={`translate(${-textWidth/2 - loopSize/2 - 5}, 0)`}>
-              <circle
-                cx="0"
-                cy="0"
-                r={(channelWidth + petTagSettings.holeDiameter) / 2}
-                fill="none"
-                stroke="#00ff88"
-                strokeWidth={channelWidth}
-                filter="url(#glow)"
-                opacity="0.9"
-              />
-              <circle
-                cx="0"
-                cy="0"
-                r={(channelWidth + petTagSettings.holeDiameter) / 2}
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth={channelWidth * 0.4}
-                filter="url(#innerGlow)"
-              />
-            </g>
-          )}
+        <Suspense fallback={null}>
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[5, 5, 5]} intensity={1} />
+          <directionalLight position={[-5, -5, -5]} intensity={0.3} />
           
-          <text
-            x="0"
-            y="0"
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={fontSize}
-            fontWeight="bold"
-            fontFamily="monospace"
-            fill="none"
-            stroke="#00ff88"
-            strokeWidth={channelWidth}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            filter="url(#glow)"
-          >
-            {text}
-          </text>
+          <Center>
+            <PetTagMesh
+              text={text}
+              fontUrl={fontUrl}
+              scale={scale}
+              channelWidth={channelWidth}
+              wallHeight={wallHeight}
+              holeEnabled={petTagSettings.holeEnabled}
+              holeDiameter={petTagSettings.holeDiameter}
+              onFontLoad={() => setFontLoaded(true)}
+            />
+          </Center>
           
-          <text
-            x="0"
-            y="0"
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={fontSize}
-            fontWeight="bold"
-            fontFamily="monospace"
-            fill="none"
-            stroke="#ffffff"
-            strokeWidth={channelWidth * 0.4}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            filter="url(#innerGlow)"
-          >
-            {text}
-          </text>
-        </g>
-      </svg>
+          <Environment preset="studio" />
+          <OrbitControls
+            makeDefault
+            enableDamping
+            dampingFactor={0.05}
+            minDistance={3}
+            maxDistance={20}
+            minPolarAngle={Math.PI / 6}
+            maxPolarAngle={Math.PI - Math.PI / 6}
+          />
+        </Suspense>
+      </Canvas>
       
-      <div className="text-center mt-4 text-sm text-muted-foreground">
-        Channel: {channelWidth}mm wide, {petTagSettings.ledChannelDepth}mm tall
+      <div className="absolute bottom-4 left-4 text-xs text-white/60 bg-black/30 px-2 py-1 rounded">
+        Drag to rotate, scroll to zoom
+      </div>
+      
+      <div className="absolute top-4 left-4 text-xs text-white/60 bg-black/30 px-2 py-1 rounded">
+        Channel: {channelWidth}mm × {wallHeight}mm
       </div>
     </div>
+  );
+}
+
+interface PetTagMeshProps {
+  text: string;
+  fontUrl: string;
+  scale: number;
+  channelWidth: number;
+  wallHeight: number;
+  holeEnabled: boolean;
+  holeDiameter: number;
+  onFontLoad?: () => void;
+}
+
+function PetTagMesh({ text, fontUrl, scale, channelWidth, wallHeight, holeEnabled, holeDiameter, onFontLoad }: PetTagMeshProps) {
+  const textRef = useRef<any>(null);
+  const [textBounds, setTextBounds] = useState({ width: 0, height: 0 });
+  
+  const fontSize = 0.8 * scale;
+  const channelScale = 0.02;
+  const wallHeightScale = wallHeight * channelScale;
+  const channelWidthScale = channelWidth * channelScale;
+  
+  useEffect(() => {
+    if (textRef.current?.geometry) {
+      textRef.current.geometry.computeBoundingBox();
+      const box = textRef.current.geometry.boundingBox;
+      if (box) {
+        setTextBounds({
+          width: box.max.x - box.min.x,
+          height: box.max.y - box.min.y
+        });
+      }
+    }
+  }, [text, fontUrl, fontSize]);
+  
+  const loopGeometry = useMemo(() => {
+    if (!holeEnabled) return null;
+    
+    const innerRadius = (holeDiameter / 2) * channelScale;
+    const outerRadius = innerRadius + channelWidthScale;
+    const segments = 32;
+    
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
+    
+    const holePath = new THREE.Path();
+    holePath.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
+    shape.holes.push(holePath);
+    
+    const extrudeSettings = {
+      depth: wallHeightScale,
+      bevelEnabled: false,
+    };
+    
+    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  }, [holeEnabled, holeDiameter, channelWidthScale, wallHeightScale, channelScale]);
+  
+  const strutGeometry = useMemo(() => {
+    if (!holeEnabled || textBounds.width === 0) return null;
+    
+    const innerRadius = (holeDiameter / 2) * channelScale;
+    const outerRadius = innerRadius + channelWidthScale;
+    const loopX = -textBounds.width / 2 - outerRadius - channelWidthScale;
+    const strutWidth = Math.abs(loopX + outerRadius) - (-textBounds.width / 2 - channelWidthScale / 2);
+    
+    if (strutWidth <= 0) return null;
+    
+    const strutShape = new THREE.Shape();
+    const halfWidth = channelWidthScale / 2;
+    strutShape.moveTo(-strutWidth, -halfWidth);
+    strutShape.lineTo(0, -halfWidth);
+    strutShape.lineTo(0, halfWidth);
+    strutShape.lineTo(-strutWidth, halfWidth);
+    strutShape.closePath();
+    
+    return new THREE.ExtrudeGeometry(strutShape, {
+      depth: wallHeightScale,
+      bevelEnabled: false,
+    });
+  }, [holeEnabled, textBounds.width, holeDiameter, channelWidthScale, wallHeightScale, channelScale]);
+  
+  const loopX = useMemo(() => {
+    if (!holeEnabled) return 0;
+    const innerRadius = (holeDiameter / 2) * channelScale;
+    const outerRadius = innerRadius + channelWidthScale;
+    return -textBounds.width / 2 - outerRadius - channelWidthScale;
+  }, [holeEnabled, textBounds.width, holeDiameter, channelWidthScale, channelScale]);
+  
+  return (
+    <group>
+      <Text
+        ref={textRef}
+        font={fontUrl}
+        fontSize={fontSize}
+        color="#333"
+        anchorX="center"
+        anchorY="middle"
+        position={[0, 0, wallHeightScale / 2]}
+        outlineWidth={channelWidthScale}
+        outlineColor="#1e3a5f"
+        onSync={() => {
+          if (textRef.current?.geometry) {
+            textRef.current.geometry.computeBoundingBox();
+            const box = textRef.current.geometry.boundingBox;
+            if (box) {
+              setTextBounds({
+                width: box.max.x - box.min.x,
+                height: box.max.y - box.min.y
+              });
+            }
+          }
+          onFontLoad?.();
+        }}
+      >
+        {text}
+      </Text>
+      
+      <mesh position={[0, 0, -0.02]}>
+        <boxGeometry args={[textBounds.width + channelWidthScale * 2, textBounds.height + channelWidthScale * 2, 0.04]} />
+        <meshStandardMaterial color="#1e1b4b" metalness={0.1} roughness={0.8} />
+      </mesh>
+      
+      {holeEnabled && loopGeometry && (
+        <mesh geometry={loopGeometry} position={[loopX, 0, 0]}>
+          <meshStandardMaterial color="#1e3a5f" metalness={0.2} roughness={0.6} />
+        </mesh>
+      )}
+      
+      {holeEnabled && strutGeometry && textBounds.width > 0 && (
+        <mesh geometry={strutGeometry} position={[-textBounds.width / 2 - channelWidthScale / 2, 0, 0]}>
+          <meshStandardMaterial color="#1e3a5f" metalness={0.2} roughness={0.6} />
+        </mesh>
+      )}
+    </group>
   );
 }

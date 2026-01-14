@@ -571,10 +571,19 @@ export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
     const outerDiam = innerDiam + channelWidth;
     const loopThickness = baseThickness + wallHeight;
     
-    // Position loop to the left of actual text bounds with small gap
-    const gapFromText = channelWidth / 2;
-    const loopX = textMinX - outerDiam / 2 - gapFromText;
-    const loopY = 0; // Centered vertically
+    // Find the leftmost point on the first path to connect the loop
+    const firstPath = allSmoothPaths[0];
+    let leftmostPoint = { x: Infinity, y: 0 };
+    for (const [x, y] of firstPath) {
+      if (x < leftmostPoint.x) {
+        leftmostPoint = { x, y };
+      }
+    }
+    
+    // Position loop to the left of the leftmost point
+    const gapFromText = channelWidth * 0.5;
+    const loopX = leftmostPoint.x - outerDiam / 2 - gapFromText;
+    const loopY = leftmostPoint.y;
     
     // Create the ring-shaped loop
     const loopTriangles = createAttachmentLoop(
@@ -585,10 +594,10 @@ export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
     );
     allTriangles.push(...loopTriangles);
     
-    // Add a connecting strut between the loop and text
+    // Add a connecting strut between the loop and the leftmost point of text
     const strutTriangles = createConnectingStrut(
       { x: loopX + outerDiam / 2, y: loopY },
-      { x: textMinX - channelWidth / 2, y: 0 },
+      { x: leftmostPoint.x - channelWidth / 2, y: leftmostPoint.y },
       channelWidth,
       loopThickness
     );
