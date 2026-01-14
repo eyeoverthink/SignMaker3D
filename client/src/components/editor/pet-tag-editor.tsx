@@ -59,15 +59,23 @@ export function PetTagEditor() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${petTagSettings.petName}-${petTagSettings.tagShape}.stl`;
+      
+      // Check if it's a multi-part export (zip) or single STL
+      const isMultiPart = response.headers.get("X-Multi-Part-Export") === "true";
+      const extension = isMultiPart ? "zip" : "stl";
+      a.download = `${petTagSettings.petName}_${petTagSettings.tagShape}_mini_neon.${extension}`;
+      
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
+      const partCount = response.headers.get("X-Part-Count");
       toast({
         title: "Export complete",
-        description: "Your pet tag STL has been downloaded",
+        description: isMultiPart 
+          ? `Downloaded ${partCount} parts: base plate with neon letters + diffuser cap`
+          : "Your pet tag STL has been downloaded",
       });
     } catch (error) {
       toast({
@@ -93,10 +101,10 @@ export function PetTagEditor() {
           <div>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
               <Dog className="h-5 w-5" />
-              Pet Tag Designer
+              Mini Neon Pet Tags
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Create illuminated dog tags with LED channels for nighttime visibility
+              Create illuminated pet tags with floating neon-style letters. Exports as 2-part system: base with U-channel letters + snap-fit diffuser cap.
             </p>
           </div>
 
@@ -111,7 +119,7 @@ export function PetTagEditor() {
             ) : (
               <Download className="h-4 w-4 mr-2" />
             )}
-            {isExporting ? "Generating..." : "Export STL"}
+            {isExporting ? "Generating..." : "Export 2-Part Mini Neon"}
           </Button>
 
           <Card>

@@ -428,13 +428,70 @@ export async function registerRoutes(
       }
       
       const settings = result.data;
-      const stlBuffer = generatePetTagSTL(settings);
       
-      const filename = `${settings.petName || "pet-tag"}-${settings.tagShape}.stl`;
+      // Import the new V2 generator that creates multi-part mini neon signs
+      const { generatePetTagV2 } = await import("./pet-tag-generator");
+      const parts = generatePetTagV2(settings);
       
-      res.setHeader("Content-Type", "application/octet-stream");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.send(stlBuffer);
+      if (parts.length === 0) {
+        return res.status(500).json({ error: "No parts generated" });
+      }
+      
+      // If only one part, return it directly
+      if (parts.length === 1) {
+        const filename = `${settings.petName || "pet-tag"}-${settings.tagShape}.stl`;
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.send(parts[0].content);
+        return;
+      }
+      
+      // Multiple parts - return as zip
+      const zipFilename = `${settings.petName || "pet"}_${settings.tagShape}_mini_neon.zip`;
+      
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+      res.setHeader("X-Multi-Part-Export", "true");
+      res.setHeader("X-Part-Count", parts.length.toString());
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      
+      archive.on("error", (err) => {
+        console.error("Pet tag archive error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to create archive" });
+        }
+      });
+      
+      res.on("close", () => {
+        archive.abort();
+      });
+      
+      archive.pipe(res);
+      
+      for (const part of parts) {
+        archive.append(part.content, { name: part.filename });
+      }
+      
+      // Add manifest
+      const manifest = {
+        version: "1.0",
+        type: "mini_neon_pet_tag",
+        description: "Mini neon sign pet tag with U-channel letters and snap-fit diffuser cap",
+        petName: settings.petName,
+        shape: settings.tagShape,
+        parts: parts.map(p => ({
+          filename: p.filename,
+          partType: p.partType,
+          material: p.material,
+          printNotes: p.partType === "base" 
+            ? "Print in opaque filament" 
+            : "Print in translucent/diffuser filament for light diffusion"
+        }))
+      };
+      
+      archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });
+      await archive.finalize();
     } catch (error) {
       console.error("Pet tag export error:", error);
       res.status(500).json({ error: "Failed to generate pet tag" });
