@@ -3,7 +3,7 @@ import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Undo2, Trash2, Pencil, Circle, Minus, Square } from "lucide-react";
+import { Undo2, Trash2, Pencil, Circle, Minus, Square, Heart, Star, ArrowBigUp, Waves } from "lucide-react";
 import { 
   Tooltip,
   TooltipContent,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { SketchPath } from "@shared/schema";
 
-type DrawingTool = "freehand" | "line" | "circle" | "rectangle";
+type DrawingTool = "freehand" | "line" | "circle" | "rectangle" | "heart" | "star" | "arc" | "wave";
 
 export function DrawingCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,16 +63,18 @@ export function DrawingCanvas() {
     end: { x: number; y: number },
     tool: DrawingTool
   ): { x: number; y: number }[] => {
+    const cx = (start.x + end.x) / 2;
+    const cy = (start.y + end.y) / 2;
+    const width = Math.abs(end.x - start.x);
+    const height = Math.abs(end.y - start.y);
+    const rx = width / 2;
+    const ry = height / 2;
+    
     if (tool === "line") {
       return [start, end];
     }
     
     if (tool === "circle") {
-      const cx = (start.x + end.x) / 2;
-      const cy = (start.y + end.y) / 2;
-      const rx = Math.abs(end.x - start.x) / 2;
-      const ry = Math.abs(end.y - start.y) / 2;
-      
       const points: { x: number; y: number }[] = [];
       const segments = 32;
       
@@ -95,6 +97,77 @@ export function DrawingCanvas() {
         { x: start.x, y: end.y },
         start,
       ];
+    }
+    
+    if (tool === "heart") {
+      const points: { x: number; y: number }[] = [];
+      const segments = 48;
+      const scale = Math.max(rx, ry);
+      
+      for (let i = 0; i <= segments; i++) {
+        const t = (i / segments) * Math.PI * 2;
+        const hx = 16 * Math.pow(Math.sin(t), 3);
+        const hy = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+        points.push({
+          x: cx + (hx / 16) * scale,
+          y: cy - (hy / 16) * scale,
+        });
+      }
+      
+      return points;
+    }
+    
+    if (tool === "star") {
+      const points: { x: number; y: number }[] = [];
+      const spikes = 5;
+      const outerRadius = Math.max(rx, ry);
+      const innerRadius = outerRadius * 0.4;
+      
+      for (let i = 0; i <= spikes * 2; i++) {
+        const angle = (i * Math.PI / spikes) - Math.PI / 2;
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        points.push({
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radius,
+        });
+      }
+      points.push(points[0]); // Close the star
+      
+      return points;
+    }
+    
+    if (tool === "arc") {
+      // Smooth arc/curve from start to end - great for cursive flourishes
+      const points: { x: number; y: number }[] = [];
+      const segments = 24;
+      const curvature = height * 0.5; // Arc height based on drag distance
+      
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const x = start.x + (end.x - start.x) * t;
+        // Parabolic curve
+        const y = start.y + (end.y - start.y) * t - curvature * Math.sin(t * Math.PI);
+        points.push({ x, y });
+      }
+      
+      return points;
+    }
+    
+    if (tool === "wave") {
+      // Sinusoidal wave - perfect for decorative neon
+      const points: { x: number; y: number }[] = [];
+      const segments = 48;
+      const amplitude = height / 2;
+      const frequency = 2; // Number of wave cycles
+      
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const x = start.x + (end.x - start.x) * t;
+        const y = cy + Math.sin(t * Math.PI * 2 * frequency) * amplitude;
+        points.push({ x, y });
+      }
+      
+      return points;
     }
     
     return [start, end];
@@ -176,10 +249,11 @@ export function DrawingCanvas() {
       y: (centerY - p.y) * scale,
     }));
 
+    const closedShapes: DrawingTool[] = ["circle", "rectangle", "heart", "star"];
     const newPath: SketchPath = {
       id: `path-${Date.now()}`,
       points: normalizedPoints,
-      closed: activeTool === "circle" || activeTool === "rectangle",
+      closed: closedShapes.includes(activeTool),
     };
 
     addSketchPath(newPath);
@@ -299,7 +373,8 @@ export function DrawingCanvas() {
         ctx.lineTo(currentPath[i].x, currentPath[i].y);
       }
 
-      if (activeTool === "circle" || activeTool === "rectangle") {
+      const closedShapes: DrawingTool[] = ["circle", "rectangle", "heart", "star"];
+      if (closedShapes.includes(activeTool)) {
         ctx.closePath();
       }
 
@@ -310,10 +385,14 @@ export function DrawingCanvas() {
   }, [sketchPaths, currentPath, showGrid, brushSize, activeTool]);
 
   const tools: { id: DrawingTool; icon: typeof Pencil; label: string }[] = [
-    { id: "freehand", icon: Pencil, label: "Freehand" },
-    { id: "line", icon: Minus, label: "Line" },
+    { id: "freehand", icon: Pencil, label: "Freehand (Cursive)" },
+    { id: "line", icon: Minus, label: "Straight Line" },
+    { id: "arc", icon: ArrowBigUp, label: "Arc/Curve" },
+    { id: "wave", icon: Waves, label: "Wave" },
     { id: "circle", icon: Circle, label: "Circle/Oval" },
     { id: "rectangle", icon: Square, label: "Rectangle" },
+    { id: "heart", icon: Heart, label: "Heart" },
+    { id: "star", icon: Star, label: "Star" },
   ];
 
   return (
@@ -333,7 +412,7 @@ export function DrawingCanvas() {
       
       <div className="absolute top-4 left-4 flex flex-col gap-3">
         <div className="bg-card/90 backdrop-blur-sm rounded-lg p-3 border shadow-lg">
-          <div className="flex gap-1 mb-3">
+          <div className="grid grid-cols-4 gap-1 mb-3">
             {tools.map((tool) => (
               <Tooltip key={tool.id}>
                 <TooltipTrigger asChild>
@@ -346,7 +425,7 @@ export function DrawingCanvas() {
                     <tool.icon className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
+                <TooltipContent side="right">
                   <p>{tool.label}</p>
                 </TooltipContent>
               </Tooltip>
@@ -354,8 +433,8 @@ export function DrawingCanvas() {
           </div>
           
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-xs">Brush Size</Label>
+            <div className="flex justify-between items-center gap-4">
+              <Label className="text-xs">Brush</Label>
               <span className="text-xs text-muted-foreground font-mono">{brushSize}px</span>
             </div>
             <Slider
@@ -364,7 +443,7 @@ export function DrawingCanvas() {
               min={2}
               max={20}
               step={1}
-              className="w-32"
+              className="w-full"
               data-testid="slider-brush-size"
             />
           </div>
@@ -412,15 +491,23 @@ export function DrawingCanvas() {
         <span className="text-sm font-mono">{sketchPaths.length}</span>
       </div>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg max-w-md">
         <p className="text-xs text-muted-foreground text-center">
           {activeTool === "freehand" 
-            ? "Draw freely to create your neon sign path"
+            ? "Draw freely for beautiful cursive neon lettering"
             : activeTool === "line"
             ? "Click and drag to draw a straight line"
+            : activeTool === "arc"
+            ? "Click and drag to create a smooth arc - perfect for cursive flourishes"
+            : activeTool === "wave"
+            ? "Click and drag to create a decorative wave pattern"
             : activeTool === "circle"
             ? "Click and drag to draw a circle or oval"
-            : "Click and drag to draw a rectangle"
+            : activeTool === "rectangle"
+            ? "Click and drag to draw a rectangle"
+            : activeTool === "heart"
+            ? "Click and drag to draw a heart shape"
+            : "Click and drag to draw a star shape"
           }
         </p>
       </div>
