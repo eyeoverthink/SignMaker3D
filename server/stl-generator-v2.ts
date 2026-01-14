@@ -809,6 +809,90 @@ function createDiffuserCap(
 export interface NeonSignOptions {
   mirrorX?: boolean;
   generateDiffuserCap?: boolean;
+  weldLetters?: boolean;  // Connect all letters with bridges
+  addFeedHoles?: boolean;  // Add entry/exit holes in the back
+  feedHoleDiameter?: number;  // Diameter of feed holes (mm)
+}
+
+// Create a bridge/strut connecting two points (for welding letters together)
+function createBridge(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  channelWidth: number,
+  wallThickness: number,
+  wallHeight: number,
+  baseThickness: number = 3
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  
+  // If the points are too close, skip the bridge
+  if (len < channelWidth * 0.5) return triangles;
+  
+  // Create a simple rectangular bridge path
+  const path: number[][] = [[start.x, start.y], [end.x, end.y]];
+  
+  // Use the same U-channel function to create the bridge with proper baseThickness
+  return createUChannel(path, channelWidth, wallThickness, wallHeight, baseThickness);
+}
+
+// Create a feed hole (cylinder cut) in the base at a specific point
+// This creates interior-facing geometry that represents a hole through the base
+// The cylinder walls have normals pointing INWARD (toward hole center) to represent void
+function createFeedHole(
+  center: { x: number; y: number },
+  diameter: number,
+  baseThickness: number
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const segments = 16;
+  const radius = diameter / 2;
+  
+  // Hole goes from slightly below base (z=-0.5) to just above the base floor
+  // This ensures it punches through the entire base
+  const topZ = baseThickness + 0.5;
+  const bottomZ = -0.5;
+  
+  const topRing: Vector3[] = [];
+  const bottomRing: Vector3[] = [];
+  
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    
+    topRing.push({ x: center.x + cos * radius, y: center.y + sin * radius, z: topZ });
+    bottomRing.push({ x: center.x + cos * radius, y: center.y + sin * radius, z: bottomZ });
+  }
+  
+  // Create the inner wall of the hole with normals pointing INWARD (toward center)
+  // Winding order: when looking from outside the cylinder, vertices go clockwise
+  // This makes the face point toward the center (representing interior of hole)
+  for (let i = 0; i < segments; i++) {
+    // Calculate inward-pointing normal for this segment
+    const midAngle = ((i + 0.5) / segments) * Math.PI * 2;
+    const inwardNormal = { x: -Math.cos(midAngle), y: -Math.sin(midAngle), z: 0 };
+    
+    // First triangle
+    triangles.push({
+      normal: inwardNormal,
+      v1: bottomRing[i],
+      v2: topRing[i],
+      v3: topRing[i + 1]
+    });
+    // Second triangle
+    triangles.push({
+      normal: inwardNormal,
+      v1: bottomRing[i],
+      v2: topRing[i + 1],
+      v3: bottomRing[i + 1]
+    });
+  }
+  
+  return triangles;
 }
 
 export function generateNeonSignV2(
@@ -898,6 +982,64 @@ export function generateNeonSignV2(
   
   if (allTriangles.length === 0) {
     return [];
+  }
+  
+  // Weld letters together with bridges if requested
+  if (options.weldLetters && allSmoothPaths.length > 1) {
+    console.log(`[V2 Generator] Welding ${allSmoothPaths.length} paths together`);
+    
+    // Connect each path to the next one
+    for (let i = 0; i < allSmoothPaths.length - 1; i++) {
+      const currentPath = allSmoothPaths[i];
+      const nextPath = allSmoothPaths[i + 1];
+      
+      if (currentPath.length > 0 && nextPath.length > 0) {
+        // Get end of current path and start of next path
+        const endPoint = currentPath[currentPath.length - 1];
+        const startPoint = nextPath[0];
+        
+        // Create bridge between them with proper baseThickness
+        const bridgeTriangles = createBridge(
+          { x: endPoint[0], y: endPoint[1] },
+          { x: startPoint[0], y: startPoint[1] },
+          channelWidth,
+          wallThickness,
+          wallHeight,
+          baseThickness
+        );
+        
+        allTriangles.push(...bridgeTriangles);
+        console.log(`[V2 Generator] Added bridge ${i}: ${bridgeTriangles.length} triangles`);
+      }
+    }
+  }
+  
+  // Add feed holes in the back for LED wire routing
+  if (options.addFeedHoles && allSmoothPaths.length > 0) {
+    const holeDiameter = options.feedHoleDiameter || 5; // Default 5mm holes
+    console.log(`[V2 Generator] Adding feed holes, diameter=${holeDiameter}mm`);
+    
+    // Add a feed hole at the start of the first path
+    const firstPath = allSmoothPaths[0];
+    if (firstPath.length > 0) {
+      const firstPoint = firstPath[0];
+      allTriangles.push(...createFeedHole(
+        { x: firstPoint[0], y: firstPoint[1] },
+        holeDiameter,
+        baseThickness
+      ));
+    }
+    
+    // Add a feed hole at the end of the last path
+    const lastPath = allSmoothPaths[allSmoothPaths.length - 1];
+    if (lastPath.length > 0) {
+      const lastPoint = lastPath[lastPath.length - 1];
+      allTriangles.push(...createFeedHole(
+        { x: lastPoint[0], y: lastPoint[1] },
+        holeDiameter,
+        baseThickness
+      ));
+    }
   }
   
   // Generate diffuser cap if requested

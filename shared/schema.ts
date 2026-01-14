@@ -53,6 +53,9 @@ export const geometrySettingsSchema = z.object({
   enableBacking: z.boolean().optional(),
   mirrorX: z.boolean().optional(),  // Mirror on X axis
   generateDiffuserCap: z.boolean().optional(),  // Generate matching cap piece
+  weldLetters: z.boolean().optional(),  // Connect all letters with bridges
+  addFeedHoles: z.boolean().optional(),  // Add entry/exit holes for LED wiring
+  feedHoleDiameter: z.number().min(3).max(12).optional(),  // Diameter of feed holes
 });
 
 export type GeometrySettings = z.infer<typeof geometrySettingsSchema>;

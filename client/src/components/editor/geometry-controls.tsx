@@ -337,6 +337,74 @@ export function GeometryControls() {
             <p className="text-xs text-muted-foreground">
               Print the cap in translucent filament for best light diffusion
             </p>
+            
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="weld-letters" className="text-sm font-medium">
+                  Weld Letters Together
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-[200px]">
+                    <p className="text-xs">Connect all letters with bridges so they print as one piece</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                id="weld-letters"
+                data-testid="switch-weld-letters"
+                checked={geometrySettings.weldLetters || false}
+                onCheckedChange={(checked) =>
+                  setGeometrySettings({ weldLetters: checked })
+                }
+              />
+            </div>
+            
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="add-feed-holes" className="text-sm font-medium">
+                  Add LED Feed Holes
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-[200px]">
+                    <p className="text-xs">Add entry/exit holes in the back for LED wire routing</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                id="add-feed-holes"
+                data-testid="switch-add-feed-holes"
+                checked={geometrySettings.addFeedHoles || false}
+                onCheckedChange={(checked) =>
+                  setGeometrySettings({ addFeedHoles: checked })
+                }
+              />
+            </div>
+            
+            {geometrySettings.addFeedHoles && (
+              <div className="space-y-2 pl-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Hole Diameter</Label>
+                  <span className="text-sm font-mono text-muted-foreground">
+                    {geometrySettings.feedHoleDiameter || 5}mm
+                  </span>
+                </div>
+                <Slider
+                  data-testid="slider-feed-hole-diameter"
+                  value={[geometrySettings.feedHoleDiameter || 5]}
+                  onValueChange={([value]) => setGeometrySettings({ feedHoleDiameter: value })}
+                  min={3}
+                  max={12}
+                  step={1}
+                  className="py-2"
+                />
+              </div>
+            )}
           </div>
         )}
 

@@ -525,6 +525,28 @@ export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
     }
   }
   
+  // Weld all letter paths together with bridges (pet tags are always one piece)
+  if (allSmoothPaths.length > 1) {
+    for (let i = 0; i < allSmoothPaths.length - 1; i++) {
+      const currentPath = allSmoothPaths[i];
+      const nextPath = allSmoothPaths[i + 1];
+      
+      if (currentPath.length > 0 && nextPath.length > 0) {
+        const endPoint = currentPath[currentPath.length - 1];
+        const startPoint = nextPath[0];
+        
+        // Create bridge between paths using connecting strut
+        const bridgeTriangles = createConnectingStrut(
+          { x: endPoint[0], y: endPoint[1] },
+          { x: startPoint[0], y: startPoint[1] },
+          channelWidth,
+          baseThickness + wallHeight
+        );
+        allTriangles.push(...bridgeTriangles);
+      }
+    }
+  }
+  
   // Add attachment loop if enabled
   if (holeEnabled && allSmoothPaths.length > 0) {
     const innerDiam = holeDiameter || 4;

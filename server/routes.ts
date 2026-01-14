@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSignage, generateMultiPartExport, generateTwoPartExport, type ExportedPart } from "./stl-generator";
 import { generateNeonSignV2 } from "./stl-generator-v2";
-import { generatePetTagSTL } from "./pet-tag-generator";
+import { generatePetTagV2 } from "./pet-tag-generator";
 import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema } from "@shared/schema";
 import {
   letterSettingsSchema,
@@ -211,7 +211,10 @@ export async function registerRoutes(
           inputMode,
           {
             mirrorX: geometrySettings.mirrorX || false,
-            generateDiffuserCap: geometrySettings.generateDiffuserCap || false
+            generateDiffuserCap: geometrySettings.generateDiffuserCap || false,
+            weldLetters: geometrySettings.weldLetters || false,
+            addFeedHoles: geometrySettings.addFeedHoles || false,
+            feedHoleDiameter: geometrySettings.feedHoleDiameter || 5
           }
         );
 
