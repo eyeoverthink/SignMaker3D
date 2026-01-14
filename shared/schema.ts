@@ -97,16 +97,16 @@ export type PetTagShape = typeof petTagShapes[number];
 export const petTagSettingsSchema = z.object({
   petName: z.string().min(0).max(20),
   tagShape: z.enum(petTagShapes),
-  tagWidth: z.number().min(20).max(60), // mm - sized for actual dog tags
-  tagHeight: z.number().min(15).max(50),
-  tagThickness: z.number().min(2).max(6),
+  tagWidth: z.number().min(20).max(100),
+  tagHeight: z.number().min(15).max(80),
+  tagThickness: z.number().min(2).max(10),
   ledChannelEnabled: z.boolean(),
-  ledChannelWidth: z.number().min(2).max(6),
-  ledChannelDepth: z.number().min(1).max(4),
-  glowInDark: z.boolean(), // For glow-in-dark filament
+  ledChannelWidth: z.number().min(4).max(12),  // Same range as main neon signs
+  ledChannelDepth: z.number().min(4).max(15),  // Wall height for U-channel
+  glowInDark: z.boolean(),
   holeEnabled: z.boolean(),
-  holeDiameter: z.number().min(3).max(8),
-  fontScale: z.number().min(0.3).max(1.5),
+  holeDiameter: z.number().min(3).max(10),
+  fontScale: z.number().min(0.5).max(2.0),
 });
 
 export type PetTagSettings = z.infer<typeof petTagSettingsSchema>;
@@ -118,12 +118,12 @@ export const defaultPetTagSettings: PetTagSettings = {
   tagHeight: 25,
   tagThickness: 4,
   ledChannelEnabled: true,
-  ledChannelWidth: 3,
-  ledChannelDepth: 2,
+  ledChannelWidth: 6,
+  ledChannelDepth: 6,
   glowInDark: false,
   holeEnabled: true,
   holeDiameter: 4,
-  fontScale: 0.8,
+  fontScale: 1.0,
 };
 
 export const letterSettingsSchema = z.object({

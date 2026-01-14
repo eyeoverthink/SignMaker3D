@@ -5,28 +5,9 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { petTagShapes, type PetTagShape } from "@shared/schema";
-import { Dog, Heart, Circle, Square, Shield, PawPrint, Lightbulb, Sparkles, Download, Loader2 } from "lucide-react";
+import { Dog, Lightbulb, Download, Loader2, Link2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-
-const shapeIcons: Record<PetTagShape, typeof Dog> = {
-  bone: Dog,
-  round: Circle,
-  heart: Heart,
-  rectangle: Square,
-  military: Shield,
-  paw: PawPrint,
-};
-
-const shapeLabels: Record<PetTagShape, string> = {
-  bone: "Bone",
-  round: "Round",
-  heart: "Heart",
-  rectangle: "Rectangle",
-  military: "Military",
-  paw: "Paw Print",
-};
 
 export function PetTagEditor() {
   const { petTagSettings, setPetTagSettings } = useEditorStore();
@@ -60,10 +41,9 @@ export function PetTagEditor() {
       const a = document.createElement("a");
       a.href = url;
       
-      // Check if it's a multi-part export (zip) or single STL
       const isMultiPart = response.headers.get("X-Multi-Part-Export") === "true";
       const extension = isMultiPart ? "zip" : "stl";
-      a.download = `${petTagSettings.petName}_${petTagSettings.tagShape}_mini_neon.${extension}`;
+      a.download = `${petTagSettings.petName}_neon_tag.${extension}`;
       
       document.body.appendChild(a);
       a.click();
@@ -74,8 +54,8 @@ export function PetTagEditor() {
       toast({
         title: "Export complete",
         description: isMultiPart 
-          ? `Downloaded ${partCount} parts: base plate with neon letters + diffuser cap`
-          : "Your pet tag STL has been downloaded",
+          ? `Downloaded ${partCount} parts: neon channel base + diffuser cap`
+          : "Your neon pet tag STL has been downloaded",
       });
     } catch (error) {
       toast({
@@ -92,7 +72,7 @@ export function PetTagEditor() {
     <div className="w-full h-full flex">
       <div className="flex-1 flex items-center justify-center bg-muted/30 p-8">
         <div className="relative">
-          <PetTagPreview />
+          <NeonTagPreview />
         </div>
       </div>
       
@@ -101,10 +81,10 @@ export function PetTagEditor() {
           <div>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
               <Dog className="h-5 w-5" />
-              Mini Neon Pet Tags
+              Neon Pet Tags
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Create illuminated pet tags with floating neon-style letters. Exports as 2-part system: base with U-channel letters + snap-fit diffuser cap.
+              Mini neon signs for dog collars! Same U-channel system as text signs, scaled for pet tags with attachment loop.
             </p>
           </div>
 
@@ -119,7 +99,7 @@ export function PetTagEditor() {
             ) : (
               <Download className="h-4 w-4 mr-2" />
             )}
-            {isExporting ? "Generating..." : "Export 2-Part Mini Neon"}
+            {isExporting ? "Generating..." : "Export Neon Tag"}
           </Button>
 
           <Card>
@@ -131,88 +111,13 @@ export function PetTagEditor() {
                 value={petTagSettings.petName}
                 onChange={(e) => setPetTagSettings({ petName: e.target.value })}
                 placeholder="Enter pet name"
-                maxLength={20}
+                maxLength={12}
                 className="text-lg font-bold"
                 data-testid="input-pet-name"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {petTagSettings.petName.length}/20 characters
+                {petTagSettings.petName.length}/12 characters
               </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Tag Shape</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-2">
-                {petTagShapes.map((shape) => {
-                  const Icon = shapeIcons[shape];
-                  return (
-                    <Button
-                      key={shape}
-                      variant={petTagSettings.tagShape === shape ? "default" : "outline"}
-                      className="flex flex-col h-16 gap-1"
-                      onClick={() => setPetTagSettings({ tagShape: shape })}
-                      data-testid={`button-shape-${shape}`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-xs">{shapeLabels[shape]}</span>
-                    </Button>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Tag Size</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label className="text-xs">Width</Label>
-                  <span className="text-xs text-muted-foreground">{petTagSettings.tagWidth}mm</span>
-                </div>
-                <Slider
-                  value={[petTagSettings.tagWidth]}
-                  onValueChange={([v]) => setPetTagSettings({ tagWidth: v })}
-                  min={20}
-                  max={60}
-                  step={1}
-                  data-testid="slider-tag-width"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label className="text-xs">Height</Label>
-                  <span className="text-xs text-muted-foreground">{petTagSettings.tagHeight}mm</span>
-                </div>
-                <Slider
-                  value={[petTagSettings.tagHeight]}
-                  onValueChange={([v]) => setPetTagSettings({ tagHeight: v })}
-                  min={15}
-                  max={50}
-                  step={1}
-                  data-testid="slider-tag-height"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label className="text-xs">Thickness</Label>
-                  <span className="text-xs text-muted-foreground">{petTagSettings.tagThickness}mm</span>
-                </div>
-                <Slider
-                  value={[petTagSettings.tagThickness]}
-                  onValueChange={([v]) => setPetTagSettings({ tagThickness: v })}
-                  min={2}
-                  max={6}
-                  step={0.5}
-                  data-testid="slider-tag-thickness"
-                />
-              </div>
             </CardContent>
           </Card>
 
@@ -220,85 +125,70 @@ export function PetTagEditor() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Lightbulb className="h-4 w-4" />
-                LED Illumination
+                Channel Settings
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">LED Channel</Label>
-                <Switch
-                  checked={petTagSettings.ledChannelEnabled}
-                  onCheckedChange={(v) => setPetTagSettings({ ledChannelEnabled: v })}
-                  data-testid="switch-led-channel"
-                />
-              </div>
-              {petTagSettings.ledChannelEnabled && (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label className="text-xs">Channel Width</Label>
-                      <span className="text-xs text-muted-foreground">{petTagSettings.ledChannelWidth}mm</span>
-                    </div>
-                    <Slider
-                      value={[petTagSettings.ledChannelWidth]}
-                      onValueChange={([v]) => setPetTagSettings({ ledChannelWidth: v })}
-                      min={2}
-                      max={6}
-                      step={0.5}
-                      data-testid="slider-led-width"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label className="text-xs">Channel Depth</Label>
-                      <span className="text-xs text-muted-foreground">{petTagSettings.ledChannelDepth}mm</span>
-                    </div>
-                    <Slider
-                      value={[petTagSettings.ledChannelDepth]}
-                      onValueChange={([v]) => setPetTagSettings({ ledChannelDepth: v })}
-                      min={1}
-                      max={4}
-                      step={0.5}
-                      data-testid="slider-led-depth"
-                    />
-                  </div>
-                </>
-              )}
-              
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <Label className="text-sm">Glow-in-Dark</Label>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-xs">Channel Width</Label>
+                  <span className="text-xs text-muted-foreground">{petTagSettings.ledChannelWidth}mm</span>
                 </div>
-                <Switch
-                  checked={petTagSettings.glowInDark}
-                  onCheckedChange={(v) => setPetTagSettings({ glowInDark: v })}
-                  data-testid="switch-glow"
+                <Slider
+                  value={[petTagSettings.ledChannelWidth]}
+                  onValueChange={([v]) => setPetTagSettings({ ledChannelWidth: v })}
+                  min={4}
+                  max={10}
+                  step={1}
+                  data-testid="slider-led-width"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Width of the LED/neon channel
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Use glow-in-dark filament for passive visibility
-              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label className="text-xs">Wall Height</Label>
+                  <span className="text-xs text-muted-foreground">{petTagSettings.ledChannelDepth}mm</span>
+                </div>
+                <Slider
+                  value={[petTagSettings.ledChannelDepth]}
+                  onValueChange={([v]) => setPetTagSettings({ ledChannelDepth: v })}
+                  min={4}
+                  max={12}
+                  step={1}
+                  data-testid="slider-led-depth"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Height of channel walls
+                </p>
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Attachment Hole</CardTitle>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Link2 className="h-4 w-4" />
+                Attachment Loop
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">Enable Hole</Label>
+                <Label className="text-sm">Add Chain Loop</Label>
                 <Switch
                   checked={petTagSettings.holeEnabled}
                   onCheckedChange={(v) => setPetTagSettings({ holeEnabled: v })}
                   data-testid="switch-hole"
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Adds a sideways loop on the left side for attaching to collar or chain
+              </p>
               {petTagSettings.holeEnabled && (
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <Label className="text-xs">Hole Diameter</Label>
+                    <Label className="text-xs">Loop Inner Diameter</Label>
                     <span className="text-xs text-muted-foreground">{petTagSettings.holeDiameter}mm</span>
                   </div>
                   <Slider
@@ -316,166 +206,145 @@ export function PetTagEditor() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Text Settings</CardTitle>
+              <CardTitle className="text-sm">Text Size</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <Label className="text-xs">Text Size</Label>
+                  <Label className="text-xs">Scale</Label>
                   <span className="text-xs text-muted-foreground">{Math.round(petTagSettings.fontScale * 100)}%</span>
                 </div>
                 <Slider
                   value={[petTagSettings.fontScale]}
                   onValueChange={([v]) => setPetTagSettings({ fontScale: v })}
-                  min={0.3}
-                  max={1.5}
+                  min={0.5}
+                  max={2.0}
                   step={0.1}
                   data-testid="slider-font-scale"
                 />
               </div>
             </CardContent>
           </Card>
+
+          <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+            <p className="font-medium mb-1">How it works:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Same U-channel system as regular neon signs</li>
+              <li>Insert LED strip or neon tube into channels</li>
+              <li>Snap on diffuser cap for even glow</li>
+              <li>Attach to collar via the side loop</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function PetTagPreview() {
+function NeonTagPreview() {
   const { petTagSettings } = useEditorStore();
-  const scale = 4; // Visual scale factor
   
-  const width = petTagSettings.tagWidth * scale;
-  const height = petTagSettings.tagHeight * scale;
+  const text = petTagSettings.petName || "NAME";
+  const fontSize = 32 * petTagSettings.fontScale;
+  const channelWidth = petTagSettings.ledChannelWidth;
   
-  const getShapePath = () => {
-    const w = width;
-    const h = height;
-    const cx = w / 2;
-    const cy = h / 2;
-    
-    switch (petTagSettings.tagShape) {
-      case "bone":
-        const boneEnd = h * 0.35;
-        return `
-          M ${boneEnd} ${h * 0.3}
-          C ${boneEnd * 0.3} ${h * 0.3}, 0 ${h * 0.15}, 0 ${cy}
-          C 0 ${h * 0.85}, ${boneEnd * 0.3} ${h * 0.7}, ${boneEnd} ${h * 0.7}
-          L ${w - boneEnd} ${h * 0.7}
-          C ${w - boneEnd * 0.3} ${h * 0.7}, ${w} ${h * 0.85}, ${w} ${cy}
-          C ${w} ${h * 0.15}, ${w - boneEnd * 0.3} ${h * 0.3}, ${w - boneEnd} ${h * 0.3}
-          Z
-        `;
-      case "round":
-        return `
-          M ${cx + w/2} ${cy}
-          A ${w/2} ${h/2} 0 1 1 ${cx - w/2} ${cy}
-          A ${w/2} ${h/2} 0 1 1 ${cx + w/2} ${cy}
-          Z
-        `;
-      case "heart":
-        return `
-          M ${cx} ${h * 0.85}
-          C ${cx - w * 0.5} ${h * 0.5}, ${cx - w * 0.5} ${h * 0.2}, ${cx} ${h * 0.35}
-          C ${cx + w * 0.5} ${h * 0.2}, ${cx + w * 0.5} ${h * 0.5}, ${cx} ${h * 0.85}
-          Z
-        `;
-      case "rectangle":
-        const r = 8;
-        return `
-          M ${r} 0
-          L ${w - r} 0
-          Q ${w} 0, ${w} ${r}
-          L ${w} ${h - r}
-          Q ${w} ${h}, ${w - r} ${h}
-          L ${r} ${h}
-          Q 0 ${h}, 0 ${h - r}
-          L 0 ${r}
-          Q 0 0, ${r} 0
-          Z
-        `;
-      case "military":
-        const mh = h * 0.15;
-        return `
-          M ${mh} 0
-          L ${w - mh} 0
-          L ${w} ${mh}
-          L ${w} ${h - mh}
-          L ${w - mh} ${h}
-          L ${mh} ${h}
-          L 0 ${h - mh}
-          L 0 ${mh}
-          Z
-        `;
-      case "paw":
-        return `
-          M ${cx} ${h * 0.9}
-          C ${cx - w * 0.4} ${h * 0.7}, ${cx - w * 0.3} ${h * 0.4}, ${cx} ${h * 0.35}
-          C ${cx + w * 0.3} ${h * 0.4}, ${cx + w * 0.4} ${h * 0.7}, ${cx} ${h * 0.9}
-          Z
-        `;
-      default:
-        return "";
-    }
-  };
+  const textWidth = text.length * fontSize * 0.6;
+  const textHeight = fontSize * 1.2;
+  
+  const loopSize = petTagSettings.holeEnabled ? channelWidth + petTagSettings.holeDiameter : 0;
+  const totalWidth = textWidth + loopSize + 40;
+  const totalHeight = textHeight + channelWidth * 2 + 40;
   
   return (
     <div className="relative">
       <svg 
-        width={width + 40} 
-        height={height + 40} 
-        viewBox={`-20 -20 ${width + 40} ${height + 40}`}
+        width={Math.max(300, totalWidth)} 
+        height={Math.max(150, totalHeight)} 
+        viewBox={`0 0 ${Math.max(300, totalWidth)} ${Math.max(150, totalHeight)}`}
         className="drop-shadow-2xl"
       >
         <defs>
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
             </feMerge>
           </filter>
-          <linearGradient id="tagGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={petTagSettings.glowInDark ? "#88ff88" : "#c0c0c0"} />
-            <stop offset="100%" stopColor={petTagSettings.glowInDark ? "#44aa44" : "#808080"} />
-          </linearGradient>
+          <filter id="innerGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
         </defs>
         
-        <path
-          d={getShapePath()}
-          fill="url(#tagGradient)"
-          stroke={petTagSettings.ledChannelEnabled ? "#00ff88" : "#666"}
-          strokeWidth={petTagSettings.ledChannelEnabled ? 3 : 1}
-          filter={petTagSettings.ledChannelEnabled ? "url(#glow)" : undefined}
-        />
-        
-        {petTagSettings.holeEnabled && (
-          <circle
-            cx={width / 2}
-            cy={15}
-            r={petTagSettings.holeDiameter * scale / 2}
-            fill="#333"
-            stroke="#666"
-            strokeWidth="1"
-          />
-        )}
-        
-        <text
-          x={width / 2}
-          y={height / 2 + (petTagSettings.holeEnabled ? 10 : 0)}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize={14 * petTagSettings.fontScale * scale / 4}
-          fontWeight="bold"
-          fill={petTagSettings.ledChannelEnabled ? "#00ff88" : "#333"}
-          filter={petTagSettings.ledChannelEnabled ? "url(#glow)" : undefined}
-        >
-          {petTagSettings.petName || "Name"}
-        </text>
+        <g transform={`translate(${totalWidth/2}, ${totalHeight/2})`}>
+          {petTagSettings.holeEnabled && (
+            <g transform={`translate(${-textWidth/2 - loopSize/2 - 5}, 0)`}>
+              <circle
+                cx="0"
+                cy="0"
+                r={(channelWidth + petTagSettings.holeDiameter) / 2}
+                fill="none"
+                stroke="#00ff88"
+                strokeWidth={channelWidth}
+                filter="url(#glow)"
+                opacity="0.9"
+              />
+              <circle
+                cx="0"
+                cy="0"
+                r={(channelWidth + petTagSettings.holeDiameter) / 2}
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={channelWidth * 0.4}
+                filter="url(#innerGlow)"
+              />
+            </g>
+          )}
+          
+          <text
+            x="0"
+            y="0"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={fontSize}
+            fontWeight="bold"
+            fontFamily="monospace"
+            fill="none"
+            stroke="#00ff88"
+            strokeWidth={channelWidth}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            filter="url(#glow)"
+          >
+            {text}
+          </text>
+          
+          <text
+            x="0"
+            y="0"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={fontSize}
+            fontWeight="bold"
+            fontFamily="monospace"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={channelWidth * 0.4}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            filter="url(#innerGlow)"
+          >
+            {text}
+          </text>
+        </g>
       </svg>
       
       <div className="text-center mt-4 text-sm text-muted-foreground">
-        {petTagSettings.tagWidth}mm x {petTagSettings.tagHeight}mm x {petTagSettings.tagThickness}mm
+        Channel: {channelWidth}mm wide, {petTagSettings.ledChannelDepth}mm tall
       </div>
     </div>
   );
