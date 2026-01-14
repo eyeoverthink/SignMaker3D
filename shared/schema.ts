@@ -2,6 +2,15 @@ import { z } from "zod";
 
 export const fontOptions = [
   { id: "aerioz", name: "Aerioz (Neon Script)", family: "Aerioz" },
+  { id: "airstream", name: "Airstream", family: "Airstream" },
+  { id: "airstream-nf", name: "Airstream NF", family: "Airstream NF" },
+  { id: "alliston", name: "Alliston (Script)", family: "Alliston" },
+  { id: "cookiemonster", name: "Cookie Monster", family: "Cookie Monster" },
+  { id: "darlington", name: "Darlington", family: "Darlington" },
+  { id: "dirtyboy", name: "Dirtyboy", family: "Dirtyboy" },
+  { id: "future-light", name: "Future Light", family: "Future Light" },
+  { id: "future-light-italic", name: "Future Light Italic", family: "Future Light Italic" },
+  { id: "halimun", name: "Halimun (Script)", family: "Halimun" },
   { id: "hershey-sans", name: "Hershey Sans", family: "Hershey Sans" },
   { id: "hershey-script", name: "Hershey Script", family: "Hershey Script" },
   { id: "inter", name: "Inter", family: "Inter" },

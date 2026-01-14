@@ -131,6 +131,15 @@ function Canvas2DFallback() {
 
 const fontFileMap: Record<string, string> = {
   "aerioz": "Aerioz-Demo.otf",
+  "airstream": "Airstream.ttf",
+  "airstream-nf": "AirstreamNF.ttf",
+  "alliston": "Alliston-Demo.ttf",
+  "cookiemonster": "Cookiemonster.ttf",
+  "darlington": "Darlington-Demo.ttf",
+  "dirtyboy": "Dirtyboy.ttf",
+  "future-light": "FutureLight.ttf",
+  "future-light-italic": "FutureLightItalic.ttf",
+  "halimun": "Halimun.ttf",
   "hershey-sans": "Inter-Bold.ttf",
   "hershey-script": "Inter-Bold.ttf",
   "inter": "Inter-Bold.ttf",

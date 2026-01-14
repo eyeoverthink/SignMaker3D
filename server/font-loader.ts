@@ -17,6 +17,15 @@ const fontCache: Map<string, opentype.Font> = new Map();
 
 export const neonFontOptions = [
   { id: "aerioz", name: "Aerioz (Neon Script)", file: "Aerioz-Demo.otf", scale: 0.08 },
+  { id: "airstream", name: "Airstream", file: "Airstream.ttf", scale: 0.08 },
+  { id: "airstream-nf", name: "Airstream NF", file: "AirstreamNF.ttf", scale: 0.08 },
+  { id: "alliston", name: "Alliston (Script)", file: "Alliston-Demo.ttf", scale: 0.08 },
+  { id: "cookiemonster", name: "Cookie Monster", file: "Cookiemonster.ttf", scale: 0.08 },
+  { id: "darlington", name: "Darlington", file: "Darlington-Demo.ttf", scale: 0.08 },
+  { id: "dirtyboy", name: "Dirtyboy", file: "Dirtyboy.ttf", scale: 0.08 },
+  { id: "future-light", name: "Future Light", file: "FutureLight.ttf", scale: 0.08 },
+  { id: "future-light-italic", name: "Future Light Italic", file: "FutureLightItalic.ttf", scale: 0.08 },
+  { id: "halimun", name: "Halimun (Script)", file: "Halimun.ttf", scale: 0.08 },
   { id: "hershey-sans", name: "Hershey Sans", file: null, scale: 1 },
   { id: "hershey-script", name: "Hershey Script", file: null, scale: 1 },
 ];

@@ -139,7 +139,7 @@ export function PetTagEditor() {
                   <SelectValue placeholder="Select font" />
                 </SelectTrigger>
                 <SelectContent>
-                  {fontOptions.slice(0, 3).map((font) => (
+                  {fontOptions.slice(0, 12).map((font) => (
                     <SelectItem key={font.id} value={font.id}>
                       {font.name}
                     </SelectItem>
