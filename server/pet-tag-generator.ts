@@ -1,10 +1,12 @@
-// Pet Tag Generator - Simple "Neon Signs for Dogs"
-// Uses the same U-channel system as the main text generator
-// Just text + optional attachment loop for dog chains
+// Pet Tag Generator - Raised 3D Neon-Style Letters for Pets
+// Creates extruded 3D letters with U-channels for LED strips
+// Loop attaches at TOP for proper front-facing hang (like Mr. T's chains)
 
-import type { PetTagSettings } from "@shared/schema";
-import { getTextStrokePaths, interpolatePath } from "./hershey-fonts";
-import { getTextStrokePathsFromFont, isOTFFont } from "./font-loader";
+import type { PetTagSettings, HangPosition } from "@shared/schema";
+import opentype from "opentype.js";
+import earcut from "earcut";
+import path from "path";
+import fs from "fs";
 
 interface Vector3 {
   x: number;
@@ -26,7 +28,46 @@ export interface PetTagPart {
   material: string;
 }
 
-// Vector math utilities
+// Font file mapping
+const fontFileMap: Record<string, string> = {
+  "aerioz": "Aerioz-Demo.otf",
+  "airstream": "Airstream-1W0vL.ttf",
+  "airstream-nf": "AirstreamNF-8XY2M.otf",
+  "alliston": "AllistonDemo-2O4dO.ttf",
+  "cookiemonster": "CookieMonster-K76dJ.ttf",
+  "darlington": "Darlington-8M7Xg.ttf",
+  "dirtyboy": "DirtyBoy-ywWd5.otf",
+  "future-light": "Future-Light-y89EE.otf",
+  "future-light-italic": "Future-Light-Italic-mGOL0.otf",
+  "halimun": "Halimun-l3DDV.ttf",
+  "inter": "Inter-p1Wxm.ttf",
+  "roboto": "Roboto-3Jnl2.ttf",
+  "poppins": "Poppins-QK1YR.ttf",
+  "montserrat": "Montserrat-8OG0D.ttf",
+  "open-sans": "OpenSans-K7GGJ.ttf",
+  "playfair": "PlayfairDisplay-9Y7Pd.ttf",
+  "merriweather": "Merriweather-WZ4oW.ttf",
+  "lora": "Lora-3mGvl.ttf",
+  "space-grotesk": "SpaceGrotesk-Zrjor.ttf",
+  "outfit": "Outfit-8Oj6z.ttf",
+  "architects-daughter": "ArchitectsDaughter-rW0Ax.ttf",
+  "oxanium": "Oxanium-0Oo5x.ttf",
+};
+
+function loadFont(fontId: string): opentype.Font {
+  const fontFilename = fontFileMap[fontId] || "Aerioz-Demo.otf";
+  const fontsDir = path.join(process.cwd(), "public", "fonts");
+  const fontPath = path.join(fontsDir, fontFilename);
+  
+  if (!fs.existsSync(fontPath)) {
+    console.log(`[PetTag] Font not found: ${fontPath}, using fallback`);
+    const fallbackPath = path.join(fontsDir, "Aerioz-Demo.otf");
+    return opentype.loadSync(fallbackPath);
+  }
+  
+  return opentype.loadSync(fontPath);
+}
+
 function calcNormal(v1: Vector3, v2: Vector3, v3: Vector3): Vector3 {
   const ax = v2.x - v1.x, ay = v2.y - v1.y, az = v2.z - v1.z;
   const bx = v3.x - v1.x, by = v3.y - v1.y, bz = v3.z - v1.z;
@@ -38,616 +79,628 @@ function calcNormal(v1: Vector3, v2: Vector3, v3: Vector3): Vector3 {
   return { x: nx / len, y: ny / len, z: nz / len };
 }
 
-interface UChannelProfile {
-  outerLeft: Vector3[];
-  innerLeft: Vector3[];
-  outerRight: Vector3[];
-  innerRight: Vector3[];
-  center: Vector3;
+function addTriangle(triangles: Triangle[], v1: Vector3, v2: Vector3, v3: Vector3) {
+  triangles.push({ normal: calcNormal(v1, v2, v3), v1, v2, v3 });
 }
 
-function createUChannel(
-  path: number[][],
-  channelWidth: number,
-  wallThickness: number,
-  wallHeight: number,
-  baseThickness: number = 3
-): Triangle[] {
-  const triangles: Triangle[] = [];
-  
-  if (path.length < 2) return triangles;
-  
-  const halfWidth = channelWidth / 2;
-  const innerHalfWidth = halfWidth - wallThickness;
-  
-  // Generate cross-section profiles along the path
-  const profiles: UChannelProfile[] = [];
-  
-  for (let i = 0; i < path.length; i++) {
-    const [x, y] = path[i];
-    
-    // Calculate tangent direction
-    let tx: number, ty: number;
-    if (i === 0) {
-      tx = path[1][0] - path[0][0];
-      ty = path[1][1] - path[0][1];
-    } else if (i === path.length - 1) {
-      tx = path[i][0] - path[i - 1][0];
-      ty = path[i][1] - path[i - 1][1];
-    } else {
-      tx = path[i + 1][0] - path[i - 1][0];
-      ty = path[i + 1][1] - path[i - 1][1];
-    }
-    
-    const tLen = Math.sqrt(tx * tx + ty * ty);
-    if (tLen < 0.0001) continue;
-    tx /= tLen;
-    ty /= tLen;
-    
-    // Perpendicular direction in XY plane
-    const px = -ty;
-    const py = tx;
-    
-    // Create the U-channel cross-section:
-    // Outer left wall, inner left wall, outer right wall, inner right wall
-    // Each wall goes from base (z=baseThickness) up to top (z=baseThickness+wallHeight)
-    
-    const outerLeft: Vector3[] = [];
-    const innerLeft: Vector3[] = [];
-    const outerRight: Vector3[] = [];
-    const innerRight: Vector3[] = [];
-    
-    // Bottom of walls (at base thickness level)
-    const baseZ = baseThickness;
-    const topZ = baseThickness + wallHeight;
-    
-    // Left wall - outer edge
-    outerLeft.push({ x: x + px * (-halfWidth), y: y + py * (-halfWidth), z: 0 });
-    outerLeft.push({ x: x + px * (-halfWidth), y: y + py * (-halfWidth), z: topZ });
-    
-    // Left wall - inner edge
-    innerLeft.push({ x: x + px * (-innerHalfWidth), y: y + py * (-innerHalfWidth), z: baseZ });
-    innerLeft.push({ x: x + px * (-innerHalfWidth), y: y + py * (-innerHalfWidth), z: topZ });
-    
-    // Right wall - outer edge
-    outerRight.push({ x: x + px * halfWidth, y: y + py * halfWidth, z: 0 });
-    outerRight.push({ x: x + px * halfWidth, y: y + py * halfWidth, z: topZ });
-    
-    // Right wall - inner edge
-    innerRight.push({ x: x + px * innerHalfWidth, y: y + py * innerHalfWidth, z: baseZ });
-    innerRight.push({ x: x + px * innerHalfWidth, y: y + py * innerHalfWidth, z: topZ });
-    
-    profiles.push({
-      outerLeft,
-      innerLeft,
-      outerRight,
-      innerRight,
-      center: { x, y, z: baseZ }
-    });
-  }
-  
-  if (profiles.length < 2) return triangles;
-  
-  // Connect profiles to form the U-channel walls
-  for (let i = 0; i < profiles.length - 1; i++) {
-    const p1 = profiles[i];
-    const p2 = profiles[i + 1];
-    
-    // Left outer wall (faces outward)
-    addQuad(triangles, p1.outerLeft[0], p2.outerLeft[0], p2.outerLeft[1], p1.outerLeft[1], true);
-    
-    // Left inner wall (faces inward toward channel)
-    addQuad(triangles, p1.innerLeft[0], p1.innerLeft[1], p2.innerLeft[1], p2.innerLeft[0], true);
-    
-    // Left wall top
-    addQuad(triangles, p1.outerLeft[1], p2.outerLeft[1], p2.innerLeft[1], p1.innerLeft[1], true);
-    
-    // Right outer wall (faces outward)
-    addQuad(triangles, p1.outerRight[0], p1.outerRight[1], p2.outerRight[1], p2.outerRight[0], true);
-    
-    // Right inner wall (faces inward toward channel)
-    addQuad(triangles, p1.innerRight[0], p2.innerRight[0], p2.innerRight[1], p1.innerRight[1], true);
-    
-    // Right wall top
-    addQuad(triangles, p1.innerRight[1], p2.innerRight[1], p2.outerRight[1], p1.outerRight[1], true);
-    
-    // Bottom of channel (floor between walls)
-    addQuad(triangles, p1.innerLeft[0], p2.innerLeft[0], p2.innerRight[0], p1.innerRight[0], true);
-    
-    // Base plate bottom
-    addQuad(triangles, p1.outerLeft[0], p1.outerRight[0], p2.outerRight[0], p2.outerLeft[0], false);
-    
-    // Base plate sides (connect bottom to channel floor)
-    addQuad(triangles, p1.outerLeft[0], p2.outerLeft[0], p2.innerLeft[0], p1.innerLeft[0], false);
-    addQuad(triangles, p1.innerRight[0], p2.innerRight[0], p2.outerRight[0], p1.outerRight[0], false);
-  }
-  
-  // End caps
-  capUChannel(triangles, profiles[0], true);
-  capUChannel(triangles, profiles[profiles.length - 1], false);
-  
-  return triangles;
-}
-
-function addQuad(triangles: Triangle[], a: Vector3, b: Vector3, c: Vector3, d: Vector3, ccw: boolean) {
+function addQuad(triangles: Triangle[], a: Vector3, b: Vector3, c: Vector3, d: Vector3, ccw: boolean = true) {
   if (ccw) {
-    triangles.push({ normal: calcNormal(a, b, c), v1: a, v2: b, v3: c });
-    triangles.push({ normal: calcNormal(a, c, d), v1: a, v2: c, v3: d });
+    addTriangle(triangles, a, b, c);
+    addTriangle(triangles, a, c, d);
   } else {
-    triangles.push({ normal: calcNormal(a, c, b), v1: a, v2: c, v3: b });
-    triangles.push({ normal: calcNormal(a, d, c), v1: a, v2: d, v3: c });
+    addTriangle(triangles, a, c, b);
+    addTriangle(triangles, a, d, c);
   }
 }
 
-function capUChannel(triangles: Triangle[], profile: UChannelProfile, isStart: boolean) {
-  const ol = profile.outerLeft;
-  const il = profile.innerLeft;
-  const or = profile.outerRight;
-  const ir = profile.innerRight;
-  
-  // Left wall end cap
-  if (isStart) {
-    addQuad(triangles, ol[0], ol[1], il[1], il[0], false);
-  } else {
-    addQuad(triangles, ol[0], il[0], il[1], ol[1], false);
+// Parse font path commands into contours (arrays of points)
+function pathToContours(fontPath: opentype.Path): number[][] {
+  const contours: number[][] = [];
+  let currentContour: number[] = [];
+
+  for (const cmd of fontPath.commands) {
+    switch (cmd.type) {
+      case "M":
+        if (currentContour.length > 0) {
+          contours.push(currentContour);
+        }
+        currentContour = [cmd.x, cmd.y];
+        break;
+      case "L":
+        currentContour.push(cmd.x, cmd.y);
+        break;
+      case "Q":
+        // Quadratic bezier - interpolate
+        const steps = 8;
+        const lastX = currentContour[currentContour.length - 2];
+        const lastY = currentContour[currentContour.length - 1];
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          const t1 = 1 - t;
+          const x = t1 * t1 * lastX + 2 * t1 * t * cmd.x1 + t * t * cmd.x;
+          const y = t1 * t1 * lastY + 2 * t1 * t * cmd.y1 + t * t * cmd.y;
+          currentContour.push(x, y);
+        }
+        break;
+      case "C":
+        // Cubic bezier - interpolate
+        const cSteps = 10;
+        const cLastX = currentContour[currentContour.length - 2];
+        const cLastY = currentContour[currentContour.length - 1];
+        for (let i = 1; i <= cSteps; i++) {
+          const t = i / cSteps;
+          const t1 = 1 - t;
+          const x = t1 * t1 * t1 * cLastX + 3 * t1 * t1 * t * cmd.x1 + 3 * t1 * t * t * cmd.x2 + t * t * t * cmd.x;
+          const y = t1 * t1 * t1 * cLastY + 3 * t1 * t1 * t * cmd.y1 + 3 * t1 * t * t * cmd.y2 + t * t * t * cmd.y;
+          currentContour.push(x, y);
+        }
+        break;
+      case "Z":
+        if (currentContour.length > 0) {
+          contours.push(currentContour);
+          currentContour = [];
+        }
+        break;
+    }
   }
-  
-  // Right wall end cap
-  if (isStart) {
-    addQuad(triangles, or[0], ir[0], ir[1], or[1], false);
-  } else {
-    addQuad(triangles, or[0], or[1], ir[1], ir[0], false);
+
+  if (currentContour.length > 0) {
+    contours.push(currentContour);
   }
-  
-  // Floor end cap (between inner walls)
-  if (isStart) {
-    addQuad(triangles, il[0], ir[0], { x: ir[0].x, y: ir[0].y, z: 0 }, { x: il[0].x, y: il[0].y, z: 0 }, false);
-  } else {
-    addQuad(triangles, il[0], { x: il[0].x, y: il[0].y, z: 0 }, { x: ir[0].x, y: ir[0].y, z: 0 }, ir[0], false);
-  }
-  
-  // Base end cap
-  if (isStart) {
-    addQuad(triangles, ol[0], { x: ol[0].x, y: ol[0].y, z: 0 }, { x: or[0].x, y: or[0].y, z: 0 }, or[0], true);
-  } else {
-    addQuad(triangles, ol[0], or[0], { x: or[0].x, y: or[0].y, z: 0 }, { x: ol[0].x, y: ol[0].y, z: 0 }, true);
-  }
+
+  return contours;
 }
 
-function createDiffuserCap(
-  path: number[][],
+// Generate extruded 3D letter geometry with U-channel
+function generateExtrudedLetter(
+  contours: number[][],
+  depth: number,
   channelWidth: number,
+  channelDepth: number,
   wallThickness: number,
-  wallHeight: number,
-  baseThickness: number,
-  capThickness: number,
-  tolerance: number
+  offsetX: number = 0,
+  offsetY: number = 0
+): { base: Triangle[], cap: Triangle[] } {
+  const baseTriangles: Triangle[] = [];
+  const capTriangles: Triangle[] = [];
+
+  if (contours.length === 0) return { base: baseTriangles, cap: capTriangles };
+
+  // Identify outer contours (counter-clockwise) and holes (clockwise)
+  const signedArea = (contour: number[]) => {
+    let area = 0;
+    const n = contour.length / 2;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += contour[i * 2] * contour[j * 2 + 1];
+      area -= contour[j * 2] * contour[i * 2 + 1];
+    }
+    return area / 2;
+  };
+
+  // Point-in-polygon test using ray casting algorithm
+  const pointInPolygon = (px: number, py: number, polygon: number[]): boolean => {
+    let inside = false;
+    const n = polygon.length / 2;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const xi = polygon[i * 2], yi = polygon[i * 2 + 1];
+      const xj = polygon[j * 2], yj = polygon[j * 2 + 1];
+      
+      if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  };
+
+  // Check if a hole belongs to an outer contour by testing if hole's centroid is inside
+  const isHoleInside = (hole: number[], outer: number[]): boolean => {
+    // Calculate centroid of hole
+    let cx = 0, cy = 0;
+    const n = hole.length / 2;
+    for (let i = 0; i < n; i++) {
+      cx += hole[i * 2];
+      cy += hole[i * 2 + 1];
+    }
+    cx /= n;
+    cy /= n;
+    
+    return pointInPolygon(cx, cy, outer);
+  };
+
+  const outerContours: number[][] = [];
+  const holes: number[][] = [];
+
+  for (const contour of contours) {
+    if (contour.length < 6) continue;
+    const area = signedArea(contour);
+    if (area > 0) {
+      outerContours.push(contour);
+    } else {
+      holes.push(contour);
+    }
+  }
+
+  // For each outer contour, triangulate with its associated holes
+  for (const outer of outerContours) {
+    // Find holes that belong to this outer contour (point-in-polygon test)
+    const relevantHoles = holes.filter(hole => isHoleInside(hole, outer));
+
+    // Prepare data for earcut
+    const coords: number[] = [...outer];
+    const holeIndices: number[] = [];
+
+    for (const hole of relevantHoles) {
+      holeIndices.push(coords.length / 2);
+      coords.push(...hole);
+    }
+
+    // Triangulate the 2D shape
+    const indices = earcut(coords, holeIndices.length > 0 ? holeIndices : undefined);
+
+    // Create bottom face (z = 0)
+    for (let i = 0; i < indices.length; i += 3) {
+      const i0 = indices[i];
+      const i1 = indices[i + 1];
+      const i2 = indices[i + 2];
+
+      const v0: Vector3 = { x: coords[i0 * 2] + offsetX, y: coords[i0 * 2 + 1] + offsetY, z: 0 };
+      const v1: Vector3 = { x: coords[i1 * 2] + offsetX, y: coords[i1 * 2 + 1] + offsetY, z: 0 };
+      const v2: Vector3 = { x: coords[i2 * 2] + offsetX, y: coords[i2 * 2 + 1] + offsetY, z: 0 };
+
+      addTriangle(baseTriangles, v0, v2, v1); // Reversed for bottom face
+    }
+
+    // Create top face with channel (z = depth - channelDepth is the floor of the channel)
+    const topZ = depth;
+    const channelFloorZ = depth - channelDepth;
+
+    // Top outer rim (the walls around the channel)
+    // For now, create solid top and add channel as separate geometry
+    for (let i = 0; i < indices.length; i += 3) {
+      const i0 = indices[i];
+      const i1 = indices[i + 1];
+      const i2 = indices[i + 2];
+
+      const v0: Vector3 = { x: coords[i0 * 2] + offsetX, y: coords[i0 * 2 + 1] + offsetY, z: channelFloorZ };
+      const v1: Vector3 = { x: coords[i1 * 2] + offsetX, y: coords[i1 * 2 + 1] + offsetY, z: channelFloorZ };
+      const v2: Vector3 = { x: coords[i2 * 2] + offsetX, y: coords[i2 * 2 + 1] + offsetY, z: channelFloorZ };
+
+      addTriangle(baseTriangles, v0, v1, v2);
+    }
+
+    // Create side walls for all contours
+    const allContours = [outer, ...relevantHoles];
+    for (const contour of allContours) {
+      const n = contour.length / 2;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        const x0 = contour[i * 2] + offsetX;
+        const y0 = contour[i * 2 + 1] + offsetY;
+        const x1 = contour[j * 2] + offsetX;
+        const y1 = contour[j * 2 + 1] + offsetY;
+
+        // Bottom edge to channel floor
+        const bl: Vector3 = { x: x0, y: y0, z: 0 };
+        const br: Vector3 = { x: x1, y: y1, z: 0 };
+        const tr: Vector3 = { x: x1, y: y1, z: channelFloorZ };
+        const tl: Vector3 = { x: x0, y: y0, z: channelFloorZ };
+
+        addQuad(baseTriangles, bl, br, tr, tl, true);
+
+        // Channel walls (from floor to top)
+        const wbl: Vector3 = { x: x0, y: y0, z: channelFloorZ };
+        const wbr: Vector3 = { x: x1, y: y1, z: channelFloorZ };
+        const wtr: Vector3 = { x: x1, y: y1, z: topZ };
+        const wtl: Vector3 = { x: x0, y: y0, z: topZ };
+
+        addQuad(baseTriangles, wbl, wbr, wtr, wtl, true);
+
+        // Inner walls of channel (offset inward by wallThickness)
+        // This creates the U-channel profile
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 0.01) {
+          const nx = -dy / len * wallThickness;
+          const ny = dx / len * wallThickness;
+
+          const ix0 = x0 + nx;
+          const iy0 = y0 + ny;
+          const ix1 = x1 + nx;
+          const iy1 = y1 + ny;
+
+          // Inner wall from floor to top
+          const ibl: Vector3 = { x: ix0, y: iy0, z: channelFloorZ };
+          const ibr: Vector3 = { x: ix1, y: iy1, z: channelFloorZ };
+          const itr: Vector3 = { x: ix1, y: iy1, z: topZ };
+          const itl: Vector3 = { x: ix0, y: iy0, z: topZ };
+
+          addQuad(baseTriangles, ibl, itl, itr, ibr, true); // Reversed for inner face
+
+          // Top rim connecting outer to inner
+          const otl: Vector3 = { x: x0, y: y0, z: topZ };
+          const otr: Vector3 = { x: x1, y: y1, z: topZ };
+          addQuad(baseTriangles, otl, otr, itr, itl, true);
+        }
+      }
+    }
+  }
+
+  // Generate diffuser cap
+  const capThickness = 2;
+  const tolerance = 0.2;
+  const capZ = depth;
+  const capTopZ = depth + capThickness;
+
+  for (const outer of outerContours) {
+    // Find holes that belong to this outer contour (point-in-polygon test)
+    const relevantHoles = holes.filter(hole => isHoleInside(hole, outer));
+    const coords: number[] = [...outer];
+    const holeIndices: number[] = [];
+
+    for (const hole of relevantHoles) {
+      holeIndices.push(coords.length / 2);
+      coords.push(...hole);
+    }
+
+    // Offset inward by wall thickness + tolerance for cap to fit in channel
+    const offsetAmount = wallThickness + tolerance;
+    const offsetCoords: number[] = [];
+    const n = coords.length / 2;
+    
+    for (let i = 0; i < n; i++) {
+      const prev = (i - 1 + n) % n;
+      const next = (i + 1) % n;
+      
+      const x = coords[i * 2];
+      const y = coords[i * 2 + 1];
+      
+      // Calculate inward offset
+      const dx1 = x - coords[prev * 2];
+      const dy1 = y - coords[prev * 2 + 1];
+      const dx2 = coords[next * 2] - x;
+      const dy2 = coords[next * 2 + 1] - y;
+      
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+      
+      if (len1 > 0.01 && len2 > 0.01) {
+        const nx = (-dy1 / len1 - dy2 / len2) / 2;
+        const ny = (dx1 / len1 + dx2 / len2) / 2;
+        const nlen = Math.sqrt(nx * nx + ny * ny);
+        if (nlen > 0.01) {
+          offsetCoords.push(x + nx / nlen * offsetAmount + offsetX);
+          offsetCoords.push(y + ny / nlen * offsetAmount + offsetY);
+        } else {
+          offsetCoords.push(x + offsetX);
+          offsetCoords.push(y + offsetY);
+        }
+      } else {
+        offsetCoords.push(x + offsetX);
+        offsetCoords.push(y + offsetY);
+      }
+    }
+
+    const capIndices = earcut(offsetCoords, holeIndices.length > 0 ? holeIndices : undefined);
+
+    // Bottom face of cap
+    for (let i = 0; i < capIndices.length; i += 3) {
+      const i0 = capIndices[i];
+      const i1 = capIndices[i + 1];
+      const i2 = capIndices[i + 2];
+
+      const v0: Vector3 = { x: offsetCoords[i0 * 2], y: offsetCoords[i0 * 2 + 1], z: capZ };
+      const v1: Vector3 = { x: offsetCoords[i1 * 2], y: offsetCoords[i1 * 2 + 1], z: capZ };
+      const v2: Vector3 = { x: offsetCoords[i2 * 2], y: offsetCoords[i2 * 2 + 1], z: capZ };
+
+      addTriangle(capTriangles, v0, v2, v1);
+    }
+
+    // Top face of cap
+    for (let i = 0; i < capIndices.length; i += 3) {
+      const i0 = capIndices[i];
+      const i1 = capIndices[i + 1];
+      const i2 = capIndices[i + 2];
+
+      const v0: Vector3 = { x: offsetCoords[i0 * 2], y: offsetCoords[i0 * 2 + 1], z: capTopZ };
+      const v1: Vector3 = { x: offsetCoords[i1 * 2], y: offsetCoords[i1 * 2 + 1], z: capTopZ };
+      const v2: Vector3 = { x: offsetCoords[i2 * 2], y: offsetCoords[i2 * 2 + 1], z: capTopZ };
+
+      addTriangle(capTriangles, v0, v1, v2);
+    }
+
+    // Side walls of cap
+    const capN = offsetCoords.length / 2;
+    for (let i = 0; i < capN; i++) {
+      const j = (i + 1) % capN;
+      const x0 = offsetCoords[i * 2];
+      const y0 = offsetCoords[i * 2 + 1];
+      const x1 = offsetCoords[j * 2];
+      const y1 = offsetCoords[j * 2 + 1];
+
+      const bl: Vector3 = { x: x0, y: y0, z: capZ };
+      const br: Vector3 = { x: x1, y: y1, z: capZ };
+      const tr: Vector3 = { x: x1, y: y1, z: capTopZ };
+      const tl: Vector3 = { x: x0, y: y0, z: capTopZ };
+
+      addQuad(capTriangles, bl, br, tr, tl, true);
+    }
+  }
+
+  return { base: baseTriangles, cap: capTriangles };
+}
+
+// Generate attachment loop ring
+function generateAttachmentLoop(
+  centerX: number,
+  centerY: number,
+  innerDiameter: number,
+  outerDiameter: number,
+  height: number
 ): Triangle[] {
   const triangles: Triangle[] = [];
-  
-  if (path.length < 2) return triangles;
-  
-  const innerWidth = channelWidth - wallThickness * 2 + tolerance * 2;
-  const halfWidth = innerWidth / 2;
-  const baseZ = baseThickness + wallHeight;
-  const topZ = baseZ + capThickness;
-  
-  // Generate cap outline along path
-  interface CapProfile {
-    left: Vector3;
-    right: Vector3;
-  }
-  
-  const bottomProfiles: CapProfile[] = [];
-  const topProfiles: CapProfile[] = [];
-  
-  for (let i = 0; i < path.length; i++) {
-    const [x, y] = path[i];
-    
-    let tx: number, ty: number;
-    if (i === 0) {
-      tx = path[1][0] - path[0][0];
-      ty = path[1][1] - path[0][1];
-    } else if (i === path.length - 1) {
-      tx = path[i][0] - path[i - 1][0];
-      ty = path[i][1] - path[i - 1][1];
-    } else {
-      tx = path[i + 1][0] - path[i - 1][0];
-      ty = path[i + 1][1] - path[i - 1][1];
-    }
-    
-    const tLen = Math.sqrt(tx * tx + ty * ty);
-    if (tLen < 0.0001) continue;
-    tx /= tLen;
-    ty /= tLen;
-    
-    const px = -ty;
-    const py = tx;
-    
-    bottomProfiles.push({
-      left: { x: x + px * (-halfWidth), y: y + py * (-halfWidth), z: baseZ },
-      right: { x: x + px * halfWidth, y: y + py * halfWidth, z: baseZ }
-    });
-    
-    topProfiles.push({
-      left: { x: x + px * (-halfWidth), y: y + py * (-halfWidth), z: topZ },
-      right: { x: x + px * halfWidth, y: y + py * halfWidth, z: topZ }
-    });
-  }
-  
-  if (bottomProfiles.length < 2) return triangles;
-  
-  // Connect profiles to form the cap
-  for (let i = 0; i < bottomProfiles.length - 1; i++) {
-    const b1 = bottomProfiles[i];
-    const b2 = bottomProfiles[i + 1];
-    const t1 = topProfiles[i];
-    const t2 = topProfiles[i + 1];
-    
+  const segments = 32;
+  const innerR = innerDiameter / 2;
+  const outerR = outerDiameter / 2;
+
+  for (let i = 0; i < segments; i++) {
+    const a0 = (i / segments) * Math.PI * 2;
+    const a1 = ((i + 1) / segments) * Math.PI * 2;
+
+    const cos0 = Math.cos(a0);
+    const sin0 = Math.sin(a0);
+    const cos1 = Math.cos(a1);
+    const sin1 = Math.sin(a1);
+
+    // Outer surface
+    const o00: Vector3 = { x: centerX + cos0 * outerR, y: centerY + sin0 * outerR, z: 0 };
+    const o01: Vector3 = { x: centerX + cos1 * outerR, y: centerY + sin1 * outerR, z: 0 };
+    const o10: Vector3 = { x: centerX + cos0 * outerR, y: centerY + sin0 * outerR, z: height };
+    const o11: Vector3 = { x: centerX + cos1 * outerR, y: centerY + sin1 * outerR, z: height };
+
+    addQuad(triangles, o00, o01, o11, o10, true);
+
+    // Inner surface
+    const i00: Vector3 = { x: centerX + cos0 * innerR, y: centerY + sin0 * innerR, z: 0 };
+    const i01: Vector3 = { x: centerX + cos1 * innerR, y: centerY + sin1 * innerR, z: 0 };
+    const i10: Vector3 = { x: centerX + cos0 * innerR, y: centerY + sin0 * innerR, z: height };
+    const i11: Vector3 = { x: centerX + cos1 * innerR, y: centerY + sin1 * innerR, z: height };
+
+    addQuad(triangles, i00, i10, i11, i01, true);
+
     // Top face
-    addQuad(triangles, t1.left, t2.left, t2.right, t1.right, true);
-    
+    addQuad(triangles, o10, o11, i11, i10, true);
+
     // Bottom face
-    addQuad(triangles, b1.left, b1.right, b2.right, b2.left, true);
-    
-    // Left side
-    addQuad(triangles, b1.left, b2.left, t2.left, t1.left, true);
-    
-    // Right side
-    addQuad(triangles, b1.right, t1.right, t2.right, b2.right, true);
+    addQuad(triangles, o00, i00, i01, o01, true);
   }
-  
-  // End caps
-  const bf = bottomProfiles[0];
-  const tf = topProfiles[0];
-  addQuad(triangles, bf.left, tf.left, tf.right, bf.right, false);
-  
-  const bl = bottomProfiles[bottomProfiles.length - 1];
-  const tl = topProfiles[topProfiles.length - 1];
-  addQuad(triangles, bl.left, bl.right, tl.right, tl.left, false);
-  
+
   return triangles;
 }
 
-function createConnectingStrut(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
+// Generate connecting strut
+function generateStrut(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
   width: number,
   height: number
 ): Triangle[] {
   const triangles: Triangle[] = [];
-  
-  // Calculate direction and perpendicular
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  
-  if (len < 0.1) return triangles;
-  
-  const nx = -dy / len;  // Perpendicular normal
-  const ny = dx / len;
-  const halfW = width / 2;
-  
-  // Four corners of the strut at bottom and top
-  const bl = { x: start.x + nx * halfW, y: start.y + ny * halfW, z: 0 };
-  const br = { x: start.x - nx * halfW, y: start.y - ny * halfW, z: 0 };
-  const fl = { x: end.x + nx * halfW, y: end.y + ny * halfW, z: 0 };
-  const fr = { x: end.x - nx * halfW, y: end.y - ny * halfW, z: 0 };
-  
-  const tbl = { x: bl.x, y: bl.y, z: height };
-  const tbr = { x: br.x, y: br.y, z: height };
-  const tfl = { x: fl.x, y: fl.y, z: height };
-  const tfr = { x: fr.x, y: fr.y, z: height };
-  
-  // Bottom face
-  addQuad(triangles, bl, br, fr, fl, false);
-  
-  // Top face
-  addQuad(triangles, tbl, tfl, tfr, tbr, true);
-  
-  // Left side
-  addQuad(triangles, bl, fl, tfl, tbl, true);
-  
-  // Right side
-  addQuad(triangles, br, tbr, tfr, fr, true);
-  
-  // Back face
-  addQuad(triangles, bl, tbl, tbr, br, true);
-  
-  // Front face
-  addQuad(triangles, fl, fr, tfr, tfl, true);
-  
-  return triangles;
-}
 
-function createAttachmentLoop(
-  position: { x: number; y: number },
-  innerDiameter: number,
-  outerDiameter: number,
-  thickness: number
-): Triangle[] {
-  const triangles: Triangle[] = [];
-  const segments = 24;
-  const innerRadius = innerDiameter / 2;
-  const outerRadius = outerDiameter / 2;
-  
-  // Generate ring profiles at bottom and top
-  const bottomOuter: Vector3[] = [];
-  const bottomInner: Vector3[] = [];
-  const topOuter: Vector3[] = [];
-  const topInner: Vector3[] = [];
-  
-  for (let i = 0; i <= segments; i++) {
-    const angle = (i / segments) * Math.PI * 2;
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    
-    bottomOuter.push({ x: position.x + cos * outerRadius, y: position.y + sin * outerRadius, z: 0 });
-    bottomInner.push({ x: position.x + cos * innerRadius, y: position.y + sin * innerRadius, z: 0 });
-    topOuter.push({ x: position.x + cos * outerRadius, y: position.y + sin * outerRadius, z: thickness });
-    topInner.push({ x: position.x + cos * innerRadius, y: position.y + sin * innerRadius, z: thickness });
-  }
-  
-  // Connect to form the ring
-  for (let i = 0; i < segments; i++) {
-    // Outer wall
-    addQuad(triangles, bottomOuter[i], bottomOuter[i + 1], topOuter[i + 1], topOuter[i], true);
-    
-    // Inner wall (faces inward)
-    addQuad(triangles, bottomInner[i], topInner[i], topInner[i + 1], bottomInner[i + 1], true);
-    
-    // Top face
-    addQuad(triangles, topOuter[i], topOuter[i + 1], topInner[i + 1], topInner[i], true);
-    
-    // Bottom face
-    addQuad(triangles, bottomOuter[i], bottomInner[i], bottomInner[i + 1], bottomOuter[i + 1], true);
-  }
-  
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 0.1) return triangles;
+
+  const nx = -dy / len * (width / 2);
+  const ny = dx / len * (width / 2);
+
+  const bl: Vector3 = { x: startX + nx, y: startY + ny, z: 0 };
+  const br: Vector3 = { x: startX - nx, y: startY - ny, z: 0 };
+  const fl: Vector3 = { x: endX + nx, y: endY + ny, z: 0 };
+  const fr: Vector3 = { x: endX - nx, y: endY - ny, z: 0 };
+
+  const tbl: Vector3 = { x: startX + nx, y: startY + ny, z: height };
+  const tbr: Vector3 = { x: startX - nx, y: startY - ny, z: height };
+  const tfl: Vector3 = { x: endX + nx, y: endY + ny, z: height };
+  const tfr: Vector3 = { x: endX - nx, y: endY - ny, z: height };
+
+  // Bottom
+  addQuad(triangles, bl, br, fr, fl, false);
+  // Top
+  addQuad(triangles, tbl, tfl, tfr, tbr, true);
+  // Sides
+  addQuad(triangles, bl, fl, tfl, tbl, true);
+  addQuad(triangles, br, tbr, tfr, fr, true);
+  addQuad(triangles, bl, tbl, tbr, br, true);
+  addQuad(triangles, fl, fr, tfr, tfl, true);
+
   return triangles;
 }
 
 function trianglesToSTL(triangles: Triangle[], name: string): Buffer {
-  const headerSize = 80;
-  const triangleCountSize = 4;
-  const triangleSize = 50;
-  const bufferSize = headerSize + triangleCountSize + triangles.length * triangleSize;
-  
+  const bufferSize = 84 + triangles.length * 50;
   const buffer = Buffer.alloc(bufferSize);
-  
-  // Header
-  const header = `Binary STL - ${name}`.substring(0, 80).padEnd(80, '\0');
-  buffer.write(header, 0, 80, 'ascii');
-  
-  // Triangle count
+
+  const header = `Binary STL - ${name}`.substring(0, 80).padEnd(80, "\0");
+  buffer.write(header, 0, 80, "ascii");
   buffer.writeUInt32LE(triangles.length, 80);
-  
-  // Triangles
+
   let offset = 84;
   for (const tri of triangles) {
-    // Normal
     buffer.writeFloatLE(tri.normal.x, offset);
     buffer.writeFloatLE(tri.normal.y, offset + 4);
     buffer.writeFloatLE(tri.normal.z, offset + 8);
-    
-    // Vertex 1
     buffer.writeFloatLE(tri.v1.x, offset + 12);
     buffer.writeFloatLE(tri.v1.y, offset + 16);
     buffer.writeFloatLE(tri.v1.z, offset + 20);
-    
-    // Vertex 2
     buffer.writeFloatLE(tri.v2.x, offset + 24);
     buffer.writeFloatLE(tri.v2.y, offset + 28);
     buffer.writeFloatLE(tri.v2.z, offset + 32);
-    
-    // Vertex 3
     buffer.writeFloatLE(tri.v3.x, offset + 36);
     buffer.writeFloatLE(tri.v3.y, offset + 40);
     buffer.writeFloatLE(tri.v3.z, offset + 44);
-    
-    // Attribute byte count
     buffer.writeUInt16LE(0, offset + 48);
-    
     offset += 50;
   }
-  
+
   return buffer;
 }
 
 export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
   const parts: PetTagPart[] = [];
-  
+
   const {
     petName,
-    tagWidth,
-    tagThickness,
     ledChannelEnabled,
     ledChannelWidth,
     ledChannelDepth,
     holeEnabled,
     holeDiameter,
     fontScale,
+    fontId,
+    hangPosition = "top",
   } = settings;
-  
-  // Channel dimensions - same approach as main neon sign generator
-  const channelWidth = Math.max(4, Math.min(ledChannelWidth || 8, 12));
-  const wallThickness = Math.max(1.5, channelWidth * 0.2);
-  const wallHeight = Math.max(4, Math.min(ledChannelDepth || 6, 15));
-  const baseThickness = Math.max(2, tagThickness * 0.3);
-  const capThickness = 2;
-  const snapTolerance = 0.2;
-  
-  const fontId = settings.fontId || "aerioz";
-  console.log(`[PetTag] Generating: "${petName}", font=${fontId}, channelWidth=${channelWidth}, wallHeight=${wallHeight}`);
-  
-  // Get stroke paths using appropriate font system
-  const fontSize = 40 * (fontScale || 1);
-  const allTriangles: Triangle[] = [];
-  const allSmoothPaths: number[][][] = [];
-  
-  if (isOTFFont(fontId)) {
-    // Use OTF font loader - paths are already centered
-    console.log(`[PetTag] Using OTF font: ${fontId}`);
-    const result = getTextStrokePathsFromFont(petName || "PET", fontId, fontSize);
-    
-    for (const path of result.paths) {
-      if (path.length < 2) continue;
-      
-      const smoothPath = interpolatePath(path, channelWidth * 0.25);
-      if (smoothPath.length < 2) continue;
-      
-      allSmoothPaths.push(smoothPath);
-      
-      if (ledChannelEnabled !== false) {
-        const channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness);
-        allTriangles.push(...channelTriangles);
-      }
-    }
-  } else {
-    // Use Hershey fonts
-    console.log(`[PetTag] Using Hershey font: ${fontId}`);
-    const textResult = getTextStrokePaths(petName || "PET", fontSize, fontSize * 0.1);
-    const textPaths = textResult.paths;
-    
-    const centerX = textResult.totalWidth / 2;
-    const centerY = textResult.height / 2;
-    
-    for (const path of textPaths) {
-      if (path.length < 2) continue;
-      
-      const centeredPath: number[][] = path.map(([x, y]) => [
-        x - centerX,
-        centerY - y
-      ]);
-      
-      const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
-      if (smoothPath.length < 2) continue;
-      
-      allSmoothPaths.push(smoothPath);
-      
-      if (ledChannelEnabled !== false) {
-        const channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness);
-        allTriangles.push(...channelTriangles);
-      }
-    }
-  }
-  
-  // Calculate actual text bounds from all paths
-  let textMinX = Infinity, textMaxX = -Infinity;
-  let textMinY = Infinity, textMaxY = -Infinity;
-  for (const path of allSmoothPaths) {
-    for (const [x, y] of path) {
-      textMinX = Math.min(textMinX, x);
-      textMaxX = Math.max(textMaxX, x);
-      textMinY = Math.min(textMinY, y);
-      textMaxY = Math.max(textMaxY, y);
-    }
-  }
-  
-  // Weld all letter paths together with bridges (pet tags are always one piece)
-  if (allSmoothPaths.length > 1) {
-    for (let i = 0; i < allSmoothPaths.length - 1; i++) {
-      const currentPath = allSmoothPaths[i];
-      const nextPath = allSmoothPaths[i + 1];
-      
-      if (currentPath.length > 0 && nextPath.length > 0) {
-        const endPoint = currentPath[currentPath.length - 1];
-        const startPoint = nextPath[0];
-        
-        // Create bridge between paths using connecting strut
-        const bridgeTriangles = createConnectingStrut(
-          { x: endPoint[0], y: endPoint[1] },
-          { x: startPoint[0], y: startPoint[1] },
-          channelWidth,
-          baseThickness + wallHeight
-        );
-        allTriangles.push(...bridgeTriangles);
-      }
-    }
-  }
-  
-  // Add attachment loop if enabled
-  if (holeEnabled && allSmoothPaths.length > 0) {
-    const innerDiam = holeDiameter || 4;
-    const outerDiam = innerDiam + channelWidth;
-    const loopThickness = baseThickness + wallHeight;
-    
-    // Find the leftmost point on the first path to connect the loop
-    const firstPath = allSmoothPaths[0];
-    let leftmostPoint = { x: Infinity, y: 0 };
-    for (const [x, y] of firstPath) {
-      if (x < leftmostPoint.x) {
-        leftmostPoint = { x, y };
-      }
-    }
-    
-    // Position loop to the left of the leftmost point
-    const gapFromText = channelWidth * 0.5;
-    const loopX = leftmostPoint.x - outerDiam / 2 - gapFromText;
-    const loopY = leftmostPoint.y;
-    
-    // Create the ring-shaped loop
-    const loopTriangles = createAttachmentLoop(
-      { x: loopX, y: loopY },
-      innerDiam,
-      outerDiam,
-      loopThickness
-    );
-    allTriangles.push(...loopTriangles);
-    
-    // Add a connecting strut between the loop and the leftmost point of text
-    const strutTriangles = createConnectingStrut(
-      { x: loopX + outerDiam / 2, y: loopY },
-      { x: leftmostPoint.x - channelWidth / 2, y: leftmostPoint.y },
-      channelWidth,
-      loopThickness
-    );
-    allTriangles.push(...strutTriangles);
-  }
-  
-  console.log(`[PetTag] Generated ${allTriangles.length} triangles for base`);
-  
-  if (allTriangles.length === 0) {
-    console.log(`[PetTag] Warning: No triangles generated`);
+
+  const name = petName || "PET";
+  const fontSize = 25 * (fontScale || 1);
+  const channelWidth = ledChannelWidth || 6;
+  const channelDepth = ledChannelDepth || 8;
+  const wallThickness = Math.max(1.5, channelWidth * 0.25);
+  const baseDepth = 3;
+  const totalDepth = baseDepth + channelDepth;
+
+  console.log(`[PetTag] Generating raised 3D tag: "${name}", font=${fontId}, depth=${totalDepth}mm, hangPosition=${hangPosition}`);
+
+  // Load font and get contours
+  const font = loadFont(fontId || "aerioz");
+  const fontPath = font.getPath(name, 0, 0, fontSize);
+  const contours = pathToContours(fontPath);
+
+  if (contours.length === 0) {
+    console.log("[PetTag] No contours generated from font");
     return parts;
   }
-  
-  // Create base STL
-  const baseBuffer = trianglesToSTL(allTriangles, `${petName || 'PetTag'} Neon Tag`);
-  parts.push({
-    filename: `${(petName || 'pet').toLowerCase().replace(/[^a-z0-9]/g, '_')}_neon_tag.stl`,
-    content: baseBuffer,
-    partType: "base",
-    material: "opaque"
-  });
-  
-  // Generate diffuser cap if LED channel is enabled
-  if (ledChannelEnabled !== false && allSmoothPaths.length > 0) {
-    const capTriangles: Triangle[] = [];
-    
-    for (const smoothPath of allSmoothPaths) {
-      const cap = createDiffuserCap(
-        smoothPath,
-        channelWidth,
-        wallThickness,
-        wallHeight,
-        baseThickness,
-        capThickness,
-        snapTolerance
-      );
-      capTriangles.push(...cap);
-    }
-    
-    if (capTriangles.length > 0) {
-      console.log(`[PetTag] Generated ${capTriangles.length} triangles for diffuser cap`);
-      const capBuffer = trianglesToSTL(capTriangles, `${petName || 'PetTag'} Diffuser Cap`);
-      parts.push({
-        filename: `${(petName || 'pet').toLowerCase().replace(/[^a-z0-9]/g, '_')}_diffuser_cap.stl`,
-        content: capBuffer,
-        partType: "diffuser_cap",
-        material: "translucent"
-      });
+
+  // Calculate bounds
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+
+  for (const contour of contours) {
+    for (let i = 0; i < contour.length; i += 2) {
+      minX = Math.min(minX, contour[i]);
+      maxX = Math.max(maxX, contour[i]);
+      minY = Math.min(minY, contour[i + 1]);
+      maxY = Math.max(maxY, contour[i + 1]);
     }
   }
-  
+
+  const textWidth = maxX - minX;
+  const textHeight = maxY - minY;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  // Center the text
+  const offsetX = -centerX;
+  const offsetY = -centerY;
+
+  // Generate 3D letter geometry
+  const { base, cap } = generateExtrudedLetter(
+    contours,
+    totalDepth,
+    channelWidth,
+    channelDepth,
+    wallThickness,
+    offsetX,
+    offsetY
+  );
+
+  const allBaseTriangles = [...base];
+  const allCapTriangles = [...cap];
+
+  // Add attachment loop at specified position
+  if (holeEnabled) {
+    const loopInnerDiam = holeDiameter || 5;
+    const loopOuterDiam = loopInnerDiam + channelWidth;
+    const loopHeight = totalDepth;
+    const gap = channelWidth * 0.5;
+
+    // Calculate loop position based on hangPosition
+    let loopX = 0;
+    let loopY = 0;
+    let strutStartX = 0;
+    let strutStartY = 0;
+
+    const halfWidth = textWidth / 2;
+    const halfHeight = textHeight / 2;
+
+    switch (hangPosition) {
+      case "top":
+        loopX = 0;
+        loopY = halfHeight + loopOuterDiam / 2 + gap;
+        strutStartX = 0;
+        strutStartY = halfHeight;
+        break;
+      case "top-left":
+        loopX = -halfWidth - loopOuterDiam / 2 - gap / 2;
+        loopY = halfHeight + loopOuterDiam / 2 + gap / 2;
+        strutStartX = -halfWidth;
+        strutStartY = halfHeight;
+        break;
+      case "top-right":
+        loopX = halfWidth + loopOuterDiam / 2 + gap / 2;
+        loopY = halfHeight + loopOuterDiam / 2 + gap / 2;
+        strutStartX = halfWidth;
+        strutStartY = halfHeight;
+        break;
+      case "left":
+        loopX = -halfWidth - loopOuterDiam / 2 - gap;
+        loopY = 0;
+        strutStartX = -halfWidth;
+        strutStartY = 0;
+        break;
+      case "right":
+        loopX = halfWidth + loopOuterDiam / 2 + gap;
+        loopY = 0;
+        strutStartX = halfWidth;
+        strutStartY = 0;
+        break;
+    }
+
+    // Generate loop
+    const loopTriangles = generateAttachmentLoop(loopX, loopY, loopInnerDiam, loopOuterDiam, loopHeight);
+    allBaseTriangles.push(...loopTriangles);
+
+    // Generate strut connecting loop to text
+    const strutTriangles = generateStrut(strutStartX, strutStartY, loopX, loopY, channelWidth, loopHeight);
+    allBaseTriangles.push(...strutTriangles);
+  }
+
+  console.log(`[PetTag] Generated ${allBaseTriangles.length} triangles for base, ${allCapTriangles.length} for cap`);
+
+  // Create base STL
+  const safeName = (petName || "pet").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const baseBuffer = trianglesToSTL(allBaseTriangles, `${name} Neon Tag`);
+  parts.push({
+    filename: `${safeName}_neon_tag.stl`,
+    content: baseBuffer,
+    partType: "base",
+    material: "opaque",
+  });
+
+  // Create cap STL if LED channel is enabled
+  if (ledChannelEnabled && allCapTriangles.length > 0) {
+    const capBuffer = trianglesToSTL(allCapTriangles, `${name} Diffuser Cap`);
+    parts.push({
+      filename: `${safeName}_diffuser_cap.stl`,
+      content: capBuffer,
+      partType: "diffuser_cap",
+      material: "translucent",
+    });
+  }
+
   return parts;
 }

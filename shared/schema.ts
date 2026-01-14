@@ -109,6 +109,10 @@ export type InputMode = typeof inputModes[number];
 export const petTagShapes = ["bone", "round", "heart", "rectangle", "military", "paw"] as const;
 export type PetTagShape = typeof petTagShapes[number];
 
+// Hang positions for the attachment loop
+export const hangPositions = ["top", "top-left", "top-right", "left", "right"] as const;
+export type HangPosition = typeof hangPositions[number];
+
 export const petTagSettingsSchema = z.object({
   petName: z.string().min(0).max(20),
   tagShape: z.enum(petTagShapes),
@@ -123,6 +127,7 @@ export const petTagSettingsSchema = z.object({
   holeDiameter: z.number().min(3).max(10),
   fontScale: z.number().min(0.5).max(2.0),
   fontId: z.string(),  // Font selection for pet tag text
+  hangPosition: z.enum(hangPositions).optional(),  // Where the loop attaches (default: top)
 });
 
 export type PetTagSettings = z.infer<typeof petTagSettingsSchema>;
@@ -171,12 +176,13 @@ export const defaultPetTagSettings: PetTagSettings = {
   tagThickness: 4,
   ledChannelEnabled: true,
   ledChannelWidth: 6,
-  ledChannelDepth: 6,
+  ledChannelDepth: 8,
   glowInDark: false,
   holeEnabled: true,
-  holeDiameter: 4,
+  holeDiameter: 5,
   fontScale: 1.0,
   fontId: "aerioz",  // Default to neon script font
+  hangPosition: "top",  // Top center for proper front-facing hang
 };
 
 export const letterSettingsSchema = z.object({

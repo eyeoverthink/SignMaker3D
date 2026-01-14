@@ -6,40 +6,45 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dog, Lightbulb, Download, Loader2, Link2, Type } from "lucide-react";
-import { useState, useEffect, useRef, Suspense, useMemo } from "react";
+import { Dog, Lightbulb, Download, Loader2, Link2, Type, Move } from "lucide-react";
+import { useState, Suspense, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { fontOptions } from "@shared/schema";
+import { fontOptions, hangPositions, type HangPosition } from "@shared/schema";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Environment, Center, Text } from "@react-three/drei";
+import { OrbitControls, Environment, Center } from "@react-three/drei";
 import * as THREE from "three";
 
 const fontFileMap: Record<string, string> = {
   "aerioz": "Aerioz-Demo.otf",
-  "airstream": "Airstream.ttf",
-  "beon": "Beon-Regular.otf",
-  "cabinetch": "CabinSketch-Regular.ttf",
-  "cocogoose": "Cocogoose-Classic-Light-Trial.ttf",
-  "fatsans": "fatsansround.otf",
-  "fresh": "FreshMarker-Regular.otf",
-  "gasoek": "Gasoek-DoOne.ttf",
-  "goodmood": "GoodMood-Script.otf",
-  "inter": "Inter-Bold.ttf",
-  "lobster": "Lobster-Regular.ttf",
-  "monoton": "Monoton-Regular.ttf",
-  "neoneon": "Neoneon-3zaD6.otf",
-  "neonlight": "Neon-Light-Regular.otf",
-  "neosans": "NeoSans-Black.otf",
-  "pacifico": "Pacifico-Regular.ttf",
-  "questrial": "Questrial-Regular.ttf",
-  "righteous": "Righteous-Regular.ttf",
-  "satisfy": "Satisfy-Regular.ttf",
-  "sono": "Sono-SemiBold.ttf",
-  "urban": "UrbanJungleBold-7pZ0.otf",
-  "hershey-futural": "hershey-futural",
-  "hershey-futuram": "hershey-futuram",
-  "hershey-scripts": "hershey-scripts",
-  "hershey-scriptc": "hershey-scriptc",
+  "airstream": "Airstream-1W0vL.ttf",
+  "airstream-nf": "AirstreamNF-8XY2M.otf",
+  "alliston": "AllistonDemo-2O4dO.ttf",
+  "cookiemonster": "CookieMonster-K76dJ.ttf",
+  "darlington": "Darlington-8M7Xg.ttf",
+  "dirtyboy": "DirtyBoy-ywWd5.otf",
+  "future-light": "Future-Light-y89EE.otf",
+  "future-light-italic": "Future-Light-Italic-mGOL0.otf",
+  "halimun": "Halimun-l3DDV.ttf",
+  "inter": "Inter-p1Wxm.ttf",
+  "roboto": "Roboto-3Jnl2.ttf",
+  "poppins": "Poppins-QK1YR.ttf",
+  "montserrat": "Montserrat-8OG0D.ttf",
+  "open-sans": "OpenSans-K7GGJ.ttf",
+  "playfair": "PlayfairDisplay-9Y7Pd.ttf",
+  "merriweather": "Merriweather-WZ4oW.ttf",
+  "lora": "Lora-3mGvl.ttf",
+  "space-grotesk": "SpaceGrotesk-Zrjor.ttf",
+  "outfit": "Outfit-8Oj6z.ttf",
+  "architects-daughter": "ArchitectsDaughter-rW0Ax.ttf",
+  "oxanium": "Oxanium-0Oo5x.ttf",
+};
+
+const hangPositionLabels: Record<HangPosition, string> = {
+  "top": "Top Center",
+  "top-left": "Top Left",
+  "top-right": "Top Right",
+  "left": "Left Side",
+  "right": "Right Side",
 };
 
 export function PetTagEditor() {
@@ -87,7 +92,7 @@ export function PetTagEditor() {
       toast({
         title: "Export complete",
         description: isMultiPart 
-          ? `Downloaded ${partCount} parts: neon channel base + diffuser cap`
+          ? `Downloaded ${partCount} parts: raised 3D tag + diffuser cap`
           : "Your neon pet tag STL has been downloaded",
       });
     } catch (error) {
@@ -112,10 +117,10 @@ export function PetTagEditor() {
           <div>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
               <Dog className="h-5 w-5" />
-              Neon Pet Tags
+              3D Neon Pet Tags
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Mini neon signs for dog collars! Same U-channel system as text signs, scaled for pet tags with attachment loop.
+              Raised 3D letters with LED channels - mini neon signs for your pet's collar!
             </p>
           </div>
 
@@ -130,7 +135,7 @@ export function PetTagEditor() {
             ) : (
               <Download className="h-4 w-4 mr-2" />
             )}
-            {isExporting ? "Generating..." : "Export Neon Tag"}
+            {isExporting ? "Generating..." : "Export 3D Tag"}
           </Button>
 
           <Card>
@@ -140,14 +145,14 @@ export function PetTagEditor() {
             <CardContent>
               <Input
                 value={petTagSettings.petName}
-                onChange={(e) => setPetTagSettings({ petName: e.target.value })}
+                onChange={(e) => setPetTagSettings({ petName: e.target.value.toUpperCase() })}
                 placeholder="Enter pet name"
-                maxLength={12}
-                className="text-lg font-bold"
+                maxLength={10}
+                className="text-lg font-bold uppercase"
                 data-testid="input-pet-name"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {petTagSettings.petName.length}/12 characters
+                {petTagSettings.petName.length}/10 characters
               </p>
             </CardContent>
           </Card>
@@ -168,16 +173,27 @@ export function PetTagEditor() {
                   <SelectValue placeholder="Select font" />
                 </SelectTrigger>
                 <SelectContent>
-                  {fontOptions.slice(0, 12).map((font) => (
+                  {fontOptions.map((font) => (
                     <SelectItem key={font.id} value={font.id}>
                       {font.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground mt-2">
-                Aerioz is recommended for neon-style signs
-              </p>
+              <div className="space-y-2 mt-4">
+                <div className="flex justify-between">
+                  <Label className="text-xs">Text Scale</Label>
+                  <span className="text-xs text-muted-foreground">{Math.round(petTagSettings.fontScale * 100)}%</span>
+                </div>
+                <Slider
+                  value={[petTagSettings.fontScale]}
+                  onValueChange={([v]) => setPetTagSettings({ fontScale: v })}
+                  min={0.6}
+                  max={1.5}
+                  step={0.1}
+                  data-testid="slider-font-scale"
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -185,7 +201,7 @@ export function PetTagEditor() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Lightbulb className="h-4 w-4" />
-                Channel Settings
+                LED Channel
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -202,25 +218,22 @@ export function PetTagEditor() {
                   step={1}
                   data-testid="slider-led-width"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Width of the LED/neon channel
-                </p>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <Label className="text-xs">Wall Height</Label>
+                  <Label className="text-xs">Channel Depth</Label>
                   <span className="text-xs text-muted-foreground">{petTagSettings.ledChannelDepth}mm</span>
                 </div>
                 <Slider
                   value={[petTagSettings.ledChannelDepth]}
                   onValueChange={([v]) => setPetTagSettings({ ledChannelDepth: v })}
-                  min={4}
+                  min={5}
                   max={12}
                   step={1}
                   data-testid="slider-led-depth"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Height of channel walls
+                  Depth for LED strip or EL wire
                 </p>
               </div>
             </CardContent>
@@ -242,57 +255,63 @@ export function PetTagEditor() {
                   data-testid="switch-hole"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Adds a sideways loop on the left side for attaching to collar or chain
-              </p>
+              
               {petTagSettings.holeEnabled && (
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label className="text-xs">Loop Inner Diameter</Label>
-                    <span className="text-xs text-muted-foreground">{petTagSettings.holeDiameter}mm</span>
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-xs flex items-center gap-1">
+                      <Move className="h-3 w-3" />
+                      Hang Position
+                    </Label>
+                    <Select
+                      value={petTagSettings.hangPosition || "top"}
+                      onValueChange={(value) => setPetTagSettings({ hangPosition: value as HangPosition })}
+                    >
+                      <SelectTrigger data-testid="select-hang-position">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hangPositions.map((pos) => (
+                          <SelectItem key={pos} value={pos}>
+                            {hangPositionLabels[pos]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      "Top Center" = tag faces forward like Mr. T's chains
+                    </p>
                   </div>
-                  <Slider
-                    value={[petTagSettings.holeDiameter]}
-                    onValueChange={([v]) => setPetTagSettings({ holeDiameter: v })}
-                    min={3}
-                    max={8}
-                    step={0.5}
-                    data-testid="slider-hole-diameter"
-                  />
-                </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-xs">Loop Inner Diameter</Label>
+                      <span className="text-xs text-muted-foreground">{petTagSettings.holeDiameter}mm</span>
+                    </div>
+                    <Slider
+                      value={[petTagSettings.holeDiameter]}
+                      onValueChange={([v]) => setPetTagSettings({ holeDiameter: v })}
+                      min={3}
+                      max={8}
+                      step={0.5}
+                      data-testid="slider-hole-diameter"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Size for chain/jump ring
+                    </p>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Text Size</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label className="text-xs">Scale</Label>
-                  <span className="text-xs text-muted-foreground">{Math.round(petTagSettings.fontScale * 100)}%</span>
-                </div>
-                <Slider
-                  value={[petTagSettings.fontScale]}
-                  onValueChange={([v]) => setPetTagSettings({ fontScale: v })}
-                  min={0.5}
-                  max={2.0}
-                  step={0.1}
-                  data-testid="slider-font-scale"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-            <p className="font-medium mb-1">How it works:</p>
+            <p className="font-medium mb-1">3D Printed Neon Tags:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Same U-channel system as regular neon signs</li>
-              <li>Insert LED strip or neon tube into channels</li>
-              <li>Snap on diffuser cap for even glow</li>
-              <li>Attach to collar via the side loop</li>
+              <li>Raised 3D letters with U-channel grooves</li>
+              <li>Insert LED strip or EL wire into channels</li>
+              <li>Snap-fit diffuser cap for even glow</li>
+              <li>Loop at top = tag hangs facing forward</li>
             </ul>
           </div>
         </div>
@@ -303,193 +322,266 @@ export function PetTagEditor() {
 
 function PetTag3DPreview() {
   const { petTagSettings } = useEditorStore();
-  const [fontLoaded, setFontLoaded] = useState(false);
   
-  const fontUrl = `/fonts/${fontFileMap[petTagSettings.fontId] || "Aerioz-Demo.otf"}`;
-  const text = petTagSettings.petName || "NAME";
+  const text = petTagSettings.petName || "MAX";
   const scale = petTagSettings.fontScale || 1;
+  const channelDepth = petTagSettings.ledChannelDepth || 8;
   const channelWidth = petTagSettings.ledChannelWidth || 6;
-  const wallHeight = petTagSettings.ledChannelDepth || 8;
+  const hangPosition = petTagSettings.hangPosition || "top";
+  const holeEnabled = petTagSettings.holeEnabled;
+  const holeDiameter = petTagSettings.holeDiameter || 5;
   
   return (
     <div className="w-full h-full">
       <Canvas
-        camera={{ position: [0, 0, 8], fov: 50 }}
-        style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)" }}
+        camera={{ position: [0, 0, 10], fov: 45 }}
+        style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}
       >
         <Suspense fallback={null}>
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[5, 5, 5]} intensity={1} />
-          <directionalLight position={[-5, -5, -5]} intensity={0.3} />
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[5, 5, 5]} intensity={0.8} />
+          <directionalLight position={[-3, 3, -3]} intensity={0.3} />
+          <pointLight position={[0, 0, 5]} intensity={0.5} color="#60a5fa" />
           
           <Center>
-            <PetTagMesh
-              text={text}
-              fontUrl={fontUrl}
-              scale={scale}
-              channelWidth={channelWidth}
-              wallHeight={wallHeight}
-              holeEnabled={petTagSettings.holeEnabled}
-              holeDiameter={petTagSettings.holeDiameter}
-              onFontLoad={() => setFontLoaded(true)}
-            />
+            <group rotation={[0, 0, 0]}>
+              <RaisedTextPreview
+                text={text}
+                scale={scale}
+                channelDepth={channelDepth}
+                channelWidth={channelWidth}
+                hangPosition={hangPosition}
+                holeEnabled={holeEnabled}
+                holeDiameter={holeDiameter}
+              />
+            </group>
           </Center>
           
-          <Environment preset="studio" />
+          <Environment preset="city" />
           <OrbitControls
             makeDefault
             enableDamping
             dampingFactor={0.05}
-            minDistance={3}
-            maxDistance={20}
-            minPolarAngle={Math.PI / 6}
-            maxPolarAngle={Math.PI - Math.PI / 6}
+            minDistance={4}
+            maxDistance={25}
           />
         </Suspense>
       </Canvas>
       
-      <div className="absolute bottom-4 left-4 text-xs text-white/60 bg-black/30 px-2 py-1 rounded">
+      <div className="absolute bottom-4 left-4 text-xs text-white/60 bg-black/40 px-3 py-2 rounded-lg">
         Drag to rotate, scroll to zoom
       </div>
       
-      <div className="absolute top-4 left-4 text-xs text-white/60 bg-black/30 px-2 py-1 rounded">
-        Channel: {channelWidth}mm × {wallHeight}mm
+      <div className="absolute top-4 left-4 text-xs text-white/80 bg-black/40 px-3 py-2 rounded-lg">
+        <div className="font-medium">{text || "PET NAME"}</div>
+        <div className="text-white/60 mt-1">
+          Channel: {channelWidth}mm × {channelDepth}mm
+        </div>
       </div>
     </div>
   );
 }
 
-interface PetTagMeshProps {
+interface RaisedTextPreviewProps {
   text: string;
-  fontUrl: string;
   scale: number;
+  channelDepth: number;
   channelWidth: number;
-  wallHeight: number;
+  hangPosition: HangPosition;
   holeEnabled: boolean;
   holeDiameter: number;
-  onFontLoad?: () => void;
 }
 
-function PetTagMesh({ text, fontUrl, scale, channelWidth, wallHeight, holeEnabled, holeDiameter, onFontLoad }: PetTagMeshProps) {
-  const textRef = useRef<any>(null);
-  const [textBounds, setTextBounds] = useState({ width: 0, height: 0 });
+function RaisedTextPreview({
+  text,
+  scale,
+  channelDepth,
+  channelWidth,
+  hangPosition,
+  holeEnabled,
+  holeDiameter,
+}: RaisedTextPreviewProps) {
+  const groupRef = useRef<THREE.Group>(null);
   
   const fontSize = 0.8 * scale;
-  const channelScale = 0.02;
-  const wallHeightScale = wallHeight * channelScale;
-  const channelWidthScale = channelWidth * channelScale;
+  const baseDepth = 0.15;
+  const totalDepth = baseDepth + channelDepth * 0.05;
+  const channelScale = channelWidth * 0.02;
   
-  useEffect(() => {
-    if (textRef.current?.geometry) {
-      textRef.current.geometry.computeBoundingBox();
-      const box = textRef.current.geometry.boundingBox;
-      if (box) {
-        setTextBounds({
-          width: box.max.x - box.min.x,
-          height: box.max.y - box.min.y
-        });
-      }
-    }
-  }, [text, fontUrl, fontSize]);
+  const textBounds = useMemo(() => {
+    const charWidth = fontSize * 0.6;
+    const width = Math.max(1, text.length) * charWidth;
+    const height = fontSize * 1.2;
+    return { width, height };
+  }, [text, fontSize]);
+  
+  const letterMaterial = useMemo(() => (
+    new THREE.MeshStandardMaterial({
+      color: "#3b82f6",
+      metalness: 0.3,
+      roughness: 0.4,
+    })
+  ), []);
+  
+  const channelMaterial = useMemo(() => (
+    new THREE.MeshStandardMaterial({
+      color: "#1e3a5f",
+      metalness: 0.1,
+      roughness: 0.8,
+    })
+  ), []);
+  
+  const glowMaterial = useMemo(() => (
+    new THREE.MeshStandardMaterial({
+      color: "#60a5fa",
+      emissive: "#3b82f6",
+      emissiveIntensity: 0.5,
+      metalness: 0,
+      roughness: 0.9,
+      transparent: true,
+      opacity: 0.9,
+    })
+  ), []);
+  
+  const loopMaterial = useMemo(() => (
+    new THREE.MeshStandardMaterial({
+      color: "#94a3b8",
+      metalness: 0.6,
+      roughness: 0.3,
+    })
+  ), []);
   
   const loopGeometry = useMemo(() => {
     if (!holeEnabled) return null;
     
-    const innerRadius = (holeDiameter / 2) * channelScale;
-    const outerRadius = innerRadius + channelWidthScale;
-    const segments = 32;
+    const innerR = (holeDiameter / 2) * 0.1;
+    const outerR = innerR + channelScale * 0.8;
+    const thickness = totalDepth;
     
     const shape = new THREE.Shape();
-    shape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
+    shape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
     
-    const holePath = new THREE.Path();
-    holePath.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
-    shape.holes.push(holePath);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
     
-    const extrudeSettings = {
-      depth: wallHeightScale,
-      bevelEnabled: false,
-    };
-    
-    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  }, [holeEnabled, holeDiameter, channelWidthScale, wallHeightScale, channelScale]);
-  
-  const strutGeometry = useMemo(() => {
-    if (!holeEnabled || textBounds.width === 0) return null;
-    
-    const innerRadius = (holeDiameter / 2) * channelScale;
-    const outerRadius = innerRadius + channelWidthScale;
-    const loopX = -textBounds.width / 2 - outerRadius - channelWidthScale;
-    const strutWidth = Math.abs(loopX + outerRadius) - (-textBounds.width / 2 - channelWidthScale / 2);
-    
-    if (strutWidth <= 0) return null;
-    
-    const strutShape = new THREE.Shape();
-    const halfWidth = channelWidthScale / 2;
-    strutShape.moveTo(-strutWidth, -halfWidth);
-    strutShape.lineTo(0, -halfWidth);
-    strutShape.lineTo(0, halfWidth);
-    strutShape.lineTo(-strutWidth, halfWidth);
-    strutShape.closePath();
-    
-    return new THREE.ExtrudeGeometry(strutShape, {
-      depth: wallHeightScale,
+    return new THREE.ExtrudeGeometry(shape, {
+      depth: thickness,
       bevelEnabled: false,
     });
-  }, [holeEnabled, textBounds.width, holeDiameter, channelWidthScale, wallHeightScale, channelScale]);
+  }, [holeEnabled, holeDiameter, channelScale, totalDepth]);
   
-  const loopX = useMemo(() => {
-    if (!holeEnabled) return 0;
-    const innerRadius = (holeDiameter / 2) * channelScale;
-    const outerRadius = innerRadius + channelWidthScale;
-    return -textBounds.width / 2 - outerRadius - channelWidthScale;
-  }, [holeEnabled, textBounds.width, holeDiameter, channelWidthScale, channelScale]);
+  const loopPosition = useMemo(() => {
+    if (!holeEnabled) return [0, 0, 0];
+    
+    const innerR = (holeDiameter / 2) * 0.1;
+    const outerR = innerR + channelScale * 0.8;
+    const gap = 0.15;
+    
+    const hw = textBounds.width / 2 + channelScale;
+    const hh = textBounds.height / 2 + channelScale;
+    
+    switch (hangPosition) {
+      case "top":
+        return [0, hh + outerR + gap, 0];
+      case "top-left":
+        return [-hw - outerR / 2, hh + outerR / 2 + gap / 2, 0];
+      case "top-right":
+        return [hw + outerR / 2, hh + outerR / 2 + gap / 2, 0];
+      case "left":
+        return [-hw - outerR - gap, 0, 0];
+      case "right":
+        return [hw + outerR + gap, 0, 0];
+      default:
+        return [0, hh + outerR + gap, 0];
+    }
+  }, [holeEnabled, hangPosition, textBounds, holeDiameter, channelScale]);
+  
+  const strutGeometry = useMemo(() => {
+    if (!holeEnabled) return null;
+    
+    const innerR = (holeDiameter / 2) * 0.1;
+    const outerR = innerR + channelScale * 0.8;
+    const strutWidth = channelScale * 0.8;
+    
+    const hw = textBounds.width / 2 + channelScale;
+    const hh = textBounds.height / 2 + channelScale;
+    
+    let startX = 0, startY = 0, endX = 0, endY = 0;
+    
+    switch (hangPosition) {
+      case "top":
+        startX = 0; startY = hh;
+        endX = loopPosition[0] as number; endY = (loopPosition[1] as number) - outerR;
+        break;
+      case "top-left":
+        startX = -hw; startY = hh;
+        endX = loopPosition[0] as number; endY = (loopPosition[1] as number) - outerR;
+        break;
+      case "top-right":
+        startX = hw; startY = hh;
+        endX = loopPosition[0] as number; endY = (loopPosition[1] as number) - outerR;
+        break;
+      case "left":
+        startX = -hw; startY = 0;
+        endX = (loopPosition[0] as number) + outerR; endY = 0;
+        break;
+      case "right":
+        startX = hw; startY = 0;
+        endX = (loopPosition[0] as number) - outerR; endY = 0;
+        break;
+    }
+    
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.01) return null;
+    
+    const shape = new THREE.Shape();
+    shape.moveTo(-strutWidth / 2, 0);
+    shape.lineTo(strutWidth / 2, 0);
+    shape.lineTo(strutWidth / 2, len);
+    shape.lineTo(-strutWidth / 2, len);
+    shape.closePath();
+    
+    const geom = new THREE.ExtrudeGeometry(shape, {
+      depth: totalDepth,
+      bevelEnabled: false,
+    });
+    
+    const angle = Math.atan2(dy, dx) - Math.PI / 2;
+    geom.rotateZ(angle);
+    geom.translate(startX, startY, 0);
+    
+    return geom;
+  }, [holeEnabled, hangPosition, textBounds, channelScale, holeDiameter, loopPosition, totalDepth]);
   
   return (
-    <group>
-      <Text
-        ref={textRef}
-        font={fontUrl}
-        fontSize={fontSize}
-        color="#333"
-        anchorX="center"
-        anchorY="middle"
-        position={[0, 0, wallHeightScale / 2]}
-        outlineWidth={channelWidthScale}
-        outlineColor="#1e3a5f"
-        onSync={() => {
-          if (textRef.current?.geometry) {
-            textRef.current.geometry.computeBoundingBox();
-            const box = textRef.current.geometry.boundingBox;
-            if (box) {
-              setTextBounds({
-                width: box.max.x - box.min.x,
-                height: box.max.y - box.min.y
-              });
-            }
-          }
-          onFontLoad?.();
-        }}
-      >
-        {text}
-      </Text>
+    <group ref={groupRef}>
+      <mesh position={[0, 0, totalDepth / 2]} material={channelMaterial}>
+        <boxGeometry args={[textBounds.width + channelScale * 2, textBounds.height + channelScale * 2, totalDepth]} />
+      </mesh>
       
-      <mesh position={[0, 0, -0.02]}>
-        <boxGeometry args={[textBounds.width + channelWidthScale * 2, textBounds.height + channelWidthScale * 2, 0.04]} />
-        <meshStandardMaterial color="#1e1b4b" metalness={0.1} roughness={0.8} />
+      <mesh position={[0, 0, totalDepth + 0.02]} material={letterMaterial}>
+        <boxGeometry args={[textBounds.width, textBounds.height, 0.04]} />
+      </mesh>
+      
+      <mesh position={[0, 0, totalDepth - 0.01]} material={glowMaterial}>
+        <boxGeometry args={[textBounds.width - channelScale * 0.5, textBounds.height - channelScale * 0.5, baseDepth]} />
       </mesh>
       
       {holeEnabled && loopGeometry && (
-        <mesh geometry={loopGeometry} position={[loopX, 0, 0]}>
-          <meshStandardMaterial color="#1e3a5f" metalness={0.2} roughness={0.6} />
-        </mesh>
+        <mesh 
+          geometry={loopGeometry} 
+          material={loopMaterial}
+          position={[loopPosition[0] as number, loopPosition[1] as number, 0]}
+        />
       )}
       
-      {holeEnabled && strutGeometry && textBounds.width > 0 && (
-        <mesh geometry={strutGeometry} position={[-textBounds.width / 2 - channelWidthScale / 2, 0, 0]}>
-          <meshStandardMaterial color="#1e3a5f" metalness={0.2} roughness={0.6} />
-        </mesh>
+      {holeEnabled && strutGeometry && (
+        <mesh geometry={strutGeometry} material={loopMaterial} />
       )}
+      
     </group>
   );
 }
