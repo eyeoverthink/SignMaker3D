@@ -58,6 +58,8 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
   let currentPath: number[][] = [];
   let currentX = 0;
   let currentY = 0;
+  let startX = 0;
+  let startY = 0;
   
   for (const cmd of pathData.commands) {
     switch (cmd.type) {
@@ -68,6 +70,8 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         currentPath = [[cmd.x! * scale, cmd.y! * scale]];
         currentX = cmd.x!;
         currentY = cmd.y!;
+        startX = cmd.x!;
+        startY = cmd.y!;
         break;
         
       case 'L':
@@ -77,7 +81,8 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         break;
         
       case 'C':
-        const steps = 8;
+        // More steps for smoother curves
+        const steps = 16;
         for (let t = 1; t <= steps; t++) {
           const tt = t / steps;
           const t2 = tt * tt;
@@ -95,7 +100,7 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         break;
         
       case 'Q':
-        const qSteps = 6;
+        const qSteps = 12;
         for (let t = 1; t <= qSteps; t++) {
           const tt = t / qSteps;
           const mt = 1 - tt;
@@ -108,7 +113,14 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         break;
         
       case 'Z':
+        // Close the path by connecting back to start
         if (currentPath.length > 1) {
+          // Add closing point if not already there
+          const first = currentPath[0];
+          const last = currentPath[currentPath.length - 1];
+          if (Math.abs(first[0] - last[0]) > 0.01 || Math.abs(first[1] - last[1]) > 0.01) {
+            currentPath.push([first[0], first[1]]);
+          }
           paths.push({ points: [...currentPath], closed: true });
         }
         currentPath = [];
@@ -126,23 +138,16 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
 function extractSkeletonFromOutline(paths: StrokePath[]): number[][][] {
   if (paths.length === 0) return [];
   
-  if (paths.length === 1 && !paths[0].closed) {
-    return [paths[0].points];
-  }
-  
   const result: number[][][] = [];
   
   for (const path of paths) {
     if (path.points.length < 2) continue;
     
-    if (!path.closed) {
-      result.push(path.points);
-      continue;
-    }
+    // Use gentle simplification to keep smooth curves
+    // Higher tolerance = more simplification, lower = more detail
+    const simplified = simplifyPath(path.points, 0.05);
     
-    const simplified = simplifyPath(path.points, 0.3);
-    
-    if (simplified.length >= 3) {
+    if (simplified.length >= 2) {
       result.push(simplified);
     }
   }
