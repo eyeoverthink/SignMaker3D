@@ -115,10 +115,16 @@ export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
   const centerX = 0;
   const centerY = holeEnabled ? -tagHeight * 0.08 : 0;
   
-  // Transform and interpolate paths
+  // Transform and interpolate paths, filtering out degenerate paths
   const transformedPaths: number[][][] = [];
   
+  // Minimum path length after scaling (in mm) to be viable for U-channel
+  // Use a small absolute minimum - just filter out true dots (like 'i' dot)
+  const minPathLength = Math.max(0.3, channelWidth * 0.1); // At least 0.3mm
+  
   for (const path of textPaths) {
+    if (path.length < 2) continue;
+    
     const transformed: number[][] = path.map((point) => {
       const x = point[0];
       const y = point[1];
@@ -127,9 +133,27 @@ export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
       return [nx, -ny]; // Flip Y for correct orientation
     });
     
+    // Calculate path length to filter out dots and very short strokes
+    let pathLength = 0;
+    for (let i = 1; i < transformed.length; i++) {
+      const dx = transformed[i][0] - transformed[i-1][0];
+      const dy = transformed[i][1] - transformed[i-1][1];
+      pathLength += Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    // Skip paths shorter than minimum (like the dot on 'i')
+    if (pathLength < minPathLength) {
+      console.log(`[PetTag] Skipping short path (length ${pathLength.toFixed(2)}mm < ${minPathLength}mm)`);
+      continue;
+    }
+    
     // Interpolate for smooth curves
     const interpolated = interpolatePath(transformed, 0.5);
-    transformedPaths.push(interpolated);
+    
+    // Ensure interpolated path has at least 3 points for proper geometry
+    if (interpolated.length >= 3) {
+      transformedPaths.push(interpolated);
+    }
   }
   
   // Channel geometry settings
@@ -810,23 +834,42 @@ function generateShapePoints(
   
   switch (shape) {
     case "bone": {
-      const endRadius = height * 0.35;
-      const bodyWidth = width - endRadius * 2;
+      // Classic dog bone shape: two rounded "bulbs" at ends connected by narrower body
+      const bulbRadius = height * 0.4;
+      const neckWidth = height * 0.5;  // Narrower center section
+      const halfBodyLen = width / 2 - bulbRadius;
+      const halfNeck = neckWidth / 2;
+      const quarterSegs = Math.floor(segments / 4);
       
-      for (let i = 0; i <= segments / 4; i++) {
-        const angle = -Math.PI / 2 + (i / (segments / 4)) * Math.PI;
+      // Right bulb (top half, going counterclockwise from top-right)
+      for (let i = 0; i <= quarterSegs; i++) {
+        const angle = -Math.PI / 2 + (i / quarterSegs) * Math.PI;
         points.push({
-          x: bodyWidth / 2 + Math.cos(angle) * endRadius,
-          y: Math.sin(angle) * endRadius * 0.7,
+          x: halfBodyLen + Math.cos(angle) * bulbRadius,
+          y: Math.sin(angle) * bulbRadius,
         });
       }
-      for (let i = 0; i <= segments / 4; i++) {
-        const angle = Math.PI / 2 + (i / (segments / 4)) * Math.PI;
+      
+      // Top edge (right to left, with inward curve for bone "neck")
+      const topY = halfNeck;
+      points.push({ x: halfBodyLen - bulbRadius * 0.2, y: topY });
+      points.push({ x: 0, y: topY * 0.9 });  // Slight inward curve at center
+      points.push({ x: -halfBodyLen + bulbRadius * 0.2, y: topY });
+      
+      // Left bulb (from top to bottom, going counterclockwise)
+      for (let i = 0; i <= quarterSegs; i++) {
+        const angle = Math.PI / 2 + (i / quarterSegs) * Math.PI;
         points.push({
-          x: -bodyWidth / 2 + Math.cos(angle) * endRadius,
-          y: Math.sin(angle) * endRadius * 0.7,
+          x: -halfBodyLen + Math.cos(angle) * bulbRadius,
+          y: Math.sin(angle) * bulbRadius,
         });
       }
+      
+      // Bottom edge (left to right, with inward curve for bone "neck")
+      points.push({ x: -halfBodyLen + bulbRadius * 0.2, y: -topY });
+      points.push({ x: 0, y: -topY * 0.9 });  // Slight inward curve at center
+      points.push({ x: halfBodyLen - bulbRadius * 0.2, y: -topY });
+      
       break;
     }
     
