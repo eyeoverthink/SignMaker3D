@@ -87,8 +87,44 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image"] as const;
+export const inputModes = ["text", "draw", "image", "pettag"] as const;
 export type InputMode = typeof inputModes[number];
+
+// Pet Tag specific types
+export const petTagShapes = ["bone", "round", "heart", "rectangle", "military", "paw"] as const;
+export type PetTagShape = typeof petTagShapes[number];
+
+export const petTagSettingsSchema = z.object({
+  petName: z.string().min(0).max(20),
+  tagShape: z.enum(petTagShapes),
+  tagWidth: z.number().min(20).max(60), // mm - sized for actual dog tags
+  tagHeight: z.number().min(15).max(50),
+  tagThickness: z.number().min(2).max(6),
+  ledChannelEnabled: z.boolean(),
+  ledChannelWidth: z.number().min(2).max(6),
+  ledChannelDepth: z.number().min(1).max(4),
+  glowInDark: z.boolean(), // For glow-in-dark filament
+  holeEnabled: z.boolean(),
+  holeDiameter: z.number().min(3).max(8),
+  fontScale: z.number().min(0.3).max(1.5),
+});
+
+export type PetTagSettings = z.infer<typeof petTagSettingsSchema>;
+
+export const defaultPetTagSettings: PetTagSettings = {
+  petName: "Max",
+  tagShape: "bone",
+  tagWidth: 45,
+  tagHeight: 25,
+  tagThickness: 4,
+  ledChannelEnabled: true,
+  ledChannelWidth: 3,
+  ledChannelDepth: 2,
+  glowInDark: false,
+  holeEnabled: true,
+  holeDiameter: 4,
+  fontScale: 0.8,
+};
 
 export const letterSettingsSchema = z.object({
   text: z.string().min(0).max(200),

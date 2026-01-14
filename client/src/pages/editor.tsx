@@ -1,6 +1,7 @@
 import { Canvas3D } from "@/components/editor/canvas-3d";
 import { DrawingCanvas } from "@/components/editor/drawing-canvas";
 import { ImageTracer } from "@/components/editor/image-tracer";
+import { PetTagEditor } from "@/components/editor/pet-tag-editor";
 import { ToolDock } from "@/components/editor/tool-dock";
 import { SettingsPanel } from "@/components/editor/settings-panel";
 import { ExportPanel } from "@/components/editor/export-panel";
@@ -53,19 +54,22 @@ export default function Editor() {
             {inputMode === "draw" && <DrawingCanvas />}
             {inputMode === "image" && <ImageTracer />}
             {inputMode === "text" && <Canvas3D />}
+            {inputMode === "pettag" && <PetTagEditor />}
           </div>
           
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg">
-            <p className="text-xs text-muted-foreground">
-              {inputMode === "text" && "Type your text, then adjust settings on the right"}
-              {inputMode === "draw" && "Draw on canvas - your strokes become neon tubes"}
-              {inputMode === "image" && "Upload an image to trace into bubble letter style"}
-            </p>
-          </div>
+          {inputMode !== "pettag" && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg">
+              <p className="text-xs text-muted-foreground">
+                {inputMode === "text" && "Type your text, then adjust settings on the right"}
+                {inputMode === "draw" && "Draw on canvas - your strokes become neon tubes"}
+                {inputMode === "image" && "Upload an image to trace into bubble letter style"}
+              </p>
+            </div>
+          )}
         </main>
 
-        {showSettings && !showExport && <SettingsPanel />}
-        {showExport && (
+        {showSettings && !showExport && inputMode !== "pettag" && <SettingsPanel />}
+        {showExport && inputMode !== "pettag" && (
           <div className="w-80 border-l bg-sidebar p-4">
             <ExportPanel />
           </div>

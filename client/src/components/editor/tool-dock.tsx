@@ -1,16 +1,17 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Settings, Eye, EyeOff } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
   const { inputMode, setInputMode, showGrid, setShowGrid } = useEditorStore();
 
   const modes: { id: InputMode; icon: typeof Type; label: string; description: string }[] = [
-    { id: "text", icon: Type, label: "Text", description: "Type text using fonts" },
+    { id: "text", icon: Type, label: "Signs", description: "Neon sign text" },
     { id: "draw", icon: Pencil, label: "Draw", description: "Freehand drawing" },
     { id: "image", icon: Image, label: "Image", description: "Upload & trace image" },
+    { id: "pettag", icon: Dog, label: "Pet Tags", description: "Illuminated dog tags" },
   ];
 
   return (

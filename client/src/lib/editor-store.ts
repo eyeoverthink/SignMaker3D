@@ -8,12 +8,14 @@ import {
   type TwoPartSystem,
   type SketchPath,
   type InputMode,
+  type PetTagSettings,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
   defaultMountingSettings,
   defaultTubeSettings,
   defaultTwoPartSystem,
+  defaultPetTagSettings,
 } from "@shared/schema";
 
 interface EditorState {
@@ -23,6 +25,7 @@ interface EditorState {
   mountingSettings: MountingSettings;
   tubeSettings: TubeSettings;
   twoPartSystem: TwoPartSystem;
+  petTagSettings: PetTagSettings;
   sketchPaths: SketchPath[];
   inputMode: InputMode;
   uploadedImageData: string | null;
@@ -38,6 +41,7 @@ interface EditorState {
   setMountingSettings: (settings: Partial<MountingSettings>) => void;
   setTubeSettings: (settings: Partial<TubeSettings>) => void;
   setTwoPartSystem: (settings: Partial<TwoPartSystem>) => void;
+  setPetTagSettings: (settings: Partial<PetTagSettings>) => void;
   setSketchPaths: (paths: SketchPath[]) => void;
   addSketchPath: (path: SketchPath) => void;
   removeSketchPath: (id: string) => void;
@@ -59,6 +63,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   mountingSettings: defaultMountingSettings,
   tubeSettings: defaultTubeSettings,
   twoPartSystem: defaultTwoPartSystem,
+  petTagSettings: defaultPetTagSettings,
   sketchPaths: [],
   inputMode: "text",
   uploadedImageData: null,
@@ -92,6 +97,10 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       twoPartSystem: { ...state.twoPartSystem, ...settings },
     })),
+  setPetTagSettings: (settings) =>
+    set((state) => ({
+      petTagSettings: { ...state.petTagSettings, ...settings },
+    })),
   setSketchPaths: (paths) => set({ sketchPaths: paths }),
   addSketchPath: (path) =>
     set((state) => ({
@@ -117,6 +126,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       mountingSettings: defaultMountingSettings,
       tubeSettings: defaultTubeSettings,
       twoPartSystem: defaultTwoPartSystem,
+      petTagSettings: defaultPetTagSettings,
       sketchPaths: [],
       inputMode: "text",
       uploadedImageData: null,

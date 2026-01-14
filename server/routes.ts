@@ -4,7 +4,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSignage, generateMultiPartExport, generateTwoPartExport, type ExportedPart } from "./stl-generator";
 import { generateNeonSignV2 } from "./stl-generator-v2";
-import { twoPartSystemSchema, defaultTwoPartSystem } from "@shared/schema";
+import { generatePetTagSTL } from "./pet-tag-generator";
+import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema } from "@shared/schema";
 import {
   letterSettingsSchema,
   geometrySettingsSchema,
@@ -416,6 +417,28 @@ export async function registerRoutes(
       estimatedPrintTime: Math.round(text.length * depth * scale * 0.3),
       estimatedMaterial: Math.round(totalWidth * totalHeight * depth * 0.001),
     });
+  });
+
+  // Pet tag export endpoint
+  app.post("/api/export/pet-tag", async (req, res) => {
+    try {
+      const result = petTagSettingsSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid pet tag settings", details: result.error.errors });
+      }
+      
+      const settings = result.data;
+      const stlBuffer = generatePetTagSTL(settings);
+      
+      const filename = `${settings.petName || "pet-tag"}-${settings.tagShape}.stl`;
+      
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(stlBuffer);
+    } catch (error) {
+      console.error("Pet tag export error:", error);
+      res.status(500).json({ error: "Failed to generate pet tag" });
+    }
   });
 
   return httpServer;
