@@ -48,11 +48,11 @@ const sketchPathSchema = z.object({
 
 const exportRequestSchema = z.object({
   letterSettings: letterSettingsSchema,
-  geometrySettings: geometrySettingsSchema.optional(),
-  wiringSettings: wiringSettingsSchema.optional(),
-  mountingSettings: mountingSettingsSchema.optional(),
-  tubeSettings: tubeSettingsSchema.optional(),
-  twoPartSystem: twoPartSystemSchema.optional(),
+  geometrySettings: geometrySettingsSchema.partial().optional(),
+  wiringSettings: wiringSettingsSchema.partial().optional(),
+  mountingSettings: mountingSettingsSchema.partial().optional(),
+  tubeSettings: tubeSettingsSchema.partial().optional(),
+  twoPartSystem: twoPartSystemSchema.partial().optional(),
   sketchPaths: z.array(sketchPathSchema).optional(),
   inputMode: z.enum(["text", "draw", "image"]).optional(),
   format: z.enum(["stl", "obj", "3mf"]).default("stl"),
@@ -178,11 +178,11 @@ export async function registerRoutes(
       }
 
       const { letterSettings, format } = parsed.data;
-      const geometrySettings = parsed.data.geometrySettings || defaultGeometrySettings;
-      const wiringSettings = parsed.data.wiringSettings || defaultWiringSettings;
-      const mountingSettings = parsed.data.mountingSettings || defaultMountingSettings;
-      const tubeSettings = parsed.data.tubeSettings || defaultTubeSettings;
-      const twoPartSystem = parsed.data.twoPartSystem || defaultTwoPartSystem;
+      const geometrySettings = { ...defaultGeometrySettings, ...parsed.data.geometrySettings } as typeof defaultGeometrySettings;
+      const wiringSettings = { ...defaultWiringSettings, ...parsed.data.wiringSettings } as typeof defaultWiringSettings;
+      const mountingSettings = { ...defaultMountingSettings, ...parsed.data.mountingSettings } as typeof defaultMountingSettings;
+      const tubeSettings = { ...defaultTubeSettings, ...parsed.data.tubeSettings } as typeof defaultTubeSettings;
+      const twoPartSystem = { ...defaultTwoPartSystem, ...parsed.data.twoPartSystem } as typeof defaultTwoPartSystem;
       const sketchPaths = parsed.data.sketchPaths || [];
       const inputMode = parsed.data.inputMode || "text";
       
