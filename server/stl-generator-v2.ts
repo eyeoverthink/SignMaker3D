@@ -927,6 +927,7 @@ export function generateNeonSignV2(
   
   // Base channel
   const baseContent = trianglesToSTL(allTriangles, `${fileSlug} Neon Sign Base`);
+  console.log(`[V2 Generator] Base STL: ${allTriangles.length} triangles, ${baseContent.length} bytes`);
   results.push({
     filename: `${fileSlug}_neon_channel${options.mirrorX ? '_mirrored' : ''}.stl`,
     content: baseContent,
