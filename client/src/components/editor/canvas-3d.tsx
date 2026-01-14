@@ -130,6 +130,9 @@ function Canvas2DFallback() {
 }
 
 const fontFileMap: Record<string, string> = {
+  "aerioz": "Aerioz-Demo.otf",
+  "hershey-sans": "Inter-Bold.ttf",
+  "hershey-script": "Inter-Bold.ttf",
   "inter": "Inter-Bold.ttf",
   "roboto": "Roboto-Bold.ttf",
   "poppins": "Poppins-Bold.ttf",

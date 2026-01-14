@@ -5,9 +5,11 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dog, Lightbulb, Download, Loader2, Link2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dog, Lightbulb, Download, Loader2, Link2, Type } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { fontOptions } from "@shared/schema";
 
 export function PetTagEditor() {
   const { petTagSettings, setPetTagSettings } = useEditorStore();
@@ -117,6 +119,35 @@ export function PetTagEditor() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 {petTagSettings.petName.length}/12 characters
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Type className="h-4 w-4" />
+                Font Style
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={petTagSettings.fontId}
+                onValueChange={(value) => setPetTagSettings({ fontId: value })}
+              >
+                <SelectTrigger data-testid="select-pet-tag-font">
+                  <SelectValue placeholder="Select font" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fontOptions.slice(0, 3).map((font) => (
+                    <SelectItem key={font.id} value={font.id}>
+                      {font.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                Aerioz is recommended for neon-style signs
               </p>
             </CardContent>
           </Card>

@@ -4,6 +4,7 @@
 
 import type { PetTagSettings } from "@shared/schema";
 import { getTextStrokePaths, interpolatePath } from "./hershey-fonts";
+import { getTextStrokePathsFromFont, isOTFFont } from "./font-loader";
 
 interface Vector3 {
   x: number;
@@ -475,41 +476,58 @@ export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
   const capThickness = 2;
   const snapTolerance = 0.2;
   
-  console.log(`[PetTag] Generating: "${petName}", channelWidth=${channelWidth}, wallHeight=${wallHeight}`);
+  const fontId = settings.fontId || "aerioz";
+  console.log(`[PetTag] Generating: "${petName}", font=${fontId}, channelWidth=${channelWidth}, wallHeight=${wallHeight}`);
   
-  // Get stroke paths for the pet name using Hershey fonts
+  // Get stroke paths using appropriate font system
   const fontSize = 40 * (fontScale || 1);
-  const textResult = getTextStrokePaths(petName || "PET", fontSize, fontSize * 0.1);
-  const textPaths = textResult.paths;
-  
-  // Center the text
-  const centerX = textResult.totalWidth / 2;
-  const centerY = textResult.height / 2;
-  
-  // Transform paths and create U-channels
   const allTriangles: Triangle[] = [];
   const allSmoothPaths: number[][][] = [];
   
-  for (const path of textPaths) {
-    if (path.length < 2) continue;
+  if (isOTFFont(fontId)) {
+    // Use OTF font loader - paths are already centered
+    console.log(`[PetTag] Using OTF font: ${fontId}`);
+    const result = getTextStrokePathsFromFont(petName || "PET", fontId, fontSize);
     
-    // Center and flip Y
-    const centeredPath: number[][] = path.map(([x, y]) => [
-      x - centerX,
-      centerY - y
-    ]);
+    for (const path of result.paths) {
+      if (path.length < 2) continue;
+      
+      const smoothPath = interpolatePath(path, channelWidth * 0.25);
+      if (smoothPath.length < 2) continue;
+      
+      allSmoothPaths.push(smoothPath);
+      
+      if (ledChannelEnabled !== false) {
+        const channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness);
+        allTriangles.push(...channelTriangles);
+      }
+    }
+  } else {
+    // Use Hershey fonts
+    console.log(`[PetTag] Using Hershey font: ${fontId}`);
+    const textResult = getTextStrokePaths(petName || "PET", fontSize, fontSize * 0.1);
+    const textPaths = textResult.paths;
     
-    // Interpolate for smoothness
-    const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
+    const centerX = textResult.totalWidth / 2;
+    const centerY = textResult.height / 2;
     
-    if (smoothPath.length < 2) continue;
-    
-    allSmoothPaths.push(smoothPath);
-    
-    // Create U-channel along the path
-    if (ledChannelEnabled !== false) {
-      const channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness);
-      allTriangles.push(...channelTriangles);
+    for (const path of textPaths) {
+      if (path.length < 2) continue;
+      
+      const centeredPath: number[][] = path.map(([x, y]) => [
+        x - centerX,
+        centerY - y
+      ]);
+      
+      const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
+      if (smoothPath.length < 2) continue;
+      
+      allSmoothPaths.push(smoothPath);
+      
+      if (ledChannelEnabled !== false) {
+        const channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness);
+        allTriangles.push(...channelTriangles);
+      }
     }
   }
   

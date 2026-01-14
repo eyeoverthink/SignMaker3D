@@ -113,6 +113,7 @@ export const petTagSettingsSchema = z.object({
   holeEnabled: z.boolean(),
   holeDiameter: z.number().min(3).max(10),
   fontScale: z.number().min(0.5).max(2.0),
+  fontId: z.string(),  // Font selection for pet tag text
 });
 
 export type PetTagSettings = z.infer<typeof petTagSettingsSchema>;
@@ -130,6 +131,7 @@ export const defaultPetTagSettings: PetTagSettings = {
   holeEnabled: true,
   holeDiameter: 4,
   fontScale: 1.0,
+  fontId: "aerioz",  // Default to neon script font
 };
 
 export const letterSettingsSchema = z.object({
