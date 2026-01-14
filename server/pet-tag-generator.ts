@@ -28,30 +28,30 @@ export interface PetTagPart {
   material: string;
 }
 
-// Font file mapping
-const fontFileMap: Record<string, string> = {
-  "aerioz": "Aerioz-Demo.otf",
-  "airstream": "Airstream-1W0vL.ttf",
-  "airstream-nf": "AirstreamNF-8XY2M.otf",
-  "alliston": "AllistonDemo-2O4dO.ttf",
-  "cookiemonster": "CookieMonster-K76dJ.ttf",
-  "darlington": "Darlington-8M7Xg.ttf",
-  "dirtyboy": "DirtyBoy-ywWd5.otf",
-  "future-light": "Future-Light-y89EE.otf",
-  "future-light-italic": "Future-Light-Italic-mGOL0.otf",
-  "halimun": "Halimun-l3DDV.ttf",
-  "inter": "Inter-p1Wxm.ttf",
-  "roboto": "Roboto-3Jnl2.ttf",
-  "poppins": "Poppins-QK1YR.ttf",
-  "montserrat": "Montserrat-8OG0D.ttf",
-  "open-sans": "OpenSans-K7GGJ.ttf",
-  "playfair": "PlayfairDisplay-9Y7Pd.ttf",
-  "merriweather": "Merriweather-WZ4oW.ttf",
-  "lora": "Lora-3mGvl.ttf",
-  "space-grotesk": "SpaceGrotesk-Zrjor.ttf",
-  "outfit": "Outfit-8Oj6z.ttf",
-  "architects-daughter": "ArchitectsDaughter-rW0Ax.ttf",
-  "oxanium": "Oxanium-0Oo5x.ttf",
+// Font file mapping - maps fontId to actual filename in public/fonts or server/fonts
+const fontFileMap: Record<string, { path: string; dir: "public" | "server" }> = {
+  "aerioz": { path: "Aerioz-Demo.otf", dir: "public" },
+  "airstream": { path: "Airstream.ttf", dir: "public" },
+  "airstream-nf": { path: "AirstreamNF.ttf", dir: "public" },
+  "alliston": { path: "Alliston-Demo.ttf", dir: "public" },
+  "cookiemonster": { path: "Cookiemonster.ttf", dir: "public" },
+  "darlington": { path: "Darlington-Demo.ttf", dir: "public" },
+  "dirtyboy": { path: "Dirtyboy.ttf", dir: "public" },
+  "future-light": { path: "FutureLight.ttf", dir: "public" },
+  "future-light-italic": { path: "FutureLightItalic.ttf", dir: "public" },
+  "halimun": { path: "Halimun.ttf", dir: "public" },
+  "inter": { path: "Inter-Bold.ttf", dir: "server" },
+  "roboto": { path: "Roboto-Bold.ttf", dir: "server" },
+  "poppins": { path: "Poppins-Bold.ttf", dir: "server" },
+  "montserrat": { path: "Montserrat-Bold.ttf", dir: "server" },
+  "open-sans": { path: "OpenSans-Bold.ttf", dir: "server" },
+  "playfair": { path: "PlayfairDisplay-Bold.ttf", dir: "server" },
+  "merriweather": { path: "Merriweather-Bold.ttf", dir: "server" },
+  "lora": { path: "Lora-Bold.ttf", dir: "server" },
+  "space-grotesk": { path: "SpaceGrotesk-Bold.ttf", dir: "server" },
+  "outfit": { path: "Outfit-Bold.ttf", dir: "server" },
+  "architects-daughter": { path: "ArchitectsDaughter-Regular.ttf", dir: "server" },
+  "oxanium": { path: "Oxanium-Bold.ttf", dir: "server" },
 };
 
 function loadFont(fontId: string): opentype.Font {
