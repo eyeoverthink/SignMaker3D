@@ -26,6 +26,18 @@ import path from "path";
 import fs from "fs";
 
 const fontFileMap: Record<string, string> = {
+  "aerioz": "Aerioz-Demo.otf",
+  "airstream": "Airstream.ttf",
+  "airstream-nf": "AirstreamNF.ttf",
+  "alliston": "Alliston-Demo.ttf",
+  "cookiemonster": "Cookiemonster.ttf",
+  "darlington": "Darlington-Demo.ttf",
+  "dirtyboy": "Dirtyboy.ttf",
+  "future-light": "FutureLight.ttf",
+  "future-light-italic": "FutureLightItalic.ttf",
+  "halimun": "Halimun.ttf",
+  "hershey-sans": "Inter-Bold.ttf",
+  "hershey-script": "Inter-Bold.ttf",
   "inter": "Inter-Bold.ttf",
   "roboto": "Roboto-Bold.ttf",
   "poppins": "Poppins-Bold.ttf",
@@ -62,7 +74,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  app.use("/fonts", express.static(path.join(process.cwd(), "server/fonts")));
+  app.use("/fonts", express.static(path.join(process.cwd(), "public/fonts")));
 
   app.get("/api/fonts", (_req, res) => {
     res.json(fontOptions);
@@ -74,7 +86,7 @@ export async function registerRoutes(
     if (!fileName) {
       return res.status(404).json({ error: "Font not found" });
     }
-    const filePath = path.join(process.cwd(), "server/fonts", fileName);
+    const filePath = path.join(process.cwd(), "public/fonts", fileName);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: "Font file not found" });
     }
