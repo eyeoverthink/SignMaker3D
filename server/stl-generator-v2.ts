@@ -1,11 +1,11 @@
-// STL Generator V2 - Proper swept tube geometry using Hershey single-stroke fonts
+// STL Generator V2 - Proper swept tube geometry using stroke-based fonts
 // This creates watertight meshes suitable for 3D printing
-// Unlike regular fonts (which define filled outlines), Hershey fonts define STROKE PATHS
-// which is exactly what neon signs need
+// Supports OTF/TTF fonts via opentype.js and Hershey single-stroke fonts
 
 import type { LetterSettings, TubeSettings, TwoPartSystem, SketchPath } from "@shared/schema";
 import { defaultTwoPartSystem } from "@shared/schema";
 import { getTextStrokePaths, interpolatePath } from "./hershey-fonts";
+import { getTextStrokePathsFromFont, isOTFFont } from "./font-loader";
 
 interface Vector3 {
   x: number;
@@ -945,36 +945,55 @@ export function generateNeonSignV2(
     console.log(`[V2 Generator] Total base triangles: ${allTriangles.length}`);
     fileSlug = inputMode === "draw" ? "freehand" : "traced";
   } else {
-    // Use Hershey single-stroke fonts
+    // Use appropriate font system based on font type
     const text = letterSettings.text || "A";
     const fontSize = 50 * letterSettings.scale;
+    const fontId = letterSettings.fontId || "hershey-sans";
     
-    // Get stroke paths from Hershey font
-    const { paths, totalWidth, height } = getTextStrokePaths(
-      text,
-      fontSize,
-      fontSize * 0.12 // Letter spacing
-    );
+    let paths: number[][][] = [];
     
-    // Center the text
-    const centerX = totalWidth / 2;
-    const centerY = height / 2;
-    
-    for (const path of paths) {
-      if (path.length < 2) continue;
+    // Check if this is an OTF font
+    if (isOTFFont(fontId)) {
+      console.log(`[V2 Generator] Using OTF font: ${fontId}`);
+      const result = getTextStrokePathsFromFont(text, fontId, fontSize);
+      paths = result.paths;
       
-      // Center and flip Y (Hershey uses Y-down)
-      const centeredPath: number[][] = path.map(([x, y]) => [
-        x - centerX,
-        centerY - y
-      ]);
+      // Paths from OTF loader are already centered
+      for (const path of paths) {
+        if (path.length < 2) continue;
+        const smoothPath = interpolatePath(path, channelWidth * 0.25);
+        allSmoothPaths.push(smoothPath);
+        allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
+      }
+    } else {
+      // Use Hershey single-stroke fonts
+      console.log(`[V2 Generator] Using Hershey font: ${fontId}`);
+      const { paths: hersheyPaths, totalWidth, height } = getTextStrokePaths(
+        text,
+        fontSize,
+        fontSize * 0.12 // Letter spacing
+      );
       
-      // Interpolate for smoothness
-      const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
-      allSmoothPaths.push(smoothPath);
+      // Center the text
+      const centerX = totalWidth / 2;
+      const centerY = height / 2;
       
-      // Create U-channel with hollow interior for LED insertion
-      allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
+      for (const path of hersheyPaths) {
+        if (path.length < 2) continue;
+        
+        // Center and flip Y (Hershey uses Y-down)
+        const centeredPath: number[][] = path.map(([x, y]) => [
+          x - centerX,
+          centerY - y
+        ]);
+        
+        // Interpolate for smoothness
+        const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
+        allSmoothPaths.push(smoothPath);
+        
+        // Create U-channel with hollow interior for LED insertion
+        allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
+      }
     }
     
     fileSlug = text.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);

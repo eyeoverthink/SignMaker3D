@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 export const fontOptions = [
+  { id: "aerioz", name: "Aerioz (Neon Script)", family: "Aerioz" },
+  { id: "hershey-sans", name: "Hershey Sans", family: "Hershey Sans" },
+  { id: "hershey-script", name: "Hershey Script", family: "Hershey Script" },
   { id: "inter", name: "Inter", family: "Inter" },
   { id: "roboto", name: "Roboto", family: "Roboto" },
   { id: "poppins", name: "Poppins", family: "Poppins" },
