@@ -5,6 +5,8 @@ import * as fs from 'fs';
 interface StrokePath {
   points: number[][];
   closed: boolean;
+  area?: number;
+  bounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 interface GlyphStrokePaths {
@@ -58,8 +60,6 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
   let currentPath: number[][] = [];
   let currentX = 0;
   let currentY = 0;
-  let startX = 0;
-  let startY = 0;
   
   for (const cmd of pathData.commands) {
     switch (cmd.type) {
@@ -70,8 +70,6 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         currentPath = [[cmd.x! * scale, cmd.y! * scale]];
         currentX = cmd.x!;
         currentY = cmd.y!;
-        startX = cmd.x!;
-        startY = cmd.y!;
         break;
         
       case 'L':
@@ -81,8 +79,7 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         break;
         
       case 'C':
-        // More steps for smoother curves
-        const steps = 16;
+        const steps = 12;
         for (let t = 1; t <= steps; t++) {
           const tt = t / steps;
           const t2 = tt * tt;
@@ -100,7 +97,7 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         break;
         
       case 'Q':
-        const qSteps = 12;
+        const qSteps = 8;
         for (let t = 1; t <= qSteps; t++) {
           const tt = t / qSteps;
           const mt = 1 - tt;
@@ -113,9 +110,7 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
         break;
         
       case 'Z':
-        // Close the path by connecting back to start
         if (currentPath.length > 1) {
-          // Add closing point if not already there
           const first = currentPath[0];
           const last = currentPath[currentPath.length - 1];
           if (Math.abs(first[0] - last[0]) > 0.01 || Math.abs(first[1] - last[1]) > 0.01) {
@@ -132,27 +127,202 @@ function pathCommandsToStrokePaths(pathData: opentype.Path, scale: number): Stro
     paths.push({ points: currentPath, closed: false });
   }
   
+  // Calculate area and bounds for each path
+  for (const p of paths) {
+    p.area = calculateSignedArea(p.points);
+    p.bounds = calculateBounds(p.points);
+  }
+  
   return paths;
 }
 
-function extractSkeletonFromOutline(paths: StrokePath[]): number[][][] {
+function calculateSignedArea(points: number[][]): number {
+  let area = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += points[i][0] * points[j][1];
+    area -= points[j][0] * points[i][1];
+  }
+  return area / 2;
+}
+
+function calculateBounds(points: number[][]): { minX: number; maxX: number; minY: number; maxY: number } {
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  for (const [x, y] of points) {
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  return { minX, maxX, minY, maxY };
+}
+
+function boundsContains(outer: { minX: number; maxX: number; minY: number; maxY: number }, 
+                        inner: { minX: number; maxX: number; minY: number; maxY: number }): boolean {
+  return outer.minX <= inner.minX && outer.maxX >= inner.maxX &&
+         outer.minY <= inner.minY && outer.maxY >= inner.maxY;
+}
+
+function extractCenterlineFromContours(paths: StrokePath[]): number[][][] {
   if (paths.length === 0) return [];
+  
+  // For open paths (already stroke-like), return them directly
+  const openPaths = paths.filter(p => !p.closed);
+  const closedPaths = paths.filter(p => p.closed);
   
   const result: number[][][] = [];
   
-  for (const path of paths) {
-    if (path.points.length < 2) continue;
+  // Add open paths directly (already centerlines)
+  for (const p of openPaths) {
+    if (p.points.length >= 2) {
+      result.push(simplifyPath(p.points, 0.1));
+    }
+  }
+  
+  if (closedPaths.length === 0) {
+    return result;
+  }
+  
+  // Separate outer contours (positive area) from inner (holes, negative area)
+  const outerContours = closedPaths.filter(p => (p.area || 0) > 0);
+  const innerContours = closedPaths.filter(p => (p.area || 0) < 0);
+  
+  // For each outer contour, find its corresponding inner contour (hole)
+  // and compute the centerline between them
+  for (const outer of outerContours) {
+    // Find inner contours that are inside this outer contour
+    const matchingInners = innerContours.filter(inner => 
+      outer.bounds && inner.bounds && boundsContains(outer.bounds, inner.bounds)
+    );
     
-    // Use gentle simplification to keep smooth curves
-    // Higher tolerance = more simplification, lower = more detail
-    const simplified = simplifyPath(path.points, 0.05);
-    
-    if (simplified.length >= 2) {
-      result.push(simplified);
+    if (matchingInners.length === 1) {
+      // We have a clear outer-inner pair - compute centerline between them
+      const centerline = computeCenterlineBetweenContours(outer.points, matchingInners[0].points);
+      if (centerline.length >= 2) {
+        result.push(simplifyPath(centerline, 0.15));
+      }
+    } else if (matchingInners.length === 0) {
+      // No inner contour - this is a filled shape, use offset from outline
+      const centerline = computeOffsetCenterline(outer.points);
+      if (centerline.length >= 2) {
+        result.push(simplifyPath(centerline, 0.15));
+      }
+    } else {
+      // Multiple inner contours - handle each pair separately
+      for (const inner of matchingInners) {
+        const centerline = computeCenterlineBetweenContours(outer.points, inner.points);
+        if (centerline.length >= 2) {
+          result.push(simplifyPath(centerline, 0.15));
+        }
+      }
+    }
+  }
+  
+  // If no outer contours found, treat negative-area closed paths as outlines
+  if (outerContours.length === 0 && innerContours.length > 0) {
+    for (const inner of innerContours) {
+      const centerline = computeOffsetCenterline(inner.points);
+      if (centerline.length >= 2) {
+        result.push(simplifyPath(centerline, 0.15));
+      }
     }
   }
   
   return result;
+}
+
+function computeCenterlineBetweenContours(outer: number[][], inner: number[][]): number[][] {
+  // For each point on outer contour, find nearest point on inner contour
+  // The centerline is the midpoint between them
+  const centerline: number[][] = [];
+  
+  // Sample points along the outer contour
+  const sampleCount = Math.min(outer.length, 100);
+  const step = Math.max(1, Math.floor(outer.length / sampleCount));
+  
+  for (let i = 0; i < outer.length; i += step) {
+    const outerPt = outer[i];
+    
+    // Find closest point on inner contour
+    let minDist = Infinity;
+    let closestInner = inner[0];
+    
+    for (const innerPt of inner) {
+      const dist = Math.sqrt((outerPt[0] - innerPt[0]) ** 2 + (outerPt[1] - innerPt[1]) ** 2);
+      if (dist < minDist) {
+        minDist = dist;
+        closestInner = innerPt;
+      }
+    }
+    
+    // Midpoint is the centerline
+    centerline.push([
+      (outerPt[0] + closestInner[0]) / 2,
+      (outerPt[1] + closestInner[1]) / 2
+    ]);
+  }
+  
+  // Close the centerline if it's meant to be closed
+  if (centerline.length > 2) {
+    const first = centerline[0];
+    const last = centerline[centerline.length - 1];
+    const dist = Math.sqrt((first[0] - last[0]) ** 2 + (first[1] - last[1]) ** 2);
+    if (dist < 5) {
+      centerline.push([first[0], first[1]]);
+    }
+  }
+  
+  return centerline;
+}
+
+function computeOffsetCenterline(points: number[][]): number[][] {
+  // For a filled shape without inner contour, offset inward to create centerline
+  // This estimates the stroke width and offsets by half
+  
+  // Calculate approximate stroke width from shape dimensions
+  const bounds = calculateBounds(points);
+  const width = bounds.maxX - bounds.minX;
+  const height = bounds.maxY - bounds.minY;
+  const strokeWidth = Math.min(width, height) * 0.4; // Estimate 40% of smaller dimension
+  
+  // Offset each point inward by half stroke width
+  const centerline: number[][] = [];
+  const n = points.length;
+  
+  for (let i = 0; i < n; i++) {
+    const prev = points[(i - 1 + n) % n];
+    const curr = points[i];
+    const next = points[(i + 1) % n];
+    
+    // Calculate inward normal
+    const dx1 = curr[0] - prev[0];
+    const dy1 = curr[1] - prev[1];
+    const dx2 = next[0] - curr[0];
+    const dy2 = next[1] - curr[1];
+    
+    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1) || 1;
+    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1;
+    
+    // Average normal direction
+    const nx = ((-dy1 / len1) + (-dy2 / len2)) / 2;
+    const ny = ((dx1 / len1) + (dx2 / len2)) / 2;
+    const nlen = Math.sqrt(nx * nx + ny * ny) || 1;
+    
+    // Offset inward
+    centerline.push([
+      curr[0] + (nx / nlen) * (strokeWidth / 2),
+      curr[1] + (ny / nlen) * (strokeWidth / 2)
+    ]);
+  }
+  
+  // Close the path
+  if (centerline.length > 2) {
+    centerline.push([centerline[0][0], centerline[0][1]]);
+  }
+  
+  return centerline;
 }
 
 function simplifyPath(points: number[][], tolerance: number): number[][] {
@@ -227,9 +397,9 @@ export function getTextStrokePathsFromFont(
     const glyphPath = glyph.getPath(currentX, 0, 1000);
     
     const strokePaths = pathCommandsToStrokePaths(glyphPath, scale);
-    const skeleton = extractSkeletonFromOutline(strokePaths);
+    const centerlines = extractCenterlineFromContours(strokePaths);
     
-    for (const pathPoints of skeleton) {
+    for (const pathPoints of centerlines) {
       const offsetPath = pathPoints.map(([x, y]) => {
         const px = x;
         const py = -y;
