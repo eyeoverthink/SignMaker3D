@@ -1060,10 +1060,6 @@ function extractContours(
 ): { x: number; y: number }[][] {
   const contours: { x: number; y: number }[][] = [];
   const visited = new Set<number>();
-  
-  // Strict max distance - only allow immediate neighbors (diagonal = sqrt(2) ≈ 1.41)
-  // This prevents connecting separate strokes
-  const maxJumpDistance = 2.0;
 
   const getPixel = (x: number, y: number): boolean => {
     if (x < 0 || x >= width || y < 0 || y >= height) return false;
@@ -1076,136 +1072,53 @@ function extractContours(
     return !getPixel(x - 1, y) || !getPixel(x + 1, y) || 
            !getPixel(x, y - 1) || !getPixel(x, y + 1);
   };
-  
-  // Count neighboring edge pixels to identify noise vs real edges
-  const countEdgeNeighbors = (x: number, y: number): number => {
-    let count = 0;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        if (isEdge(x + dx, y + dy)) count++;
-      }
-    }
-    return count;
-  };
+
+  // Simple 8-connected neighbor directions
+  const directions = [
+    [1, 0], [0, 1], [-1, 0], [0, -1],
+    [1, 1], [-1, 1], [-1, -1], [1, -1]
+  ];
 
   for (let y = 0; y < height; y += simplify) {
     for (let x = 0; x < width; x += simplify) {
       const key = y * width + x;
       if (visited.has(key)) continue;
       if (!isEdge(x, y)) continue;
-      
-      // Skip isolated pixels (noise) - must have at least 2 neighbors for real edges
-      if (countEdgeNeighbors(x, y) < 2) {
-        visited.add(key);
-        continue;
-      }
 
-      let contour: { x: number; y: number }[] = [];
+      const contour: { x: number; y: number }[] = [];
       let cx = x, cy = y;
-      
-      // Only check immediate 8-connected neighbors
-      const directions = [
-        [1, 0], [0, 1], [-1, 0], [0, -1],
-        [1, 1], [-1, 1], [-1, -1], [1, -1]
-      ];
-
       let steps = 0;
-      const maxSteps = 10000;
 
-      while (steps < maxSteps) {
+      while (steps < 10000) {
         const ckey = cy * width + cx;
         if (visited.has(ckey)) break;
         visited.add(ckey);
-
         contour.push({ x: cx, y: cy });
 
+        // Find next unvisited edge neighbor
         let found = false;
-        let bestDist = Infinity;
-        let bestX = cx, bestY = cy;
-        
-        // Find closest unvisited edge neighbor - only immediate neighbors
         for (const [dx, dy] of directions) {
           const nx = cx + dx;
           const ny = cy + dy;
           const nkey = ny * width + nx;
           
           if (!visited.has(nkey) && isEdge(nx, ny)) {
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < bestDist) {
-              bestDist = dist;
-              bestX = nx;
-              bestY = ny;
-              found = true;
-            }
+            cx = nx;
+            cy = ny;
+            found = true;
+            break;
           }
         }
 
-        if (found && bestDist <= maxJumpDistance) {
-          cx = bestX;
-          cy = bestY;
-        } else {
-          break;
-        }
+        if (!found) break;
         steps++;
       }
 
-      // Save final contour if long enough
       if (contour.length >= minLength) {
         contours.push(contour);
       }
     }
   }
 
-  // Post-process: split contours that have large jumps between points
-  const splitContours: { x: number; y: number }[][] = [];
-  const maxPointDistance = 3; // Max distance between consecutive points
-  
-  for (const contour of contours) {
-    let segment: { x: number; y: number }[] = [];
-    
-    for (let i = 0; i < contour.length; i++) {
-      const point = contour[i];
-      
-      if (segment.length === 0) {
-        segment.push(point);
-      } else {
-        const lastPoint = segment[segment.length - 1];
-        const dist = Math.sqrt((point.x - lastPoint.x) ** 2 + (point.y - lastPoint.y) ** 2);
-        
-        if (dist <= maxPointDistance) {
-          segment.push(point);
-        } else {
-          // Large jump detected - save current segment and start new one
-          if (segment.length >= minLength) {
-            splitContours.push(segment);
-          }
-          segment = [point];
-        }
-      }
-    }
-    
-    // Don't forget the last segment
-    if (segment.length >= minLength) {
-      splitContours.push(segment);
-    }
-  }
-
-  // Final filter: remove tiny contours
-  return splitContours.filter(contour => {
-    if (contour.length < minLength) return false;
-    
-    // Calculate bounding box
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const p of contour) {
-      minX = Math.min(minX, p.x);
-      maxX = Math.max(maxX, p.x);
-      minY = Math.min(minY, p.y);
-      maxY = Math.max(maxY, p.y);
-    }
-    
-    // Filter out tiny contours (noise)
-    const boxSize = Math.max(maxX - minX, maxY - minY);
-    return boxSize >= minLength;
-  });
+  return contours;
 }
