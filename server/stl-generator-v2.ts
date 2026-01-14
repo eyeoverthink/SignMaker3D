@@ -1473,3 +1473,207 @@ export function generateNeonSignV2(
   
   return results;
 }
+
+// ============================================================================
+// MODULAR SHAPE GENERATOR - Geometric light panels (hexagon, triangle, etc.)
+// ============================================================================
+
+import type { ModularShapeSettings, ModularShapeType } from "@shared/schema";
+
+// Generate vertices for a regular polygon centered at origin
+function generatePolygonPath(
+  shapeType: ModularShapeType,
+  edgeLength: number
+): number[][] {
+  const sides: Record<ModularShapeType, number> = {
+    triangle: 3,
+    square: 4,
+    pentagon: 5,
+    hexagon: 6,
+    octagon: 8,
+  };
+  
+  const numSides = sides[shapeType];
+  const path: number[][] = [];
+  
+  // Calculate circumradius from edge length
+  // For regular polygon: R = edgeLength / (2 * sin(π/n))
+  const interiorAngle = Math.PI / numSides;
+  const circumradius = edgeLength / (2 * Math.sin(interiorAngle));
+  
+  // Generate vertices starting from top and going clockwise
+  // Rotate so one edge is at bottom for visual balance
+  const rotationOffset = -Math.PI / 2 + (numSides % 2 === 0 ? interiorAngle : 0);
+  
+  for (let i = 0; i < numSides; i++) {
+    const angle = rotationOffset + (i * 2 * Math.PI) / numSides;
+    const x = circumradius * Math.cos(angle);
+    const y = circumradius * Math.sin(angle);
+    path.push([x, y]);
+  }
+  
+  // Close the polygon by returning to start
+  path.push([path[0][0], path[0][1]]);
+  
+  return path;
+}
+
+// Create connector tabs on polygon edges for modular assembly
+function createConnectorTabs(
+  path: number[][],
+  channelWidth: number,
+  wallHeight: number,
+  baseThickness: number,
+  tabWidth: number,
+  tabDepth: number
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  
+  // Create tabs at the midpoint of each edge (except the last closing segment)
+  for (let i = 0; i < path.length - 1; i++) {
+    const p1 = path[i];
+    const p2 = path[i + 1];
+    
+    // Edge midpoint
+    const midX = (p1[0] + p2[0]) / 2;
+    const midY = (p1[1] + p2[1]) / 2;
+    
+    // Edge direction and perpendicular (outward)
+    const dx = p2[0] - p1[0];
+    const dy = p2[1] - p1[1];
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const tangentX = dx / len;
+    const tangentY = dy / len;
+    const outwardX = -tangentY;  // Perpendicular pointing outward
+    const outwardY = tangentX;
+    
+    // Tab dimensions
+    const hw = tabWidth / 2;
+    const tabBaseZ = baseThickness;
+    const tabTopZ = baseThickness + wallHeight;
+    
+    // Outer edge of channel at this point
+    const halfChannel = channelWidth / 2;
+    const outerX = midX + outwardX * halfChannel;
+    const outerY = midY + outwardY * halfChannel;
+    
+    // Tab corners (extends outward from channel edge)
+    const b0: Vector3 = { x: outerX + tangentX * (-hw), y: outerY + tangentY * (-hw), z: tabBaseZ };
+    const b1: Vector3 = { x: outerX + tangentX * hw, y: outerY + tangentY * hw, z: tabBaseZ };
+    const b2: Vector3 = { x: outerX + tangentX * hw + outwardX * tabDepth, y: outerY + tangentY * hw + outwardY * tabDepth, z: tabBaseZ };
+    const b3: Vector3 = { x: outerX + tangentX * (-hw) + outwardX * tabDepth, y: outerY + tangentY * (-hw) + outwardY * tabDepth, z: tabBaseZ };
+    
+    const t0: Vector3 = { ...b0, z: tabTopZ };
+    const t1: Vector3 = { ...b1, z: tabTopZ };
+    const t2: Vector3 = { ...b2, z: tabTopZ };
+    const t3: Vector3 = { ...b3, z: tabTopZ };
+    
+    // Bottom face
+    triangles.push({ normal: { x: 0, y: 0, z: -1 }, v1: b0, v2: b2, v3: b1 });
+    triangles.push({ normal: { x: 0, y: 0, z: -1 }, v1: b0, v2: b3, v3: b2 });
+    
+    // Top face
+    triangles.push({ normal: { x: 0, y: 0, z: 1 }, v1: t0, v2: t1, v3: t2 });
+    triangles.push({ normal: { x: 0, y: 0, z: 1 }, v1: t0, v2: t2, v3: t3 });
+    
+    // Outer face
+    const outN = { x: outwardX, y: outwardY, z: 0 };
+    triangles.push({ normal: outN, v1: b2, v2: b3, v3: t3 });
+    triangles.push({ normal: outN, v1: b2, v2: t3, v3: t2 });
+    
+    // Side faces
+    triangles.push({ normal: { x: -tangentX, y: -tangentY, z: 0 }, v1: b0, v2: b3, v3: t3 });
+    triangles.push({ normal: { x: -tangentX, y: -tangentY, z: 0 }, v1: b0, v2: t3, v3: t0 });
+    
+    triangles.push({ normal: { x: tangentX, y: tangentY, z: 0 }, v1: b1, v2: t1, v3: t2 });
+    triangles.push({ normal: { x: tangentX, y: tangentY, z: 0 }, v1: b1, v2: t2, v3: b2 });
+  }
+  
+  return triangles;
+}
+
+// Generate modular shape tiles (hexagon, triangle, etc.)
+export function generateModularShape(
+  settings: ModularShapeSettings
+): ExportedPart[] {
+  const {
+    shapeType,
+    edgeLength,
+    channelWidth,
+    wallHeight,
+    wallThickness,
+    baseThickness,
+    capThickness,
+    connectorEnabled,
+    connectorTabWidth,
+    connectorTabDepth,
+  } = settings;
+  
+  console.log(`[Modular Generator] Creating ${shapeType} tile, edge=${edgeLength}mm`);
+  
+  // Generate the polygon path
+  const polygonPath = generatePolygonPath(shapeType, edgeLength);
+  console.log(`[Modular Generator] Generated ${polygonPath.length} vertices`);
+  
+  // Create U-channel following the polygon outline
+  const baseTriangles = createUChannel(polygonPath, channelWidth, wallThickness, wallHeight, baseThickness);
+  console.log(`[Modular Generator] Base U-channel: ${baseTriangles.length} triangles`);
+  
+  // Add connector tabs on each edge if enabled
+  if (connectorEnabled) {
+    const tabTriangles = createConnectorTabs(
+      polygonPath,
+      channelWidth,
+      wallHeight,
+      baseThickness,
+      connectorTabWidth,
+      connectorTabDepth
+    );
+    baseTriangles.push(...tabTriangles);
+    console.log(`[Modular Generator] Added ${tabTriangles.length} connector tab triangles`);
+  }
+  
+  // Create diffuser cap
+  const capTriangles = createDiffuserCap(
+    polygonPath,
+    channelWidth,
+    wallThickness,
+    wallHeight,
+    baseThickness,
+    capThickness,
+    0.2
+  );
+  
+  const results: ExportedPart[] = [];
+  const shapeNames: Record<ModularShapeType, string> = {
+    hexagon: "hex",
+    triangle: "tri",
+    square: "square",
+    pentagon: "pent",
+    octagon: "oct",
+  };
+  const shapeName = shapeNames[shapeType];
+  
+  // Base tile
+  const baseContent = trianglesToSTL(baseTriangles, `${shapeName}_tile_base`);
+  console.log(`[Modular Generator] Base STL: ${baseTriangles.length} triangles, ${baseContent.length} bytes`);
+  results.push({
+    filename: `${shapeName}_tile_${edgeLength}mm_base.stl`,
+    content: baseContent,
+    partType: "modular_base",
+    material: "opaque"
+  });
+  
+  // Diffuser cap
+  if (capTriangles.length > 0) {
+    const capContent = trianglesToSTL(capTriangles, `${shapeName}_tile_cap`);
+    results.push({
+      filename: `${shapeName}_tile_${edgeLength}mm_cap.stl`,
+      content: capContent,
+      partType: "modular_cap",
+      material: "diffuser"
+    });
+  }
+  
+  return results;
+}

@@ -5,7 +5,8 @@ import { storage } from "./storage";
 import { generateSignage, generateMultiPartExport, generateTwoPartExport, type ExportedPart } from "./stl-generator";
 import { generateNeonSignV2 } from "./stl-generator-v2";
 import { generatePetTagV2 } from "./pet-tag-generator";
-import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema } from "@shared/schema";
+import { generateModularShape } from "./stl-generator-v2";
+import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema, modularShapeSettingsSchema } from "@shared/schema";
 import {
   letterSettingsSchema,
   geometrySettingsSchema,
@@ -520,6 +521,81 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Pet tag export error:", error);
       res.status(500).json({ error: "Failed to generate pet tag" });
+    }
+  });
+
+  // Modular shapes export endpoint (hexagons, triangles, etc.)
+  app.post("/api/export/modular-shape", async (req, res) => {
+    try {
+      const result = modularShapeSettingsSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        console.error("Modular shape validation failed:", result.error.errors);
+        return res.status(400).json({ 
+          error: "Invalid settings", 
+          details: result.error.errors 
+        });
+      }
+      
+      const settings = result.data;
+      console.log(`[Modular Export] Shape: ${settings.shapeType}, Edge: ${settings.edgeLength}mm`);
+      
+      const parts = generateModularShape(settings);
+      
+      if (parts.length === 0) {
+        return res.status(500).json({ error: "No parts generated" });
+      }
+      
+      // Return as zip with base and cap
+      const zipFilename = `${settings.shapeType}_tile_${settings.edgeLength}mm.zip`;
+      
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+      res.setHeader("X-Multi-Part-Export", "true");
+      res.setHeader("X-Part-Count", parts.length.toString());
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      
+      archive.on("error", (err) => {
+        console.error("Modular shape archive error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to create archive" });
+        }
+      });
+      
+      res.on("close", () => {
+        archive.abort();
+      });
+      
+      archive.pipe(res);
+      
+      for (const part of parts) {
+        archive.append(part.content, { name: part.filename });
+      }
+      
+      // Add manifest
+      const manifest = {
+        version: "1.0",
+        type: "modular_light_tile",
+        description: "Modular geometric light panel with U-channel and diffuser cap",
+        shape: settings.shapeType,
+        edgeLength: settings.edgeLength,
+        connectors: settings.connectorEnabled,
+        parts: parts.map(p => ({
+          filename: p.filename,
+          partType: p.partType,
+          material: p.material,
+          printNotes: p.partType === "modular_base" 
+            ? "Print in opaque filament" 
+            : "Print in translucent/diffuser filament for light diffusion"
+        }))
+      };
+      
+      archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });
+      await archive.finalize();
+    } catch (error) {
+      console.error("Modular shape export error:", error);
+      res.status(500).json({ error: "Failed to generate modular shape" });
     }
   });
 

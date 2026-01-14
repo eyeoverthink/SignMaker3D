@@ -102,7 +102,7 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image", "pettag"] as const;
+export const inputModes = ["text", "draw", "image", "pettag", "modular"] as const;
 export type InputMode = typeof inputModes[number];
 
 // Pet Tag specific types
@@ -126,6 +126,42 @@ export const petTagSettingsSchema = z.object({
 });
 
 export type PetTagSettings = z.infer<typeof petTagSettingsSchema>;
+
+// Modular Shapes (geometric light panels like Nanoleaf)
+export const modularShapeTypes = ["hexagon", "triangle", "square", "pentagon", "octagon"] as const;
+export type ModularShapeType = typeof modularShapeTypes[number];
+
+export const modularShapeSettingsSchema = z.object({
+  shapeType: z.enum(modularShapeTypes),
+  edgeLength: z.number().min(30).max(200),  // Length of each edge in mm
+  channelWidth: z.number().min(6).max(20),  // Width of the LED channel
+  wallHeight: z.number().min(8).max(30),    // Height of channel walls
+  wallThickness: z.number().min(1.5).max(4), // Wall thickness
+  baseThickness: z.number().min(2).max(6),   // Base plate thickness
+  capThickness: z.number().min(1.5).max(4),  // Diffuser cap thickness
+  connectorEnabled: z.boolean(),             // Enable edge connectors
+  connectorTabWidth: z.number().min(5).max(20), // Width of connector tabs
+  connectorTabDepth: z.number().min(2).max(8),  // Depth of connector tabs
+  connectorTolerance: z.number().min(0.1).max(0.4), // Fit tolerance
+  tileCount: z.number().min(1).max(20),      // Number of tiles to generate
+});
+
+export type ModularShapeSettings = z.infer<typeof modularShapeSettingsSchema>;
+
+export const defaultModularShapeSettings: ModularShapeSettings = {
+  shapeType: "hexagon",
+  edgeLength: 80,
+  channelWidth: 12,
+  wallHeight: 15,
+  wallThickness: 2,
+  baseThickness: 3,
+  capThickness: 2,
+  connectorEnabled: true,
+  connectorTabWidth: 10,
+  connectorTabDepth: 4,
+  connectorTolerance: 0.2,
+  tileCount: 1,
+};
 
 export const defaultPetTagSettings: PetTagSettings = {
   petName: "Max",
