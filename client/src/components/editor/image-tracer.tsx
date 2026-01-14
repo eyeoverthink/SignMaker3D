@@ -3,7 +3,7 @@ import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Upload, Wand2, Image as ImageIcon, X } from "lucide-react";
+import { Upload, Wand2, Image as ImageIcon, X, Check } from "lucide-react";
 import type { SketchPath } from "@shared/schema";
 
 export function ImageTracer() {
@@ -14,13 +14,15 @@ export function ImageTracer() {
   const [threshold, setThreshold] = useState(128);
   const [simplify, setSimplify] = useState(2);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pathsApplied, setPathsApplied] = useState(false);
 
-  const { uploadedImageData, setUploadedImageData, setTracedPaths, addSketchPath, showGrid } = useEditorStore();
+  const { uploadedImageData, setUploadedImageData, setTracedPaths, tracedPaths, sketchPaths, showGrid } = useEditorStore();
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
+    setPathsApplied(false);
     const reader = new FileReader();
     reader.onload = (event) => {
       setUploadedImageData(event.target?.result as string);
@@ -152,9 +154,10 @@ export function ImageTracer() {
 
   const applyTracedPaths = useCallback(() => {
     const { tracedPaths, setSketchPaths } = useEditorStore.getState();
-    // Replace existing paths with traced paths (not add to them)
+    // Replace existing paths with traced paths - keep in image mode for export
     setSketchPaths(tracedPaths);
-    useEditorStore.getState().setInputMode("draw");
+    setPathsApplied(true);
+    // Don't switch to draw mode - stay in image mode so export uses traced paths
   }, []);
 
   useEffect(() => {
@@ -273,6 +276,7 @@ export function ImageTracer() {
             onClick={() => {
               setUploadedImageData(null);
               setTracedPaths([]);
+              setPathsApplied(false);
             }}
             data-testid="button-clear-image"
             title="Remove image"
@@ -290,7 +294,10 @@ export function ImageTracer() {
           </Button>
           <Button
             variant="outline"
-            onClick={traceImage}
+            onClick={() => {
+              setPathsApplied(false);
+              traceImage();
+            }}
             disabled={isProcessing}
             data-testid="button-retrace"
           >
@@ -298,13 +305,20 @@ export function ImageTracer() {
             Re-trace
           </Button>
           <Button
-            variant="default"
+            variant={pathsApplied ? "outline" : "default"}
             className="flex-1"
             onClick={applyTracedPaths}
-            disabled={isProcessing}
+            disabled={isProcessing || tracedPaths.length === 0}
             data-testid="button-apply-trace"
           >
-            Apply Traced Paths
+            {pathsApplied ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Paths Ready ({sketchPaths.length}) - Export Now
+              </>
+            ) : (
+              `Apply Traced Paths (${tracedPaths.length})`
+            )}
           </Button>
         </div>
       </div>
