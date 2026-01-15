@@ -191,6 +191,9 @@ export function NeonTubeEditor() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    💡 Tip: Hershey fonts create cleaner single-path tubes. Other fonts may have overlapping strokes.
+                  </p>
                 </div>
               </CardContent>
             </Card>

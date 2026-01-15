@@ -176,6 +176,155 @@ function generateUChannelRing(
   return { outerLeft, innerLeft, outerRight, innerRight, bottom };
 }
 
+// Simplify multiple overlapping paths into single centerline paths
+// This creates clean stick-figure-like tubes instead of messy overlaps
+function simplifyToSinglePaths(paths: number[][][], minDistance: number): number[][][] {
+  if (paths.length === 0) return [];
+  
+  // For now, use a simple approach: take only the longest path per letter cluster
+  // Group paths by proximity (letters are typically separated by larger gaps)
+  const clusters: number[][][][] = [];
+  const used = new Set<number>();
+  
+  for (let i = 0; i < paths.length; i++) {
+    if (used.has(i) || paths[i].length < 2) continue;
+    
+    const cluster: number[][][] = [paths[i]];
+    used.add(i);
+    
+    // Find all paths close to this one (same letter)
+    const centerI = getPathCenter(paths[i]);
+    
+    for (let j = i + 1; j < paths.length; j++) {
+      if (used.has(j) || paths[j].length < 2) continue;
+      
+      const centerJ = getPathCenter(paths[j]);
+      const dist = Math.sqrt(
+        Math.pow(centerI[0] - centerJ[0], 2) + 
+        Math.pow(centerI[1] - centerJ[1], 2)
+      );
+      
+      // If paths are close together, they're probably part of the same letter
+      if (dist < minDistance * 3) {
+        cluster.push(paths[j]);
+        used.add(j);
+      }
+    }
+    
+    clusters.push(cluster);
+  }
+  
+  // For each cluster, merge paths into single centerline
+  const simplified: number[][][] = [];
+  
+  for (const cluster of clusters) {
+    if (cluster.length === 1) {
+      // Single path - use as is
+      simplified.push(cluster[0]);
+    } else {
+      // Multiple paths - connect them into one continuous path
+      const merged = mergePathsIntoOne(cluster);
+      if (merged.length >= 2) {
+        simplified.push(merged);
+      }
+    }
+  }
+  
+  return simplified;
+}
+
+// Get the center point of a path
+function getPathCenter(path: number[][]): [number, number] {
+  let sumX = 0, sumY = 0;
+  for (const [x, y] of path) {
+    sumX += x;
+    sumY += y;
+  }
+  return [sumX / path.length, sumY / path.length];
+}
+
+// Merge multiple paths into a single continuous path
+function mergePathsIntoOne(paths: number[][][]): number[][] {
+  if (paths.length === 0) return [];
+  if (paths.length === 1) return paths[0];
+  
+  // Start with the longest path as the base
+  let merged = [...paths.sort((a, b) => b.length - a.length)[0]];
+  
+  // Connect other paths by finding closest endpoints
+  const remaining = paths.slice(1);
+  
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    let bestReverse = false;
+    let bestAppend = true;
+    
+    const mergedStart = merged[0];
+    const mergedEnd = merged[merged.length - 1];
+    
+    // Find the closest path to connect
+    for (let i = 0; i < remaining.length; i++) {
+      const path = remaining[i];
+      const pathStart = path[0];
+      const pathEnd = path[path.length - 1];
+      
+      // Check all four connection possibilities
+      const distStartToStart = Math.sqrt(
+        Math.pow(mergedStart[0] - pathStart[0], 2) + 
+        Math.pow(mergedStart[1] - pathStart[1], 2)
+      );
+      const distStartToEnd = Math.sqrt(
+        Math.pow(mergedStart[0] - pathEnd[0], 2) + 
+        Math.pow(mergedStart[1] - pathEnd[1], 2)
+      );
+      const distEndToStart = Math.sqrt(
+        Math.pow(mergedEnd[0] - pathStart[0], 2) + 
+        Math.pow(mergedEnd[1] - pathStart[1], 2)
+      );
+      const distEndToEnd = Math.sqrt(
+        Math.pow(mergedEnd[0] - pathEnd[0], 2) + 
+        Math.pow(mergedEnd[1] - pathEnd[1], 2)
+      );
+      
+      const minDist = Math.min(distStartToStart, distStartToEnd, distEndToStart, distEndToEnd);
+      
+      if (minDist < bestDist) {
+        bestDist = minDist;
+        bestIdx = i;
+        
+        if (minDist === distStartToStart) {
+          bestAppend = false;
+          bestReverse = true;
+        } else if (minDist === distStartToEnd) {
+          bestAppend = false;
+          bestReverse = false;
+        } else if (minDist === distEndToStart) {
+          bestAppend = true;
+          bestReverse = false;
+        } else {
+          bestAppend = true;
+          bestReverse = true;
+        }
+      }
+    }
+    
+    // Connect the best path
+    const pathToAdd = remaining[bestIdx];
+    const processedPath = bestReverse ? [...pathToAdd].reverse() : pathToAdd;
+    
+    if (bestAppend) {
+      merged = [...merged, ...processedPath];
+    } else {
+      merged = [...processedPath, ...merged];
+    }
+    
+    remaining.splice(bestIdx, 1);
+  }
+  
+  return merged;
+}
+
 // Create a round tubular pipe along a path (hollow tube for LED insertion)
 // Structure: circular tube with hollow center, like a pipe
 function createRoundTube(
@@ -1443,8 +1592,15 @@ export function generateNeonSignV2(
       const result = getTextStrokePathsFromFont(text, fontId, fontSize);
       paths = result.paths;
       
+      console.log(`[V2 Generator] Original paths: ${paths.length}`);
+      
+      // Simplify to single centerline per letter for clean stick-figure-like tubes
+      // Group paths by proximity (same letter) and merge into single path
+      const simplifiedPaths = simplifyToSinglePaths(paths, channelWidth);
+      console.log(`[V2 Generator] Simplified to ${simplifiedPaths.length} clean paths`);
+      
       // Paths from OTF loader are already centered
-      for (const path of paths) {
+      for (const path of simplifiedPaths) {
         if (path.length < 2) continue;
         const smoothPath = interpolatePath(path, channelWidth * 0.25);
         allSmoothPaths.push(smoothPath);
