@@ -727,7 +727,8 @@ export async function registerRoutes(
         "text",
         {
           weldLetters: true,  // Connect all letters into continuous tube
-          addFeedHoles: false  // No feed holes needed with continuous tube
+          addFeedHoles: false,  // No feed holes needed with continuous tube
+          simplifyPaths: true  // Merge multiple strokes into single centerlines for clean tubes
         }
       );
       

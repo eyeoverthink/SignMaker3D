@@ -1123,6 +1123,7 @@ export interface NeonSignOptions {
   weldLetters?: boolean;  // Connect all letters with bridges
   addFeedHoles?: boolean;  // Add entry/exit holes in the back
   feedHoleDiameter?: number;  // Diameter of feed holes (mm)
+  simplifyPaths?: boolean;  // Merge multiple strokes into single centerlines (for neon tube mode)
   // Snap-fit tabs
   snapTabsEnabled?: boolean;
   snapTabHeight?: number;
@@ -1594,13 +1595,17 @@ export function generateNeonSignV2(
       
       console.log(`[V2 Generator] Original paths: ${paths.length}`);
       
-      // Simplify to single centerline per letter for clean stick-figure-like tubes
-      // Group paths by proximity (same letter) and merge into single path
-      const simplifiedPaths = simplifyToSinglePaths(paths, channelWidth);
-      console.log(`[V2 Generator] Simplified to ${simplifiedPaths.length} clean paths`);
+      // Only simplify paths if explicitly requested (for neon tube mode)
+      const pathsToUse = options.simplifyPaths 
+        ? simplifyToSinglePaths(paths, channelWidth)
+        : paths;
+      
+      if (options.simplifyPaths) {
+        console.log(`[V2 Generator] Simplified to ${pathsToUse.length} clean paths`);
+      }
       
       // Paths from OTF loader are already centered
-      for (const path of simplifiedPaths) {
+      for (const path of pathsToUse) {
         if (path.length < 2) continue;
         const smoothPath = interpolatePath(path, channelWidth * 0.25);
         allSmoothPaths.push(smoothPath);
