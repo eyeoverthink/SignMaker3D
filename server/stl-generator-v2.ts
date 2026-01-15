@@ -1571,9 +1571,14 @@ export function generateNeonSignV2(
       const smoothPath = interpolatePath(path2D, channelWidth * 0.25);
       allSmoothPaths.push(smoothPath);
       
-      // Create round tubular pipe with hollow interior for LED insertion
-      const innerDiameter = channelWidth - (wallThickness * 2);
-      const channelTriangles = createRoundTube(smoothPath, channelWidth, innerDiameter);
+      // Use round tubes for neon mode, U-channels for regular mode
+      let channelTriangles: Triangle[];
+      if (options.simplifyPaths) {
+        const innerDiameter = channelWidth - (wallThickness * 2);
+        channelTriangles = createRoundTube(smoothPath, channelWidth, innerDiameter);
+      } else {
+        channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness);
+      }
       console.log(`[V2 Generator] Path ${i}: ${sketch.points.length} points -> ${smoothPath.length} smooth points -> ${channelTriangles.length} triangles`);
       allTriangles.push(...channelTriangles);
     }
@@ -1609,8 +1614,14 @@ export function generateNeonSignV2(
         if (path.length < 2) continue;
         const smoothPath = interpolatePath(path, channelWidth * 0.25);
         allSmoothPaths.push(smoothPath);
-        const innerDiameter = channelWidth - (wallThickness * 2);
-        allTriangles.push(...createRoundTube(smoothPath, channelWidth, innerDiameter));
+        
+        // Use round tubes for neon mode, U-channels for regular mode
+        if (options.simplifyPaths) {
+          const innerDiameter = channelWidth - (wallThickness * 2);
+          allTriangles.push(...createRoundTube(smoothPath, channelWidth, innerDiameter));
+        } else {
+          allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness));
+        }
       }
     } else {
       // Use Hershey single-stroke fonts
@@ -1638,9 +1649,13 @@ export function generateNeonSignV2(
         const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
         allSmoothPaths.push(smoothPath);
         
-        // Create round tubular pipe with hollow interior for LED insertion
-        const innerDiameter = channelWidth - (wallThickness * 2);
-        allTriangles.push(...createRoundTube(smoothPath, channelWidth, innerDiameter));
+        // Use round tubes for neon mode, U-channels for regular mode
+        if (options.simplifyPaths) {
+          const innerDiameter = channelWidth - (wallThickness * 2);
+          allTriangles.push(...createRoundTube(smoothPath, channelWidth, innerDiameter));
+        } else {
+          allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness));
+        }
       }
     }
     
