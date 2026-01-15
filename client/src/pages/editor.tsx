@@ -4,6 +4,7 @@ import { ImageTracer } from "@/components/editor/image-tracer";
 import { PetTagEditor } from "@/components/editor/pet-tag-editor";
 import { ModularShapesEditor } from "@/components/editor/modular-shapes-editor";
 import { NeonTubeEditor } from "@/components/editor/neon-tube-editor";
+import { BackingPlateEditor } from "@/components/editor/backing-plate-editor";
 import { ToolDock } from "@/components/editor/tool-dock";
 import { SettingsPanel } from "@/components/editor/settings-panel";
 import { ExportPanel } from "@/components/editor/export-panel";
@@ -59,9 +60,10 @@ export default function Editor() {
             {inputMode === "pettag" && <PetTagEditor />}
             {inputMode === "modular" && <ModularShapesEditor />}
             {inputMode === "neontube" && <NeonTubeEditor />}
+            {inputMode === "backingplate" && <BackingPlateEditor />}
           </div>
           
-          {inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && (
+          {inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg">
               <p className="text-xs text-muted-foreground">
                 {inputMode === "text" && "Type your text, then adjust settings on the right"}
@@ -72,8 +74,8 @@ export default function Editor() {
           )}
         </main>
 
-        {showSettings && !showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && <SettingsPanel />}
-        {showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && (
+        {showSettings && !showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && <SettingsPanel />}
+        {showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && (
           <div className="w-80 border-l bg-sidebar p-4">
             <ExportPanel />
           </div>
