@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import { Text, RoundedBox } from "@react-three/drei";
+import { useMemo, useRef } from "react";
+import { Text } from "@react-three/drei";
+import * as THREE from "three";
 
 interface NeonTubePreviewProps {
   text: string;
@@ -35,65 +36,123 @@ const fontFileMap: Record<string, string> = {
   "oxanium": "/fonts/Airstream.ttf",
 };
 
+// Generate simple stroke paths for preview (approximation)
+function generateStrokePaths(text: string, scale: number): THREE.Vector3[][] {
+  const paths: THREE.Vector3[][] = [];
+  const letterSpacing = 0.8 * scale;
+  let xOffset = -(text.length * letterSpacing) / 2;
+  
+  // Simple letter path approximations for preview
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i].toUpperCase();
+    const path: THREE.Vector3[] = [];
+    
+    // Generate simple stroke paths based on character
+    if (char === 'N') {
+      path.push(
+        new THREE.Vector3(xOffset, -0.5 * scale, 0),
+        new THREE.Vector3(xOffset, 0.5 * scale, 0),
+        new THREE.Vector3(xOffset + 0.6 * scale, -0.5 * scale, 0),
+        new THREE.Vector3(xOffset + 0.6 * scale, 0.5 * scale, 0)
+      );
+    } else if (char === 'E') {
+      path.push(
+        new THREE.Vector3(xOffset + 0.5 * scale, 0.5 * scale, 0),
+        new THREE.Vector3(xOffset, 0.5 * scale, 0),
+        new THREE.Vector3(xOffset, 0, 0),
+        new THREE.Vector3(xOffset + 0.4 * scale, 0, 0),
+        new THREE.Vector3(xOffset, 0, 0),
+        new THREE.Vector3(xOffset, -0.5 * scale, 0),
+        new THREE.Vector3(xOffset + 0.5 * scale, -0.5 * scale, 0)
+      );
+    } else if (char === 'O') {
+      // Circle approximation
+      for (let a = 0; a <= Math.PI * 2; a += Math.PI / 8) {
+        path.push(new THREE.Vector3(
+          xOffset + 0.3 * scale + Math.cos(a) * 0.3 * scale,
+          Math.sin(a) * 0.5 * scale,
+          0
+        ));
+      }
+    } else {
+      // Default vertical line for unknown chars
+      path.push(
+        new THREE.Vector3(xOffset + 0.3 * scale, -0.5 * scale, 0),
+        new THREE.Vector3(xOffset + 0.3 * scale, 0.5 * scale, 0)
+      );
+    }
+    
+    if (path.length > 0) paths.push(path);
+    xOffset += letterSpacing;
+  }
+  
+  return paths;
+}
+
 export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonTubePreviewProps) {
-  const fontUrl = fontFileMap[fontId] || fontFileMap["inter"];
-  const fontSize = 1.2 * tubeScale;
+  const outerRadius = (tubeDiameter * 0.01) / 2;
+  const innerRadius = outerRadius * 0.6; // Hollow center for LED wire
   
-  // Calculate approximate text dimensions
-  const textWidth = useMemo(() => {
-    return Math.max(text.length * fontSize * 0.6, 1);
-  }, [text, fontSize]);
-  
-  const textHeight = useMemo(() => {
-    return fontSize * 1.2;
-  }, [fontSize]);
-  
-  const tubeDepth = tubeDiameter * 0.01;
+  const paths = useMemo(() => {
+    return generateStrokePaths(text || "NEON", tubeScale);
+  }, [text, tubeScale]);
   
   return (
     <group>
-      {/* Backing plate to represent the tube casing */}
-      <RoundedBox
-        args={[textWidth + 0.5, textHeight + 0.3, tubeDepth]}
-        radius={0.05}
-        smoothness={4}
-        position={[0, 0, -tubeDepth / 2]}
-      >
-        <meshStandardMaterial 
-          color="#2d1b4e"
-          metalness={0.2}
-          roughness={0.6}
-          transparent
-          opacity={0.9}
-        />
-      </RoundedBox>
-      
-      {/* Actual text in selected font - this is what the user sees */}
-      <Text
-        font={fontUrl}
-        position={[0, 0, tubeDepth / 2 + 0.02]}
-        fontSize={fontSize}
-        color="#ff00ff"
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.02}
-        outlineColor="#ff00ff"
-      >
-        {text || "NEON"}
-      </Text>
-      
-      {/* Glowing effect layer */}
-      <Text
-        font={fontUrl}
-        position={[0, 0, tubeDepth / 2 + 0.01]}
-        fontSize={fontSize * 1.02}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="middle"
-        fillOpacity={0.3}
-      >
-        {text || "NEON"}
-      </Text>
+      {paths.map((path, pathIndex) => (
+        <group key={pathIndex}>
+          {/* Outer tube surface */}
+          <mesh>
+            <tubeGeometry args={[
+              new THREE.CatmullRomCurve3(path),
+              path.length * 8,
+              outerRadius,
+              16,
+              false
+            ]} />
+            <meshStandardMaterial 
+              color="#8b5cf6"
+              metalness={0.3}
+              roughness={0.4}
+              transparent
+              opacity={0.8}
+            />
+          </mesh>
+          
+          {/* Inner hollow channel (darker to show it's hollow) */}
+          <mesh>
+            <tubeGeometry args={[
+              new THREE.CatmullRomCurve3(path),
+              path.length * 8,
+              innerRadius,
+              16,
+              false
+            ]} />
+            <meshStandardMaterial 
+              color="#1e1b4b"
+              metalness={0.1}
+              roughness={0.8}
+              side={THREE.BackSide}
+            />
+          </mesh>
+          
+          {/* LED path visualization (thin glowing line through center) */}
+          <mesh>
+            <tubeGeometry args={[
+              new THREE.CatmullRomCurve3(path),
+              path.length * 8,
+              innerRadius * 0.3,
+              8,
+              false
+            ]} />
+            <meshBasicMaterial 
+              color="#fbbf24"
+              transparent
+              opacity={0.6}
+            />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
