@@ -630,6 +630,41 @@ export async function registerRoutes(
     }
   });
 
+  // Get font stroke paths for neon tube preview
+  app.post("/api/fonts/stroke-paths", async (req, res) => {
+    try {
+      const { text, fontId } = req.body;
+      
+      if (!text || !fontId) {
+        return res.status(400).json({ error: "Text and fontId required" });
+      }
+      
+      const { getTextStrokePaths } = await import("./hershey-fonts");
+      const { getTextStrokePathsFromFont } = await import("./font-loader");
+      
+      let result: any;
+      
+      // Check if it's a Hershey font or OTF/TTF font
+      if (fontId.startsWith("hershey-")) {
+        result = getTextStrokePaths(text, 50, 5);
+      } else {
+        // Use OpenType font
+        const fontFile = fontFileMap[fontId];
+        if (fontFile) {
+          result = getTextStrokePathsFromFont(text, fontFile, 1.0);
+        } else {
+          // Fallback to Hershey
+          result = getTextStrokePaths(text, 50, 5);
+        }
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Font stroke paths error:", error);
+      res.status(500).json({ error: "Failed to get font paths" });
+    }
+  });
+
   // Neon tube export endpoint (realistic tube casings with interlocking)
   app.post("/api/export/neon-tube", async (req, res) => {
     try {
