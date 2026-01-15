@@ -630,5 +630,90 @@ export async function registerRoutes(
     }
   });
 
+  // Neon tube export endpoint (realistic tube casings with interlocking)
+  app.post("/api/export/neon-tube", async (req, res) => {
+    try {
+      const { neonTubeSettingsSchema } = await import("@shared/schema");
+      const result = neonTubeSettingsSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: "Invalid neon tube settings", 
+          details: result.error.errors 
+        });
+      }
+      
+      const settings = result.data;
+      
+      console.log(`[Neon Tube Export] Text: "${settings.text}", Diameter: ${settings.tubeDiameter}mm, Interlock: ${settings.interlockEnabled}`);
+      
+      // For now, return a simple placeholder response
+      // TODO: Implement full neon tube generator with interlocking segments
+      const placeholderSTL = Buffer.from("solid neon_tube\nendsolid neon_tube\n");
+      
+      const zipFilename = `${settings.text.replace(/\s/g, "_")}_neon_tube.zip`;
+      
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+      res.setHeader("X-Multi-Part-Export", "true");
+      res.setHeader("X-Part-Count", "3");
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      
+      archive.on("error", (err) => {
+        console.error("Neon tube archive error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to create archive" });
+        }
+      });
+      
+      res.on("close", () => {
+        archive.abort();
+      });
+      
+      archive.pipe(res);
+      
+      // Add placeholder files
+      archive.append(placeholderSTL, { name: "casing_segment_1.stl" });
+      archive.append(placeholderSTL, { name: "diffuser_cap.stl" });
+      archive.append(placeholderSTL, { name: "mounting_clip.stl" });
+      
+      const manifest = {
+        version: "1.0",
+        type: "neon_tube_system",
+        description: "Realistic neon tube with 3D printed casings, interlocking segments, and diffuser caps",
+        text: settings.text,
+        tubeDiameter: settings.tubeDiameter,
+        interlockType: settings.interlockType,
+        parts: [
+          {
+            filename: "casing_segment_1.stl",
+            partType: "casing",
+            material: "opaque",
+            printNotes: "Print in opaque filament for tube casing"
+          },
+          {
+            filename: "diffuser_cap.stl",
+            partType: "diffuser",
+            material: "translucent",
+            printNotes: "Print in translucent/diffuser filament for light diffusion"
+          },
+          {
+            filename: "mounting_clip.stl",
+            partType: "mounting",
+            material: "opaque",
+            printNotes: "Print in opaque filament for wall mounting"
+          }
+        ]
+      };
+      
+      archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });
+      await archive.finalize();
+    } catch (error) {
+      console.error("Neon tube export error:", error);
+      res.status(500).json({ error: "Failed to generate neon tube" });
+    }
+  });
+
   return httpServer;
 }

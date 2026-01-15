@@ -102,7 +102,7 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image", "pettag", "modular"] as const;
+export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube"] as const;
 export type InputMode = typeof inputModes[number];
 
 // Pet Tag specific types
@@ -166,6 +166,45 @@ export const defaultModularShapeSettings: ModularShapeSettings = {
   connectorTabDepth: 4,
   connectorTolerance: 0.2,
   tileCount: 1,
+};
+
+// Neon Tube (realistic glass tube neon with 3D printed casings)
+export const neonTubeSettingsSchema = z.object({
+  text: z.string().min(0).max(200),
+  fontId: z.string(),
+  tubeDiameter: z.number().min(8).max(25),      // Outer diameter of tube
+  casingThickness: z.number().min(2).max(5),    // Wall thickness of casing
+  diffuserThickness: z.number().min(1.5).max(4), // Diffuser cap thickness
+  segmentLength: z.number().min(20).max(100),   // Length of interlocking segments
+  interlockEnabled: z.boolean(),                // Enable interlocking connectors
+  interlockType: z.enum(["snap", "thread", "friction"]), // Type of connector
+  interlockTolerance: z.number().min(0.1).max(0.5), // Fit tolerance
+  endCapStyle: z.enum(["flat", "rounded", "dome"]), // End cap style
+  mountingClipsEnabled: z.boolean(),            // Add mounting clips
+  clipSpacing: z.number().min(50).max(300),     // Distance between clips
+  ledChannelDiameter: z.number().min(3).max(12), // Inner LED channel size
+  separateDiffuser: z.boolean(),                // Generate separate diffuser pieces
+  tubeScale: z.number().min(0.5).max(3),        // Overall scale multiplier
+});
+
+export type NeonTubeSettings = z.infer<typeof neonTubeSettingsSchema>;
+
+export const defaultNeonTubeSettings: NeonTubeSettings = {
+  text: "NEON",
+  fontId: "aerioz",
+  tubeDiameter: 15,
+  casingThickness: 3,
+  diffuserThickness: 2,
+  segmentLength: 50,
+  interlockEnabled: true,
+  interlockType: "snap",
+  interlockTolerance: 0.2,
+  endCapStyle: "rounded",
+  mountingClipsEnabled: true,
+  clipSpacing: 150,
+  ledChannelDiameter: 6,
+  separateDiffuser: true,
+  tubeScale: 1,
 };
 
 export const defaultPetTagSettings: PetTagSettings = {

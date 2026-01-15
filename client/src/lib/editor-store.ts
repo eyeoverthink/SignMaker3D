@@ -10,6 +10,7 @@ import {
   type InputMode,
   type PetTagSettings,
   type ModularShapeSettings,
+  type NeonTubeSettings,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
@@ -18,6 +19,7 @@ import {
   defaultTwoPartSystem,
   defaultPetTagSettings,
   defaultModularShapeSettings,
+  defaultNeonTubeSettings,
 } from "@shared/schema";
 
 interface EditorState {
@@ -29,6 +31,7 @@ interface EditorState {
   twoPartSystem: TwoPartSystem;
   petTagSettings: PetTagSettings;
   modularShapeSettings: ModularShapeSettings;
+  neonTubeSettings: NeonTubeSettings;
   sketchPaths: SketchPath[];
   inputMode: InputMode;
   uploadedImageData: string | null;
@@ -46,6 +49,7 @@ interface EditorState {
   setTwoPartSystem: (settings: Partial<TwoPartSystem>) => void;
   setPetTagSettings: (settings: Partial<PetTagSettings>) => void;
   setModularShapeSettings: (settings: Partial<ModularShapeSettings>) => void;
+  setNeonTubeSettings: (settings: Partial<NeonTubeSettings>) => void;
   setSketchPaths: (paths: SketchPath[]) => void;
   addSketchPath: (path: SketchPath) => void;
   removeSketchPath: (id: string) => void;
@@ -69,6 +73,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   twoPartSystem: defaultTwoPartSystem,
   petTagSettings: defaultPetTagSettings,
   modularShapeSettings: defaultModularShapeSettings,
+  neonTubeSettings: defaultNeonTubeSettings,
   sketchPaths: [],
   inputMode: "text",
   uploadedImageData: null,
@@ -110,6 +115,10 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       modularShapeSettings: { ...state.modularShapeSettings, ...settings },
     })),
+  setNeonTubeSettings: (settings) =>
+    set((state) => ({
+      neonTubeSettings: { ...state.neonTubeSettings, ...settings },
+    })),
   setSketchPaths: (paths) => set({ sketchPaths: paths }),
   addSketchPath: (path) =>
     set((state) => ({
@@ -137,6 +146,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       twoPartSystem: defaultTwoPartSystem,
       petTagSettings: defaultPetTagSettings,
       modularShapeSettings: defaultModularShapeSettings,
+      neonTubeSettings: defaultNeonTubeSettings,
       sketchPaths: [],
       inputMode: "text",
       uploadedImageData: null,
