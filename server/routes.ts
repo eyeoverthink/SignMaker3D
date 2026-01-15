@@ -644,19 +644,11 @@ export async function registerRoutes(
       
       let result: any;
       
-      // Check if it's a Hershey font or OTF/TTF font
-      if (fontId.startsWith("hershey-")) {
-        result = getTextStrokePaths(text, 50, 5);
-      } else {
-        // Use OpenType font
-        const fontFile = fontFileMap[fontId];
-        if (fontFile) {
-          result = getTextStrokePathsFromFont(text, fontFile, 1.0);
-        } else {
-          // Fallback to Hershey
-          result = getTextStrokePaths(text, 50, 5);
-        }
-      }
+      // For now, always use Hershey fonts which work reliably
+      // TODO: Fix OpenType font path extraction for neon tubes
+      console.log(`[API] Getting stroke paths for "${text}" with font ${fontId}`);
+      result = getTextStrokePaths(text, 50, 5);
+      console.log(`[API] Generated ${result.paths.length} paths`);
       
       res.json(result);
     } catch (error) {
@@ -665,7 +657,7 @@ export async function registerRoutes(
     }
   });
 
-  // Neon tube export endpoint (realistic tube casings with interlocking)
+  // Neon tube export endpoint - generates free-floating tube paths
   app.post("/api/export/neon-tube", async (req, res) => {
     try {
       const { neonTubeSettingsSchema } = await import("@shared/schema");
@@ -680,18 +672,61 @@ export async function registerRoutes(
       
       const settings = result.data;
       
-      console.log(`[Neon Tube Export] Text: "${settings.text}", Diameter: ${settings.tubeDiameter}mm, Interlock: ${settings.interlockEnabled}`);
+      console.log(`[Neon Tube Export] Text: "${settings.text}", Font: ${settings.fontId}, Diameter: ${settings.tubeDiameter}mm`);
       
-      // For now, return a simple placeholder response
-      // TODO: Implement full neon tube generator with interlocking segments
-      const placeholderSTL = Buffer.from("solid neon_tube\nendsolid neon_tube\n");
+      const { generateNeonSignV2 } = await import("./stl-generator-v2");
+      const { defaultTwoPartSystem } = await import("@shared/schema");
       
-      const zipFilename = `${settings.text.replace(/\s/g, "_")}_neon_tube.zip`;
+      // Convert neon tube settings to letter/tube settings for generator
+      const letterSettings = {
+        text: settings.text,
+        fontId: settings.fontId,
+        scale: settings.tubeScale,
+        depth: settings.tubeDiameter,
+        bevelEnabled: false,
+        bevelThickness: 1,
+        bevelSize: 0.5,
+      };
+      
+      const tubeSettings = {
+        neonTubeDiameter: settings.tubeDiameter,
+        wallThickness: settings.casingThickness,
+        wallHeight: settings.tubeDiameter + 2,
+        channelDepth: settings.tubeDiameter,
+        filamentDiameter: settings.ledChannelDiameter,
+        tubeWidth: settings.tubeDiameter,
+        enableOverlay: settings.separateDiffuser,
+        overlayThickness: settings.diffuserThickness,
+        continuousPath: true,
+      };
+      
+      const twoPartSystem = {
+        ...defaultTwoPartSystem,
+        enabled: settings.separateDiffuser,
+        baseWallThickness: settings.casingThickness,
+        baseWallHeight: settings.tubeDiameter + 2,
+        capThickness: settings.diffuserThickness,
+        snapTabsEnabled: settings.interlockEnabled,
+      };
+      
+      // Generate tube STL files
+      const parts = generateNeonSignV2(
+        letterSettings,
+        tubeSettings,
+        twoPartSystem,
+        "stl",
+        [],
+        "text"
+      );
+      
+      console.log(`[Neon Tube Export] Generated ${parts.length} parts`);
+      
+      const zipFilename = `${settings.text.replace(/\s/g, "_")}_neon_tubes.zip`;
       
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
       res.setHeader("X-Multi-Part-Export", "true");
-      res.setHeader("X-Part-Count", "3");
+      res.setHeader("X-Part-Count", parts.length.toString());
       
       const archive = archiver("zip", { zlib: { level: 9 } });
       
@@ -708,38 +743,23 @@ export async function registerRoutes(
       
       archive.pipe(res);
       
-      // Add placeholder files
-      archive.append(placeholderSTL, { name: "casing_segment_1.stl" });
-      archive.append(placeholderSTL, { name: "diffuser_cap.stl" });
-      archive.append(placeholderSTL, { name: "mounting_clip.stl" });
+      // Add all generated parts to archive
+      for (const part of parts) {
+        archive.append(part.content, { name: part.filename });
+      }
       
       const manifest = {
         version: "1.0",
         type: "neon_tube_system",
-        description: "Realistic neon tube with 3D printed casings, interlocking segments, and diffuser caps",
+        description: "Free-floating neon tube paths with optional diffuser caps",
         text: settings.text,
+        fontId: settings.fontId,
         tubeDiameter: settings.tubeDiameter,
-        interlockType: settings.interlockType,
-        parts: [
-          {
-            filename: "casing_segment_1.stl",
-            partType: "casing",
-            material: "opaque",
-            printNotes: "Print in opaque filament for tube casing"
-          },
-          {
-            filename: "diffuser_cap.stl",
-            partType: "diffuser",
-            material: "translucent",
-            printNotes: "Print in translucent/diffuser filament for light diffusion"
-          },
-          {
-            filename: "mounting_clip.stl",
-            partType: "mounting",
-            material: "opaque",
-            printNotes: "Print in opaque filament for wall mounting"
-          }
-        ]
+        parts: parts.map(p => ({
+          filename: p.filename,
+          partType: p.partType,
+          material: p.material,
+        }))
       };
       
       archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });

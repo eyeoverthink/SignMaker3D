@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import * as THREE from "three";
+import { useMemo } from "react";
+import { Text, RoundedBox } from "@react-three/drei";
 
 interface NeonTubePreviewProps {
   text: string;
@@ -8,82 +8,92 @@ interface NeonTubePreviewProps {
   tubeScale: number;
 }
 
+const fontFileMap: Record<string, string> = {
+  "aerioz": "/fonts/Aerioz-Demo.otf",
+  "airstream": "/fonts/Airstream.ttf",
+  "airstream-nf": "/fonts/AirstreamNF.ttf",
+  "alliston": "/fonts/Alliston-Demo.ttf",
+  "cookiemonster": "/fonts/Cookiemonster.ttf",
+  "darlington": "/fonts/Darlington-Demo.ttf",
+  "dirtyboy": "/fonts/Dirtyboy.ttf",
+  "future-light": "/fonts/FutureLight.ttf",
+  "future-light-italic": "/fonts/FutureLightItalic.ttf",
+  "halimun": "/fonts/Halimun.ttf",
+  "hershey-sans": "/fonts/Airstream.ttf",
+  "hershey-script": "/fonts/Halimun.ttf",
+  "inter": "/fonts/Airstream.ttf",
+  "roboto": "/fonts/Airstream.ttf",
+  "poppins": "/fonts/Airstream.ttf",
+  "montserrat": "/fonts/Airstream.ttf",
+  "open-sans": "/fonts/Airstream.ttf",
+  "playfair": "/fonts/Darlington-Demo.ttf",
+  "merriweather": "/fonts/Darlington-Demo.ttf",
+  "lora": "/fonts/Halimun.ttf",
+  "space-grotesk": "/fonts/Airstream.ttf",
+  "outfit": "/fonts/Airstream.ttf",
+  "architects-daughter": "/fonts/Halimun.ttf",
+  "oxanium": "/fonts/Airstream.ttf",
+};
+
 export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonTubePreviewProps) {
-  const [fontPaths, setFontPaths] = useState<number[][][]>([]);
+  const fontUrl = fontFileMap[fontId] || fontFileMap["inter"];
+  const fontSize = 1.2 * tubeScale;
   
-  // Fetch real font paths from API
-  useEffect(() => {
-    if (!text) {
-      setFontPaths([]);
-      return;
-    }
-    
-    fetch('/api/fonts/stroke-paths', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, fontId })
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.paths) {
-          setFontPaths(data.paths);
-        }
-      })
-      .catch(err => {
-        console.warn('Failed to load font paths:', err);
-        setFontPaths([]);
-      });
-  }, [text, fontId]);
+  // Calculate approximate text dimensions
+  const textWidth = useMemo(() => {
+    return Math.max(text.length * fontSize * 0.6, 1);
+  }, [text, fontSize]);
   
-  const tubeGeometries = useMemo(() => {
-    if (!fontPaths || fontPaths.length === 0) return [];
-    
-    const tubeRadius = (tubeDiameter / 2) * 0.01 * tubeScale;
-    const geometries: THREE.TubeGeometry[] = [];
-    
-    // Convert font paths to 3D tube geometries
-    fontPaths.forEach((path) => {
-      if (path.length < 2) return;
-      
-      // Convert 2D font path points to 3D points
-      const points: THREE.Vector3[] = path.map(([x, y]) => 
-        new THREE.Vector3(x * 0.01 * tubeScale, y * 0.01 * tubeScale, 0)
-      );
-      
-      // Create tube geometry from the path
-      if (points.length >= 2) {
-        const curve = new THREE.CatmullRomCurve3(points);
-        const geometry = new THREE.TubeGeometry(curve, 64, tubeRadius, 16, false);
-        geometries.push(geometry);
-      }
-    });
-    
-    return geometries;
-  }, [fontPaths, tubeDiameter, tubeScale]);
+  const textHeight = useMemo(() => {
+    return fontSize * 1.2;
+  }, [fontSize]);
+  
+  const tubeDepth = tubeDiameter * 0.01;
   
   return (
     <group>
-      {tubeGeometries.map((geometry, index) => (
-        <group key={index}>
-          <mesh geometry={geometry}>
-            <meshStandardMaterial 
-              color="#ff00ff" 
-              emissive="#ff00ff"
-              emissiveIntensity={0.5}
-              transparent
-              opacity={0.8}
-            />
-          </mesh>
-          <mesh geometry={geometry}>
-            <meshStandardMaterial 
-              color="#ffffff" 
-              transparent
-              opacity={0.3}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        </group>
-      ))}
+      {/* Backing plate to represent the tube casing */}
+      <RoundedBox
+        args={[textWidth + 0.5, textHeight + 0.3, tubeDepth]}
+        radius={0.05}
+        smoothness={4}
+        position={[0, 0, -tubeDepth / 2]}
+      >
+        <meshStandardMaterial 
+          color="#2d1b4e"
+          metalness={0.2}
+          roughness={0.6}
+          transparent
+          opacity={0.9}
+        />
+      </RoundedBox>
+      
+      {/* Actual text in selected font - this is what the user sees */}
+      <Text
+        font={fontUrl}
+        position={[0, 0, tubeDepth / 2 + 0.02]}
+        fontSize={fontSize}
+        color="#ff00ff"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.02}
+        outlineColor="#ff00ff"
+      >
+        {text || "NEON"}
+      </Text>
+      
+      {/* Glowing effect layer */}
+      <Text
+        font={fontUrl}
+        position={[0, 0, tubeDepth / 2 + 0.01]}
+        fontSize={fontSize * 1.02}
+        color="#ffffff"
+        anchorX="center"
+        anchorY="middle"
+        fillOpacity={0.3}
+      >
+        {text || "NEON"}
+      </Text>
     </group>
   );
 }
