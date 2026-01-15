@@ -55,13 +55,22 @@ const fontFileMap: Record<string, { path: string; dir: "public" | "server" }> = 
 };
 
 function loadFont(fontId: string): opentype.Font {
-  const fontFilename = fontFileMap[fontId] || "Aerioz-Demo.otf";
-  const fontsDir = path.join(process.cwd(), "public", "fonts");
-  const fontPath = path.join(fontsDir, fontFilename);
+  const fontInfo = fontFileMap[fontId];
+  let fontPath: string;
+  
+  if (fontInfo) {
+    const baseDir = fontInfo.dir === "server" 
+      ? path.join(process.cwd(), "server", "fonts")
+      : path.join(process.cwd(), "public", "fonts");
+    fontPath = path.join(baseDir, fontInfo.path);
+  } else {
+    // Default fallback
+    fontPath = path.join(process.cwd(), "public", "fonts", "Aerioz-Demo.otf");
+  }
   
   if (!fs.existsSync(fontPath)) {
     console.log(`[PetTag] Font not found: ${fontPath}, using fallback`);
-    const fallbackPath = path.join(fontsDir, "Aerioz-Demo.otf");
+    const fallbackPath = path.join(process.cwd(), "public", "fonts", "Aerioz-Demo.otf");
     return opentype.loadSync(fallbackPath);
   }
   
@@ -220,6 +229,8 @@ function generateExtrudedLetter(
       holes.push(contour);
     }
   }
+
+  console.log(`[PetTag] Outer contours: ${outerContours.length}, holes: ${holes.length}`);
 
   // For each outer contour, triangulate with its associated holes
   for (const outer of outerContours) {
@@ -578,8 +589,11 @@ export function generatePetTagV2(settings: PetTagSettings): PetTagPart[] {
   // Load font and get contours
   const font = loadFont(fontId || "aerioz");
   const fontPath = font.getPath(name, 0, 0, fontSize);
+  console.log(`[PetTag] Font path commands: ${fontPath.commands.length}`);
   const contours = pathToContours(fontPath);
 
+  console.log(`[PetTag] Generated ${contours.length} contours, sizes: ${contours.map(c => c.length/2).join(', ')}`);
+  
   if (contours.length === 0) {
     console.log("[PetTag] No contours generated from font");
     return parts;
