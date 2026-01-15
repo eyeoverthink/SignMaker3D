@@ -176,6 +176,168 @@ function generateUChannelRing(
   return { outerLeft, innerLeft, outerRight, innerRight, bottom };
 }
 
+// Create a round tubular pipe along a path (hollow tube for LED insertion)
+// Structure: circular tube with hollow center, like a pipe
+function createRoundTube(
+  path: number[][],
+  outerDiameter: number,
+  innerDiameter: number,
+  segments: number = 16  // Number of segments around the circle
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  
+  if (path.length < 2) return triangles;
+  
+  // Convert 2D path to 3D
+  const path3D: Vector3[] = path.map(([x, y]) => ({ x, y, z: 0 }));
+  
+  const outerRadius = outerDiameter / 2;
+  const innerRadius = innerDiameter / 2;
+  
+  // Generate circular profiles at each path point
+  const profiles: { outer: Vector3[], inner: Vector3[] }[] = [];
+  let prevNormal: Vector3 = { x: 0, y: 0, z: 1 };
+  
+  for (let i = 0; i < path3D.length; i++) {
+    const p = path3D[i];
+    
+    // Calculate tangent
+    let tangent: Vector3;
+    if (i === 0) {
+      tangent = normalize(sub(path3D[1], path3D[0]));
+    } else if (i === path3D.length - 1) {
+      tangent = normalize(sub(path3D[i], path3D[i - 1]));
+    } else {
+      const t1 = normalize(sub(path3D[i], path3D[i - 1]));
+      const t2 = normalize(sub(path3D[i + 1], path3D[i]));
+      tangent = normalize(add(t1, t2));
+    }
+    
+    // Parallel transport normal
+    const projection = scale(tangent, dot(prevNormal, tangent));
+    let normal = sub(prevNormal, projection);
+    
+    const normalLen = Math.sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+    if (normalLen < 0.0001) {
+      if (Math.abs(tangent.z) < 0.9) {
+        normal = normalize(cross(tangent, { x: 0, y: 0, z: 1 }));
+      } else {
+        normal = normalize(cross(tangent, { x: 1, y: 0, z: 0 }));
+      }
+    } else {
+      normal = scale(normal, 1 / normalLen);
+    }
+    
+    prevNormal = normal;
+    
+    // Create perpendicular vector
+    const binormal = normalize(cross(tangent, normal));
+    
+    // Generate circular profile
+    const outer: Vector3[] = [];
+    const inner: Vector3[] = [];
+    
+    for (let j = 0; j <= segments; j++) {
+      const angle = (j / segments) * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      
+      // Outer circle
+      outer.push({
+        x: p.x + normal.x * cos * outerRadius + binormal.x * sin * outerRadius,
+        y: p.y + normal.y * cos * outerRadius + binormal.y * sin * outerRadius,
+        z: p.z + normal.z * cos * outerRadius + binormal.z * sin * outerRadius
+      });
+      
+      // Inner circle
+      inner.push({
+        x: p.x + normal.x * cos * innerRadius + binormal.x * sin * innerRadius,
+        y: p.y + normal.y * cos * innerRadius + binormal.y * sin * innerRadius,
+        z: p.z + normal.z * cos * innerRadius + binormal.z * sin * innerRadius
+      });
+    }
+    
+    profiles.push({ outer, inner });
+  }
+  
+  // Connect adjacent profiles to form tube
+  for (let i = 0; i < profiles.length - 1; i++) {
+    const p1 = profiles[i];
+    const p2 = profiles[i + 1];
+    
+    // Outer surface
+    for (let j = 0; j < segments; j++) {
+      const v1 = p1.outer[j];
+      const v2 = p1.outer[j + 1];
+      const v3 = p2.outer[j];
+      const v4 = p2.outer[j + 1];
+      
+      triangles.push({
+        normal: calcNormal(v1, v2, v3),
+        v1, v2, v3
+      });
+      triangles.push({
+        normal: calcNormal(v2, v4, v3),
+        v1: v2, v2: v4, v3
+      });
+    }
+    
+    // Inner surface (reversed winding)
+    for (let j = 0; j < segments; j++) {
+      const v1 = p1.inner[j];
+      const v2 = p1.inner[j + 1];
+      const v3 = p2.inner[j];
+      const v4 = p2.inner[j + 1];
+      
+      triangles.push({
+        normal: calcNormal(v1, v3, v2),
+        v1, v2: v3, v3: v2
+      });
+      triangles.push({
+        normal: calcNormal(v2, v3, v4),
+        v1: v2, v2: v3, v3: v4
+      });
+    }
+  }
+  
+  // Cap the ends
+  for (let j = 0; j < segments; j++) {
+    // Start cap
+    const start = profiles[0];
+    const v1 = start.outer[j];
+    const v2 = start.outer[j + 1];
+    const v3 = start.inner[j];
+    const v4 = start.inner[j + 1];
+    
+    triangles.push({
+      normal: calcNormal(v1, v3, v2),
+      v1, v2: v3, v3: v2
+    });
+    triangles.push({
+      normal: calcNormal(v2, v3, v4),
+      v1: v2, v2: v3, v3: v4
+    });
+    
+    // End cap
+    const end = profiles[profiles.length - 1];
+    const e1 = end.outer[j];
+    const e2 = end.outer[j + 1];
+    const e3 = end.inner[j];
+    const e4 = end.inner[j + 1];
+    
+    triangles.push({
+      normal: calcNormal(e1, e2, e3),
+      v1: e1, v2: e2, v3: e3
+    });
+    triangles.push({
+      normal: calcNormal(e2, e4, e3),
+      v1: e2, v2: e4, v3: e3
+    });
+  }
+  
+  return triangles;
+}
+
 // Create a U-channel along a path (hollow channel for LED insertion)
 // Structure: solid base plate + channel floor + U-shaped walls on top
 function createUChannel(
@@ -1258,8 +1420,9 @@ export function generateNeonSignV2(
       const smoothPath = interpolatePath(path2D, channelWidth * 0.25);
       allSmoothPaths.push(smoothPath);
       
-      // Create U-channel with hollow interior for LED insertion
-      const channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight);
+      // Create round tubular pipe with hollow interior for LED insertion
+      const innerDiameter = channelWidth - (wallThickness * 2);
+      const channelTriangles = createRoundTube(smoothPath, channelWidth, innerDiameter);
       console.log(`[V2 Generator] Path ${i}: ${sketch.points.length} points -> ${smoothPath.length} smooth points -> ${channelTriangles.length} triangles`);
       allTriangles.push(...channelTriangles);
     }
@@ -1284,7 +1447,8 @@ export function generateNeonSignV2(
         if (path.length < 2) continue;
         const smoothPath = interpolatePath(path, channelWidth * 0.25);
         allSmoothPaths.push(smoothPath);
-        allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
+        const innerDiameter = channelWidth - (wallThickness * 2);
+        allTriangles.push(...createRoundTube(smoothPath, channelWidth, innerDiameter));
       }
     } else {
       // Use Hershey single-stroke fonts
@@ -1312,8 +1476,9 @@ export function generateNeonSignV2(
         const smoothPath = interpolatePath(centeredPath, channelWidth * 0.25);
         allSmoothPaths.push(smoothPath);
         
-        // Create U-channel with hollow interior for LED insertion
-        allTriangles.push(...createUChannel(smoothPath, channelWidth, wallThickness, wallHeight));
+        // Create round tubular pipe with hollow interior for LED insertion
+        const innerDiameter = channelWidth - (wallThickness * 2);
+        allTriangles.push(...createRoundTube(smoothPath, channelWidth, innerDiameter));
       }
     }
     
