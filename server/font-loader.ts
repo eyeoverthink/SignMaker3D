@@ -10,26 +10,23 @@ interface StrokePath {
 
 const fontCache: Map<string, opentype.Font> = new Map();
 
-// Fonts that work well for neon signs (single-stroke or thin outline)
+// Commercial fonts only - all Google Fonts are free for commercial use
+// Using Hershey fonts as placeholders until user adds actual TTF files
 export const neonFontOptions = [
-  { id: "aerioz", name: "Aerioz (Neon Script)", file: "Aerioz-Demo.otf", scale: 0.08, strokeBased: false },
-  { id: "airstream", name: "Airstream", file: "Airstream.ttf", scale: 0.08, strokeBased: false },
-  { id: "airstream-nf", name: "Airstream NF", file: "AirstreamNF.ttf", scale: 0.08, strokeBased: false },
-  { id: "alliston", name: "Alliston (Script)", file: "Alliston-Demo.ttf", scale: 0.08, strokeBased: false },
-  { id: "cookiemonster", name: "Cookie Monster", file: "Cookiemonster.ttf", scale: 0.08, strokeBased: false },
-  { id: "darlington", name: "Darlington", file: "Darlington-Demo.ttf", scale: 0.08, strokeBased: false },
-  { id: "dirtyboy", name: "Dirtyboy", file: "Dirtyboy.ttf", scale: 0.08, strokeBased: false },
-  { id: "disco-everyday", name: "Disco Everyday", file: "DiscoEverydayValue.ttf", scale: 0.08, strokeBased: false },
-  { id: "electronica", name: "Electronica", file: "Electronica.ttf", scale: 0.08, strokeBased: false },
-  { id: "future-light", name: "Future Light", file: "FutureLight.ttf", scale: 0.08, strokeBased: false },
-  { id: "future-light-italic", name: "Future Light Italic", file: "FutureLightItalic.ttf", scale: 0.08, strokeBased: false },
-  { id: "great-day", name: "Great Day", file: "GreatDay.ttf", scale: 0.08, strokeBased: false },
-  { id: "great-day-bold", name: "Great Day Bold", file: "GreatDayBold.ttf", scale: 0.08, strokeBased: false },
-  { id: "halimun", name: "Halimun (Script)", file: "Halimun.ttf", scale: 0.08, strokeBased: false },
+  { id: "architects-daughter", name: "Architects Daughter", file: null, scale: 1, strokeBased: true },
   { id: "hershey-sans", name: "Hershey Sans", file: null, scale: 1, strokeBased: true },
   { id: "hershey-script", name: "Hershey Script", file: null, scale: 1, strokeBased: true },
-  { id: "las-enter", name: "Las Enter", file: "LasEnter.ttf", scale: 0.08, strokeBased: false },
-  { id: "tomatoes", name: "Tomatoes", file: "Tomatoes.ttf", scale: 0.08, strokeBased: false },
+  { id: "inter", name: "Inter", file: null, scale: 1, strokeBased: true },
+  { id: "lora", name: "Lora", file: null, scale: 1, strokeBased: true },
+  { id: "merriweather", name: "Merriweather", file: null, scale: 1, strokeBased: true },
+  { id: "montserrat", name: "Montserrat", file: null, scale: 1, strokeBased: true },
+  { id: "open-sans", name: "Open Sans", file: null, scale: 1, strokeBased: true },
+  { id: "outfit", name: "Outfit", file: null, scale: 1, strokeBased: true },
+  { id: "oxanium", name: "Oxanium", file: null, scale: 1, strokeBased: true },
+  { id: "playfair", name: "Playfair Display", file: null, scale: 1, strokeBased: true },
+  { id: "poppins", name: "Poppins", file: null, scale: 1, strokeBased: true },
+  { id: "roboto", name: "Roboto", file: null, scale: 1, strokeBased: true },
+  { id: "space-grotesk", name: "Space Grotesk", file: null, scale: 1, strokeBased: true },
 ];
 
 function loadFont(fontFile: string): opentype.Font | null {

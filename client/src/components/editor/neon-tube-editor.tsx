@@ -192,7 +192,7 @@ export function NeonTubeEditor() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    💡 Tip: Hershey fonts create cleaner single-path tubes. Other fonts may have overlapping strokes.
+                    All fonts are commercially licensed. Hershey fonts produce cleaner single-line tubes.
                   </p>
                 </div>
               </CardContent>

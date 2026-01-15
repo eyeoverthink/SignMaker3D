@@ -9,41 +9,27 @@ interface NeonTubePreviewProps {
   tubeScale: number;
 }
 
+// Commercial fonts only - using system fonts for preview
+// Hershey fonts will render as simple text since they're stroke-based
 const fontFileMap: Record<string, string> = {
-  "aerioz": "/fonts/Aerioz-Demo.otf",
-  "airstream": "/fonts/Airstream.ttf",
-  "airstream-nf": "/fonts/AirstreamNF.ttf",
-  "alliston": "/fonts/Alliston-Demo.ttf",
-  "cookiemonster": "/fonts/Cookiemonster.ttf",
-  "darlington": "/fonts/Darlington-Demo.ttf",
-  "dirtyboy": "/fonts/Dirtyboy.ttf",
-  "disco-everyday": "/fonts/DiscoEverydayValue.ttf",
-  "electronica": "/fonts/Electronica.ttf",
-  "future-light": "/fonts/FutureLight.ttf",
-  "future-light-italic": "/fonts/FutureLightItalic.ttf",
-  "great-day": "/fonts/GreatDay.ttf",
-  "great-day-bold": "/fonts/GreatDayBold.ttf",
-  "halimun": "/fonts/Halimun.ttf",
-  "hershey-sans": "/fonts/Airstream.ttf",
-  "hershey-script": "/fonts/Halimun.ttf",
-  "inter": "/fonts/Airstream.ttf",
-  "las-enter": "/fonts/LasEnter.ttf",
-  "roboto": "/fonts/Airstream.ttf",
-  "poppins": "/fonts/Airstream.ttf",
-  "montserrat": "/fonts/Airstream.ttf",
-  "open-sans": "/fonts/Airstream.ttf",
-  "playfair": "/fonts/Darlington-Demo.ttf",
-  "merriweather": "/fonts/Darlington-Demo.ttf",
-  "lora": "/fonts/Halimun.ttf",
-  "space-grotesk": "/fonts/Airstream.ttf",
-  "outfit": "/fonts/Airstream.ttf",
-  "tomatoes": "/fonts/Tomatoes.ttf",
-  "architects-daughter": "/fonts/Halimun.ttf",
-  "oxanium": "/fonts/Airstream.ttf",
+  "architects-daughter": "Architects Daughter",
+  "hershey-sans": "monospace",
+  "hershey-script": "cursive",
+  "inter": "Inter",
+  "lora": "Lora",
+  "merriweather": "Merriweather",
+  "montserrat": "Montserrat",
+  "open-sans": "Open Sans",
+  "outfit": "Outfit",
+  "oxanium": "Oxanium",
+  "playfair": "Playfair Display",
+  "poppins": "Poppins",
+  "roboto": "Roboto",
+  "space-grotesk": "Space Grotesk",
 };
 
 export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonTubePreviewProps) {
-  const fontUrl = fontFileMap[fontId] || fontFileMap["airstream"];
+  const fontUrl = fontFileMap[fontId] || fontFileMap["hershey-sans"];
   const fontSize = 1.2 * tubeScale;
   const tubeRadius = (tubeDiameter * 0.01) / 2;
   

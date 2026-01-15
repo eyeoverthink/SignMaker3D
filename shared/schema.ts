@@ -1,25 +1,10 @@
 import { z } from "zod";
 
 export const fontOptions = [
-  { id: "aerioz", name: "Aerioz (Neon Script)", family: "Aerioz" },
-  { id: "airstream", name: "Airstream", family: "Airstream" },
-  { id: "airstream-nf", name: "Airstream NF", family: "Airstream NF" },
-  { id: "alliston", name: "Alliston (Script)", family: "Alliston" },
   { id: "architects-daughter", name: "Architects Daughter", family: "Architects Daughter" },
-  { id: "cookiemonster", name: "Cookie Monster", family: "Cookie Monster" },
-  { id: "darlington", name: "Darlington", family: "Darlington" },
-  { id: "dirtyboy", name: "Dirtyboy", family: "Dirtyboy" },
-  { id: "disco-everyday", name: "Disco Everyday", family: "Disco Everyday" },
-  { id: "electronica", name: "Electronica", family: "Electronica" },
-  { id: "future-light", name: "Future Light", family: "Future Light" },
-  { id: "future-light-italic", name: "Future Light Italic", family: "Future Light Italic" },
-  { id: "great-day", name: "Great Day", family: "Great Day" },
-  { id: "great-day-bold", name: "Great Day Bold", family: "Great Day Bold" },
-  { id: "halimun", name: "Halimun (Script)", family: "Halimun" },
-  { id: "hershey-sans", name: "Hershey Sans", family: "Hershey Sans" },
-  { id: "hershey-script", name: "Hershey Script", family: "Hershey Script" },
+  { id: "hershey-sans", name: "Hershey Sans (Single-Stroke)", family: "Hershey Sans" },
+  { id: "hershey-script", name: "Hershey Script (Single-Stroke)", family: "Hershey Script" },
   { id: "inter", name: "Inter", family: "Inter" },
-  { id: "las-enter", name: "Las Enter", family: "Las Enter" },
   { id: "lora", name: "Lora", family: "Lora" },
   { id: "merriweather", name: "Merriweather", family: "Merriweather" },
   { id: "montserrat", name: "Montserrat", family: "Montserrat" },
@@ -30,7 +15,6 @@ export const fontOptions = [
   { id: "poppins", name: "Poppins", family: "Poppins" },
   { id: "roboto", name: "Roboto", family: "Roboto" },
   { id: "space-grotesk", name: "Space Grotesk", family: "Space Grotesk" },
-  { id: "tomatoes", name: "Tomatoes", family: "Tomatoes" },
 ] as const;
 
 export type FontOption = typeof fontOptions[number];

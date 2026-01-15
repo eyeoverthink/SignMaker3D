@@ -164,7 +164,7 @@ function generateCirclePlate(diameter: number, thickness: number, segments: numb
   return triangles;
 }
 
-// Generate a cylinder for holes
+// Generate a cylinder for holes - creates inner wall only (hole is cut from plate faces)
 function generateHole(x: number, y: number, radius: number, thickness: number, segments: number = 16): Triangle[] {
   const triangles: Triangle[] = [];
   const t = thickness / 2;
@@ -178,27 +178,107 @@ function generateHole(x: number, y: number, radius: number, thickness: number, s
     const x2 = x + Math.cos(angle2) * radius;
     const y2 = y + Math.sin(angle2) * radius;
     
-    const nx1 = Math.cos(angle1);
-    const ny1 = Math.sin(angle1);
-    const nx2 = Math.cos(angle2);
-    const ny2 = Math.sin(angle2);
+    // Normal points inward (toward hole center)
+    const nx = -Math.cos((angle1 + angle2) / 2);
+    const ny = -Math.sin((angle1 + angle2) / 2);
     
-    // Outer wall of hole
+    // Inner wall of hole (inverted normals so they point inward)
     triangles.push(
       { 
-        normal: { x: nx1, y: ny1, z: 0 }, 
-        v1: { x: x1, y: y1, z: -t }, 
-        v2: { x: x1, y: y1, z: t }, 
-        v3: { x: x2, y: y2, z: t } 
-      },
-      { 
-        normal: { x: nx2, y: ny2, z: 0 }, 
+        normal: { x: nx, y: ny, z: 0 }, 
         v1: { x: x1, y: y1, z: -t }, 
         v2: { x: x2, y: y2, z: t }, 
-        v3: { x: x2, y: y2, z: -t } 
+        v3: { x: x1, y: y1, z: t } 
+      },
+      { 
+        normal: { x: nx, y: ny, z: 0 }, 
+        v1: { x: x1, y: y1, z: -t }, 
+        v2: { x: x2, y: y2, z: -t }, 
+        v3: { x: x2, y: y2, z: t } 
       }
     );
   }
+  
+  return triangles;
+}
+
+// Check if a point is inside any hole
+function isPointInHole(px: number, py: number, holes: Array<{x: number, y: number, radius: number}>): boolean {
+  for (const hole of holes) {
+    const dx = px - hole.x;
+    const dy = py - hole.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq <= hole.radius * hole.radius) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Generate plate with holes properly cut through
+function generatePlateWithHoles(
+  width: number, 
+  height: number, 
+  thickness: number, 
+  holes: Array<{x: number, y: number, radius: number}>,
+  segments: number = 32
+): Triangle[] {
+  const triangles: Triangle[] = [];
+  const w = width / 2;
+  const h = height / 2;
+  const t = thickness / 2;
+  
+  // If no holes, generate simple box
+  if (holes.length === 0) {
+    return generatePlate(width, height, thickness);
+  }
+  
+  // Generate top and bottom faces with triangulation that avoids holes
+  // For simplicity, we'll create a grid and skip triangles that intersect holes
+  const gridSize = Math.max(width, height) / segments;
+  
+  for (let gx = -w; gx < w; gx += gridSize) {
+    for (let gy = -h; gy < h; gy += gridSize) {
+      const x1 = Math.max(-w, gx);
+      const y1 = Math.max(-h, gy);
+      const x2 = Math.min(w, gx + gridSize);
+      const y2 = Math.min(h, gy + gridSize);
+      
+      // Check if quad corners are outside all holes
+      const corners = [
+        {x: x1, y: y1}, {x: x2, y: y1},
+        {x: x2, y: y2}, {x: x1, y: y2}
+      ];
+      
+      const allCornersValid = corners.every(c => !isPointInHole(c.x, c.y, holes));
+      
+      if (allCornersValid) {
+        // Top face
+        triangles.push(
+          { normal: { x: 0, y: 0, z: 1 }, v1: { x: x1, y: y1, z: t }, v2: { x: x2, y: y1, z: t }, v3: { x: x2, y: y2, z: t } },
+          { normal: { x: 0, y: 0, z: 1 }, v1: { x: x1, y: y1, z: t }, v2: { x: x2, y: y2, z: t }, v3: { x: x1, y: y2, z: t } }
+        );
+        
+        // Bottom face
+        triangles.push(
+          { normal: { x: 0, y: 0, z: -1 }, v1: { x: x1, y: y1, z: -t }, v2: { x: x2, y: y2, z: -t }, v3: { x: x2, y: y1, z: -t } },
+          { normal: { x: 0, y: 0, z: -1 }, v1: { x: x1, y: y1, z: -t }, v2: { x: x1, y: y2, z: -t }, v3: { x: x2, y: y2, z: -t } }
+        );
+      }
+    }
+  }
+  
+  // Add side walls
+  triangles.push(
+    { normal: { x: 0, y: 1, z: 0 }, v1: { x: -w, y: h, z: -t }, v2: { x: w, y: h, z: -t }, v3: { x: w, y: h, z: t } },
+    { normal: { x: 0, y: 1, z: 0 }, v1: { x: -w, y: h, z: -t }, v2: { x: w, y: h, z: t }, v3: { x: -w, y: h, z: t } },
+    { normal: { x: 0, y: -1, z: 0 }, v1: { x: -w, y: -h, z: -t }, v2: { x: w, y: -h, z: t }, v3: { x: w, y: -h, z: -t } },
+    { normal: { x: 0, y: -1, z: 0 }, v1: { x: -w, y: -h, z: -t }, v2: { x: -w, y: -h, z: t }, v3: { x: w, y: -h, z: t } },
+    { normal: { x: -1, y: 0, z: 0 }, v1: { x: -w, y: -h, z: -t }, v2: { x: -w, y: h, z: -t }, v3: { x: -w, y: h, z: t } },
+    { normal: { x: -1, y: 0, z: 0 }, v1: { x: -w, y: -h, z: -t }, v2: { x: -w, y: h, z: t }, v3: { x: -w, y: -h, z: t } },
+    { normal: { x: 1, y: 0, z: 0 }, v1: { x: w, y: -h, z: -t }, v2: { x: w, y: h, z: t }, v3: { x: w, y: h, z: -t } },
+    { normal: { x: 1, y: 0, z: 0 }, v1: { x: w, y: -h, z: -t }, v2: { x: w, y: -h, z: t }, v3: { x: w, y: h, z: t } }
+  );
   
   return triangles;
 }
@@ -210,25 +290,13 @@ export function generateBackingPlate(settings: BackingPlateSettings): Buffer {
   
   let triangles: Triangle[] = [];
   
-  // Generate main plate based on shape
-  if (shape === "circle") {
-    const diameter = Math.max(width, height);
-    triangles.push(...generateCirclePlate(diameter, thickness));
-  } else if (shape === "square") {
-    const size = Math.max(width, height);
-    triangles.push(...generatePlate(size, size, thickness));
-  } else {
-    // rectangle, rounded-rect, custom - all use rectangular base
-    triangles.push(...generatePlate(width, height, thickness));
-  }
-  
-  // Calculate hole positions
-  const holes: [number, number][] = [];
+  // Calculate hole positions first
+  const holePositions: [number, number][] = [];
   const w = width / 2;
   const h = height / 2;
   
   if (holePattern === "corners") {
-    holes.push(
+    holePositions.push(
       [-w + holeInset, h - holeInset],
       [w - holeInset, h - holeInset],
       [-w + holeInset, -h + holeInset],
@@ -237,26 +305,47 @@ export function generateBackingPlate(settings: BackingPlateSettings): Buffer {
   } else if (holePattern === "grid") {
     for (let x = -w + holeInset; x <= w - holeInset; x += gridSpacing) {
       for (let y = -h + holeInset; y <= h - holeInset; y += gridSpacing) {
-        holes.push([x, y]);
+        holePositions.push([x, y]);
       }
     }
   } else if (holePattern === "perimeter") {
     // Top and bottom edges
     for (let x = -w + holeInset; x <= w - holeInset; x += gridSpacing) {
-      holes.push([x, h - holeInset]);
-      holes.push([x, -h + holeInset]);
+      holePositions.push([x, h - holeInset]);
+      holePositions.push([x, -h + holeInset]);
     }
     // Left and right edges
     for (let y = -h + holeInset + gridSpacing; y <= h - holeInset - gridSpacing; y += gridSpacing) {
-      holes.push([-w + holeInset, y]);
-      holes.push([w - holeInset, y]);
+      holePositions.push([-w + holeInset, y]);
+      holePositions.push([w - holeInset, y]);
     }
   }
   
-  // Generate holes
   const holeRadius = holeDiameter / 2;
-  for (const [x, y] of holes) {
-    triangles.push(...generateHole(x, y, holeRadius, thickness));
+  const holes = holePositions.map(([x, y]) => ({ x, y, radius: holeRadius }));
+  
+  // Generate main plate based on shape with holes cut through
+  if (shape === "circle") {
+    const diameter = Math.max(width, height);
+    triangles.push(...generateCirclePlate(diameter, thickness));
+    // Add hole cylinders for circle (simple approach - holes not cut from faces)
+    for (const hole of holes) {
+      triangles.push(...generateHole(hole.x, hole.y, hole.radius, thickness));
+    }
+  } else if (shape === "square") {
+    const size = Math.max(width, height);
+    triangles.push(...generatePlateWithHoles(size, size, thickness, holes));
+    // Add hole cylinders
+    for (const hole of holes) {
+      triangles.push(...generateHole(hole.x, hole.y, hole.radius, thickness));
+    }
+  } else {
+    // rectangle, rounded-rect, custom - all use rectangular base
+    triangles.push(...generatePlateWithHoles(width, height, thickness, holes));
+    // Add hole cylinders
+    for (const hole of holes) {
+      triangles.push(...generateHole(hole.x, hole.y, hole.radius, thickness));
+    }
   }
   
   console.log(`[Backing Plate] Generated ${triangles.length} triangles with ${holes.length} holes`);
