@@ -11,6 +11,7 @@ import {
   type PetTagSettings,
   type ModularShapeSettings,
   type NeonTubeSettings,
+  type BackingPlateSettings,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
@@ -20,6 +21,7 @@ import {
   defaultPetTagSettings,
   defaultModularShapeSettings,
   defaultNeonTubeSettings,
+  defaultBackingPlateSettings,
 } from "@shared/schema";
 
 interface EditorState {
@@ -32,6 +34,7 @@ interface EditorState {
   petTagSettings: PetTagSettings;
   modularShapeSettings: ModularShapeSettings;
   neonTubeSettings: NeonTubeSettings;
+  backingPlateSettings: BackingPlateSettings;
   sketchPaths: SketchPath[];
   inputMode: InputMode;
   uploadedImageData: string | null;
@@ -48,6 +51,7 @@ interface EditorState {
   setTubeSettings: (settings: Partial<TubeSettings>) => void;
   setTwoPartSystem: (settings: Partial<TwoPartSystem>) => void;
   setPetTagSettings: (settings: Partial<PetTagSettings>) => void;
+  setBackingPlateSettings: (settings: Partial<BackingPlateSettings>) => void;
   setModularShapeSettings: (settings: Partial<ModularShapeSettings>) => void;
   setNeonTubeSettings: (settings: Partial<NeonTubeSettings>) => void;
   setSketchPaths: (paths: SketchPath[]) => void;
@@ -74,6 +78,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   petTagSettings: defaultPetTagSettings,
   modularShapeSettings: defaultModularShapeSettings,
   neonTubeSettings: defaultNeonTubeSettings,
+  backingPlateSettings: defaultBackingPlateSettings,
   sketchPaths: [],
   inputMode: "text",
   uploadedImageData: null,
@@ -119,6 +124,10 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       neonTubeSettings: { ...state.neonTubeSettings, ...settings },
     })),
+  setBackingPlateSettings: (settings) =>
+    set((state) => ({
+      backingPlateSettings: { ...state.backingPlateSettings, ...settings },
+    })),
   setSketchPaths: (paths) => set({ sketchPaths: paths }),
   addSketchPath: (path) =>
     set((state) => ({
@@ -147,6 +156,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       petTagSettings: defaultPetTagSettings,
       modularShapeSettings: defaultModularShapeSettings,
       neonTubeSettings: defaultNeonTubeSettings,
+      backingPlateSettings: defaultBackingPlateSettings,
       sketchPaths: [],
       inputMode: "text",
       uploadedImageData: null,

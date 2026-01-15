@@ -102,7 +102,7 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube"] as const;
+export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate"] as const;
 export type InputMode = typeof inputModes[number];
 
 // Pet Tag specific types
@@ -205,6 +205,42 @@ export const defaultNeonTubeSettings: NeonTubeSettings = {
   ledChannelDiameter: 6,
   separateDiffuser: true,
   tubeScale: 1,
+};
+
+// Backing Plate (separate mounting plates for neon signs)
+export const backingPlateShapes = ["rectangle", "square", "circle", "rounded-rect", "custom"] as const;
+export type BackingPlateShape = typeof backingPlateShapes[number];
+
+export const holePatterns = ["none", "corners", "grid", "perimeter", "custom"] as const;
+export type HolePattern = typeof holePatterns[number];
+
+export const backingPlateSettingsSchema = z.object({
+  shape: z.enum(backingPlateShapes),
+  width: z.number().min(50).max(500),
+  height: z.number().min(50).max(500),
+  thickness: z.number().min(2).max(10),
+  cornerRadius: z.number().min(0).max(50),
+  margin: z.number().min(0).max(50),
+  holePattern: z.enum(holePatterns),
+  holeDiameter: z.number().min(3).max(15),
+  holeInset: z.number().min(5).max(50),
+  gridSpacing: z.number().min(20).max(100),
+  customHoles: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
+});
+
+export type BackingPlateSettings = z.infer<typeof backingPlateSettingsSchema>;
+
+export const defaultBackingPlateSettings: BackingPlateSettings = {
+  shape: "rectangle",
+  width: 200,
+  height: 100,
+  thickness: 3,
+  cornerRadius: 5,
+  margin: 20,
+  holePattern: "corners",
+  holeDiameter: 5,
+  holeInset: 10,
+  gridSpacing: 50,
 };
 
 export const defaultPetTagSettings: PetTagSettings = {
