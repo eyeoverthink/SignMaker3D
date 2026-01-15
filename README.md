@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SignCraft 3D - Neon Sign Generator
 
 A professional web-based 3D neon sign generator for makers and small businesses. Create custom illuminated signage with integrated LED/neon light channels, ready for 3D printing.
@@ -220,3 +221,6 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 ---
 
 **Built for makers, by makers.** Create professional neon signs for your business, home, or projects.
+=======
+"# SignMaker3D" 
+>>>>>>> 33504e4ace41721bd6457f6819efef6d26850a39
