@@ -19,11 +19,17 @@ export const neonFontOptions = [
   { id: "cookiemonster", name: "Cookie Monster", file: "Cookiemonster.ttf", scale: 0.08, strokeBased: false },
   { id: "darlington", name: "Darlington", file: "Darlington-Demo.ttf", scale: 0.08, strokeBased: false },
   { id: "dirtyboy", name: "Dirtyboy", file: "Dirtyboy.ttf", scale: 0.08, strokeBased: false },
+  { id: "disco-everyday", name: "Disco Everyday", file: "DiscoEverydayValue.ttf", scale: 0.08, strokeBased: false },
+  { id: "electronica", name: "Electronica", file: "Electronica.ttf", scale: 0.08, strokeBased: false },
   { id: "future-light", name: "Future Light", file: "FutureLight.ttf", scale: 0.08, strokeBased: false },
   { id: "future-light-italic", name: "Future Light Italic", file: "FutureLightItalic.ttf", scale: 0.08, strokeBased: false },
+  { id: "great-day", name: "Great Day", file: "GreatDay.ttf", scale: 0.08, strokeBased: false },
+  { id: "great-day-bold", name: "Great Day Bold", file: "GreatDayBold.ttf", scale: 0.08, strokeBased: false },
   { id: "halimun", name: "Halimun (Script)", file: "Halimun.ttf", scale: 0.08, strokeBased: false },
   { id: "hershey-sans", name: "Hershey Sans", file: null, scale: 1, strokeBased: true },
   { id: "hershey-script", name: "Hershey Script", file: null, scale: 1, strokeBased: true },
+  { id: "las-enter", name: "Las Enter", file: "LasEnter.ttf", scale: 0.08, strokeBased: false },
+  { id: "tomatoes", name: "Tomatoes", file: "Tomatoes.ttf", scale: 0.08, strokeBased: false },
 ];
 
 function loadFont(fontFile: string): opentype.Font | null {
