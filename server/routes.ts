@@ -710,6 +710,14 @@ export async function registerRoutes(
       };
       
       // Generate tube STL files
+      console.log(`[Neon Tube Export] Calling generateNeonSignV2 with:`, {
+        text: letterSettings.text,
+        fontId: letterSettings.fontId,
+        tubeDiameter: tubeSettings.neonTubeDiameter,
+        wallHeight: tubeSettings.wallHeight,
+        wallThickness: tubeSettings.wallThickness
+      });
+      
       const parts = generateNeonSignV2(
         letterSettings,
         tubeSettings,
@@ -719,7 +727,11 @@ export async function registerRoutes(
         "text"
       );
       
-      console.log(`[Neon Tube Export] Generated ${parts.length} parts`);
+      console.log(`[Neon Tube Export] Generated ${parts.length} parts:`, parts.map(p => ({ 
+        filename: p.filename, 
+        size: p.content.length,
+        type: p.partType 
+      })));
       
       const zipFilename = `${settings.text.replace(/\s/g, "_")}_neon_tubes.zip`;
       
