@@ -1301,10 +1301,10 @@ function createRegistrationPins(
 function createBridge(
   start: { x: number; y: number },
   end: { x: number; y: number },
-  channelWidth: number,
+  outerDiameter: number,
   wallThickness: number,
-  wallHeight: number,
-  baseThickness: number = 3
+  wallHeight: number,  // Not used for round tubes but kept for compatibility
+  baseThickness: number = 3  // Not used for round tubes but kept for compatibility
 ): Triangle[] {
   const triangles: Triangle[] = [];
   
@@ -1313,13 +1313,14 @@ function createBridge(
   const len = Math.sqrt(dx * dx + dy * dy);
   
   // If the points are too close, skip the bridge
-  if (len < channelWidth * 0.5) return triangles;
+  if (len < outerDiameter * 0.5) return triangles;
   
-  // Create a simple rectangular bridge path
+  // Create a simple straight bridge path connecting the two points
   const path: number[][] = [[start.x, start.y], [end.x, end.y]];
   
-  // Use the same U-channel function to create the bridge with proper baseThickness
-  return createUChannel(path, channelWidth, wallThickness, wallHeight, baseThickness);
+  // Use round tube to create continuous hollow bridge
+  const innerDiameter = outerDiameter - (wallThickness * 2);
+  return createRoundTube(path, outerDiameter, innerDiameter);
 }
 
 // Create a feed hole (cylinder cut) in the base at a specific point

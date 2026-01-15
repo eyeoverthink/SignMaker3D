@@ -36,11 +36,14 @@ const fontFileMap: Record<string, string> = {
   "oxanium": "/fonts/Airstream.ttf",
 };
 
-// Generate simple stroke paths for preview (approximation)
-function generateStrokePaths(text: string, scale: number): THREE.Vector3[][] {
+// Generate simple stroke paths for preview (approximation) with welding
+function generateStrokePaths(text: string, scale: number): { paths: THREE.Vector3[][], bridges: THREE.Vector3[][] } {
   const paths: THREE.Vector3[][] = [];
+  const bridges: THREE.Vector3[][] = [];
   const letterSpacing = 0.8 * scale;
   let xOffset = -(text.length * letterSpacing) / 2;
+  
+  let lastEndPoint: THREE.Vector3 | null = null;
   
   // Simple letter path approximations for preview
   for (let i = 0; i < text.length; i++) {
@@ -74,6 +77,10 @@ function generateStrokePaths(text: string, scale: number): THREE.Vector3[][] {
           0
         ));
       }
+    } else if (char === ' ') {
+      // Skip spaces but track position
+      xOffset += letterSpacing;
+      continue;
     } else {
       // Default vertical line for unknown chars
       path.push(
@@ -82,25 +89,36 @@ function generateStrokePaths(text: string, scale: number): THREE.Vector3[][] {
       );
     }
     
-    if (path.length > 0) paths.push(path);
+    if (path.length > 0) {
+      // Create bridge from last letter to this one
+      if (lastEndPoint && path.length > 0) {
+        const startPoint = path[0];
+        bridges.push([lastEndPoint, startPoint]);
+      }
+      
+      paths.push(path);
+      lastEndPoint = path[path.length - 1];
+    }
+    
     xOffset += letterSpacing;
   }
   
-  return paths;
+  return { paths, bridges };
 }
 
 export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonTubePreviewProps) {
   const outerRadius = (tubeDiameter * 0.01) / 2;
   const innerRadius = outerRadius * 0.6; // Hollow center for LED wire
   
-  const paths = useMemo(() => {
+  const { paths, bridges } = useMemo(() => {
     return generateStrokePaths(text || "NEON", tubeScale);
   }, [text, tubeScale]);
   
   return (
     <group>
+      {/* Letter tubes */}
       {paths.map((path, pathIndex) => (
-        <group key={pathIndex}>
+        <group key={`letter-${pathIndex}`}>
           {/* Outer tube surface */}
           <mesh>
             <tubeGeometry args={[
@@ -141,6 +159,62 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
             <tubeGeometry args={[
               new THREE.CatmullRomCurve3(path),
               path.length * 8,
+              innerRadius * 0.3,
+              8,
+              false
+            ]} />
+            <meshBasicMaterial 
+              color="#fbbf24"
+              transparent
+              opacity={0.6}
+            />
+          </mesh>
+        </group>
+      ))}
+      
+      {/* Bridge connections between letters */}
+      {bridges.map((bridge, bridgeIndex) => (
+        <group key={`bridge-${bridgeIndex}`}>
+          {/* Outer bridge tube */}
+          <mesh>
+            <tubeGeometry args={[
+              new THREE.CatmullRomCurve3(bridge),
+              16,
+              outerRadius,
+              16,
+              false
+            ]} />
+            <meshStandardMaterial 
+              color="#6d28d9"
+              metalness={0.3}
+              roughness={0.4}
+              transparent
+              opacity={0.8}
+            />
+          </mesh>
+          
+          {/* Inner hollow channel */}
+          <mesh>
+            <tubeGeometry args={[
+              new THREE.CatmullRomCurve3(bridge),
+              16,
+              innerRadius,
+              16,
+              false
+            ]} />
+            <meshStandardMaterial 
+              color="#1e1b4b"
+              metalness={0.1}
+              roughness={0.8}
+              side={THREE.BackSide}
+            />
+          </mesh>
+          
+          {/* LED path through bridge */}
+          <mesh>
+            <tubeGeometry args={[
+              new THREE.CatmullRomCurve3(bridge),
+              16,
               innerRadius * 0.3,
               8,
               false

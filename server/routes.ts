@@ -724,7 +724,11 @@ export async function registerRoutes(
         twoPartSystem,
         "stl",
         [],
-        "text"
+        "text",
+        {
+          weldLetters: true,  // Connect all letters into continuous tube
+          addFeedHoles: false  // No feed holes needed with continuous tube
+        }
       );
       
       console.log(`[Neon Tube Export] Generated ${parts.length} parts:`, parts.map(p => ({ 
