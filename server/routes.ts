@@ -770,5 +770,39 @@ export async function registerRoutes(
     }
   });
 
+  // Backing plate export endpoint
+  app.post("/api/export/backing-plate", async (req, res) => {
+    try {
+      const { backingPlateSettingsSchema } = await import("@shared/schema");
+      const result = backingPlateSettingsSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: "Invalid backing plate settings", 
+          details: result.error.errors 
+        });
+      }
+      
+      const settings = result.data;
+      
+      console.log(`[Backing Plate Export] ${settings.width}x${settings.height}mm, ${settings.holePattern} holes`);
+      
+      const { generateBackingPlate } = await import("./backing-plate-generator");
+      
+      const stlBuffer = generateBackingPlate(settings);
+      
+      const filename = `backing_plate_${settings.width}x${settings.height}mm.stl`;
+      
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(stlBuffer);
+      
+      console.log(`[Backing Plate Export] Generated ${filename}, ${stlBuffer.length} bytes`);
+    } catch (error) {
+      console.error("Backing plate export error:", error);
+      res.status(500).json({ error: "Failed to generate backing plate" });
+    }
+  });
+
   return httpServer;
 }

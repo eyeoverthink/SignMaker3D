@@ -15,10 +15,21 @@ function BackingPlatePreview() {
   const { backingPlateSettings } = useEditorStore();
   const { shape, width, height, thickness, cornerRadius, holePattern, holeDiameter, holeInset, gridSpacing } = backingPlateSettings;
   
-  const w = width * 0.01;
-  const h = height * 0.01;
+  let w = width * 0.01;
+  let h = height * 0.01;
   const t = thickness * 0.01;
   const holeR = (holeDiameter / 2) * 0.01;
+  
+  // Adjust dimensions for square and circle
+  if (shape === "square") {
+    const size = Math.max(width, height);
+    w = size * 0.01;
+    h = size * 0.01;
+  } else if (shape === "circle") {
+    const diameter = Math.max(width, height);
+    w = diameter * 0.01;
+    h = diameter * 0.01;
+  }
   
   // Calculate hole positions based on pattern
   const holes: [number, number][] = [];
@@ -56,22 +67,33 @@ function BackingPlatePreview() {
   
   return (
     <group>
-      {/* Main plate */}
-      <RoundedBox
-        args={[w, h, t]}
-        radius={shape === "rounded-rect" ? cornerRadius * 0.01 : 0.02}
-        smoothness={4}
-      >
-        <meshStandardMaterial 
-          color="#3b82f6"
-          metalness={0.2}
-          roughness={0.4}
-        />
-      </RoundedBox>
+      {/* Main plate - render based on shape */}
+      {shape === "circle" ? (
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[w/2, w/2, t, 32]} />
+          <meshStandardMaterial 
+            color="#3b82f6"
+            metalness={0.2}
+            roughness={0.4}
+          />
+        </mesh>
+      ) : (
+        <RoundedBox
+          args={[w, h, t]}
+          radius={shape === "rounded-rect" ? cornerRadius * 0.01 : 0.02}
+          smoothness={4}
+        >
+          <meshStandardMaterial 
+            color="#3b82f6"
+            metalness={0.2}
+            roughness={0.4}
+          />
+        </RoundedBox>
+      )}
       
       {/* Mounting holes */}
       {holes.map((pos, i) => (
-        <mesh key={i} position={[pos[0], pos[1], 0]}>
+        <mesh key={i} position={[pos[0], pos[1], 0]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[holeR, holeR, t + 0.02, 16]} />
           <meshStandardMaterial color="#1e293b" />
         </mesh>
