@@ -100,6 +100,7 @@ export function SettingsPanel() {
                   data-testid="slider-scale"
                 />
               </div>
+
             </section>
           )}
 

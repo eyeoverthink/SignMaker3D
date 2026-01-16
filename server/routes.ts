@@ -686,6 +686,10 @@ export async function registerRoutes(
         bevelEnabled: false,
         bevelThickness: 1,
         bevelSize: 0.5,
+        templateId: "none",
+        lightDiffuserBevel: false,
+        diffuserBevelAngle: 45,
+        centerlineMode: false,
       };
       
       const tubeSettings = {
@@ -818,6 +822,212 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Backing plate export error:", error);
       res.status(500).json({ error: "Failed to generate backing plate" });
+    }
+  });
+
+  // Helper function for path simplification
+  function simplifyPathPoints(points: any[], maxPoints: number): any[] {
+    if (points.length <= 2) return points;
+    
+    // Simple decimation - keep every Nth point
+    const step = Math.max(1, Math.floor(points.length / maxPoints));
+    const simplified = [];
+    
+    for (let i = 0; i < points.length; i += step) {
+      simplified.push(points[i]);
+    }
+    
+    // Always include last point
+    if (simplified[simplified.length - 1] !== points[points.length - 1]) {
+      simplified.push(points[points.length - 1]);
+    }
+    
+    return simplified;
+  }
+
+  // Shoe string mode export endpoint (pop culture image tracer)
+  app.post("/api/export/shoestring", async (req, res) => {
+    try {
+      const { paths, tubeDiameter, tubeStyle } = req.body;
+      
+      if (!paths || !Array.isArray(paths) || paths.length === 0) {
+        return res.status(400).json({ 
+          error: "Invalid paths data", 
+          details: "Paths array is required and must not be empty" 
+        });
+      }
+      
+      console.log(`[Shoe String Export] Processing ${paths.length} traced paths, tube diameter: ${tubeDiameter}mm`);
+      
+      // Filter and sort paths by length to keep only significant ones
+      const minPathLength = 10; // Minimum 10 points
+      const maxPaths = 50; // Limit to 50 paths max
+      const maxPointsPerPath = 200; // Limit points per path
+      
+      const validPaths = paths
+        .filter((p: any) => Array.isArray(p) && p.length >= minPathLength)
+        .sort((a: any, b: any) => b.length - a.length) // Longest paths first
+        .slice(0, maxPaths); // Take top N paths
+      
+      console.log(`[Shoe String Export] Filtered to ${validPaths.length} significant paths (from ${paths.length} total)`);
+      
+      if (validPaths.length === 0) {
+        throw new Error("No significant paths found. Try adjusting trace settings.");
+      }
+      
+      // Convert traced paths to 3D tube geometry
+      const { generateNeonSignV2 } = await import("./stl-generator-v2");
+      
+      // Convert image paths to the format expected by generateNeonSignV2
+      const convertedPaths: any[] = [];
+      
+      for (let index = 0; index < validPaths.length; index++) {
+        const path = validPaths[index];
+        
+        try {
+          // Simplify path if too many points
+          const simplifiedPath = path.length > maxPointsPerPath 
+            ? simplifyPathPoints(path, maxPointsPerPath)
+            : path;
+          
+          console.log(`[Shoe String Export] Path ${index}: ${path.length} -> ${simplifiedPath.length} points`);
+          
+          // Scale down from image pixels to reasonable mm dimensions
+          const scale = 200 / 500;
+          
+          const convertedPath = {
+            id: `path-${index}`,
+            points: simplifiedPath.map((point: any) => {
+              if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') {
+                throw new Error(`Invalid point in path ${index}: ${JSON.stringify(point)}`);
+              }
+              return {
+                x: point.x * scale - 100,  // Center around origin
+                y: -(point.y * scale - 100), // Flip Y and center
+              };
+            }),
+            closed: false
+          };
+          
+          convertedPaths.push(convertedPath);
+        } catch (conversionError) {
+          console.error(`[Shoe String Export] Error converting path ${index}:`, conversionError);
+          throw conversionError;
+        }
+      }
+      
+      console.log(`[Shoe String Export] Converted ${convertedPaths.length} paths for generation`);
+      
+      // Log sample of converted data
+      if (convertedPaths.length > 0) {
+        console.log(`[Shoe String Export] Sample converted path 0:`, {
+          id: convertedPaths[0].id,
+          pointCount: convertedPaths[0].points.length,
+          firstPoint: convertedPaths[0].points[0],
+          lastPoint: convertedPaths[0].points[convertedPaths[0].points.length - 1],
+          closed: convertedPaths[0].closed
+        });
+      }
+      
+      const letterSettings = {
+        text: "",
+        fontId: "inter",
+        depth: 20,
+        scale: 1,
+        bevelEnabled: false,
+        bevelThickness: 2,
+        bevelSize: 1,
+        templateId: "none",
+        lightDiffuserBevel: false,
+        diffuserBevelAngle: 45,
+        centerlineMode: false,
+      };
+      
+      const tubeSettings = {
+        neonTubeDiameter: tubeDiameter || 15,
+        channelDepth: 20,
+        filamentDiameter: 10,
+        wallThickness: 2,
+        wallHeight: 15,
+        tubeWidth: 20,
+        enableOverlay: false,
+        overlayThickness: 2,
+        continuousPath: true,
+      };
+      
+      console.log(`[Shoe String Export] Calling generateNeonSignV2...`);
+      
+      const exportedParts = generateNeonSignV2(
+        letterSettings,
+        tubeSettings,
+        defaultTwoPartSystem,
+        "stl",
+        convertedPaths,
+        "draw",
+        {
+          simplifyPaths: false,
+        }
+      );
+      
+      console.log(`[Shoe String Export] Generation complete, parts:`, exportedParts?.length);
+      
+      if (!exportedParts || exportedParts.length === 0) {
+        throw new Error("No parts generated from traced paths");
+      }
+      
+      const stlBuffer = Buffer.from(exportedParts[0].content);
+      
+      const filename = `shoestring_trace_${Date.now()}.stl`;
+      
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(stlBuffer);
+      
+      console.log(`[Shoe String Export] Generated ${filename}, ${stlBuffer.length} bytes`);
+    } catch (error) {
+      console.error("Shoe string export error:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+      res.status(500).json({ 
+        error: "Failed to generate shoe string trace STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Neon Shapes export endpoint (iconic shapes with Edison bulb bases)
+  app.post("/api/export/neonshapes", async (req, res) => {
+    try {
+      const settings = req.body;
+      
+      console.log(`[Neon Shapes Export] Generating ${settings.shapeType}, size=${settings.size}mm`);
+      
+      const { generateNeonShape } = await import("./neon-shapes-generator");
+      
+      const exportedParts = generateNeonShape(settings);
+      
+      if (!exportedParts || exportedParts.length === 0) {
+        throw new Error("No parts generated from neon shape");
+      }
+      
+      console.log(`[Neon Shapes Export] Generated ${exportedParts.length} parts`);
+      
+      // For now, send the first part (tube). In the future, could zip multiple parts
+      const stlBuffer = Buffer.from(exportedParts[0].content);
+      
+      const filename = `neon_${settings.shapeType}_${Date.now()}.stl`;
+      
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(stlBuffer);
+      
+      console.log(`[Neon Shapes Export] Sent ${filename}, ${stlBuffer.length} bytes`);
+    } catch (error) {
+      console.error("Neon shapes export error:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+      res.status(500).json({ 
+        error: "Failed to generate neon shape STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

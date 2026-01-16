@@ -1578,12 +1578,26 @@ export function generateNeonSignV2(
   if (inputMode === "draw" || inputMode === "image") {
     // Use sketch paths directly
     console.log(`[V2 Generator] Processing ${sketchPaths.length} sketch paths for ${inputMode} mode`);
+    
+    if (!sketchPaths || sketchPaths.length === 0) {
+      console.error(`[V2 Generator] ERROR: No sketch paths provided!`);
+      return [];
+    }
+    
     for (let i = 0; i < sketchPaths.length; i++) {
       const sketch = sketchPaths[i];
+      
+      if (!sketch || !sketch.points) {
+        console.error(`[V2 Generator] ERROR: Path ${i} is invalid:`, sketch);
+        continue;
+      }
+      
       if (sketch.points.length < 2) {
         console.log(`[V2 Generator] Skipping path ${i}: only ${sketch.points.length} points`);
         continue;
       }
+      
+      console.log(`[V2 Generator] Path ${i}: ${sketch.points.length} points, first point:`, sketch.points[0]);
       
       const path2D: number[][] = sketch.points.map(p => [p.x, p.y]);
       
@@ -1596,13 +1610,25 @@ export function generateNeonSignV2(
       if (options.simplifyPaths) {
         const innerDiameter = channelWidth - (wallThickness * 2);
         channelTriangles = createRoundTube(smoothPath, channelWidth, innerDiameter);
+        console.log(`[V2 Generator] Path ${i}: Using round tube, inner=${innerDiameter}mm`);
       } else {
         channelTriangles = createUChannel(smoothPath, channelWidth, wallThickness, wallHeight, baseThickness);
+        console.log(`[V2 Generator] Path ${i}: Using U-channel, width=${channelWidth}mm, wall=${wallThickness}mm, height=${wallHeight}mm, base=${baseThickness}mm`);
       }
       console.log(`[V2 Generator] Path ${i}: ${sketch.points.length} points -> ${smoothPath.length} smooth points -> ${channelTriangles.length} triangles`);
+      
+      if (channelTriangles.length === 0) {
+        console.warn(`[V2 Generator] WARNING: Path ${i} generated 0 triangles!`);
+      }
+      
       allTriangles.push(...channelTriangles);
     }
     console.log(`[V2 Generator] Total base triangles: ${allTriangles.length}`);
+    
+    if (allTriangles.length === 0) {
+      console.error(`[V2 Generator] ERROR: No triangles generated for ${inputMode} mode!`);
+    }
+    
     fileSlug = inputMode === "draw" ? "freehand" : "traced";
   } else {
     // Use appropriate font system based on font type

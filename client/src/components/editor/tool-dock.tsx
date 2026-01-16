@@ -1,7 +1,7 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
@@ -11,10 +11,12 @@ export function ToolDock() {
     { id: "text", icon: Type, label: "Signs", description: "Neon sign text" },
     { id: "draw", icon: Pencil, label: "Draw", description: "Freehand drawing" },
     { id: "image", icon: Image, label: "Image", description: "Upload & trace image" },
+    { id: "neonshapes", icon: Heart, label: "Neon Shapes", description: "Iconic shapes with Edison bases" },
     { id: "pettag", icon: Dog, label: "Pet Tags", description: "Illuminated dog tags" },
     { id: "modular", icon: Hexagon, label: "Panels", description: "Modular light panels" },
     { id: "neontube", icon: Zap, label: "Neon Tubes", description: "Realistic tube casings" },
     { id: "backingplate", icon: Square, label: "Backing Plates", description: "Mounting plates with holes" },
+    { id: "shoestring", icon: Sparkles, label: "Shoe String", description: "Pop culture image tracer" },
   ];
 
   return (

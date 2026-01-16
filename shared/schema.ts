@@ -126,7 +126,7 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate"] as const;
+export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes"] as const;
 export type InputMode = typeof inputModes[number];
 
 // Pet Tag specific types
@@ -267,6 +267,124 @@ export const defaultBackingPlateSettings: BackingPlateSettings = {
   gridSpacing: 50,
 };
 
+// Neon Shapes (Simple iconic neon signs with primitive shapes)
+export const neonShapesSettingsSchema = z.object({
+  shapeType: z.string(),                              // Shape from neon-shapes library
+  size: z.number().min(50).max(300),                  // Overall size in mm
+  tubeDiameter: z.number().min(8).max(25),            // Neon tube diameter
+  
+  // Tube Design
+  splitTube: z.boolean(),                             // Split tube in half for easy LED insertion
+  snapFit: z.boolean(),                               // Add snap-fit clips (vs screws)
+  
+  // LED Type
+  ledType: z.enum(["neon_strip", "ws2812b", "attiny", "el_wire", "standard_3mm", "standard_5mm"]),
+  ledChannel: z.boolean(),                            // Add LED channel in tube
+  ledChannelDiameter: z.number().min(3).max(12),      // LED channel size
+  
+  // Base/Holder
+  baseStyle: z.enum(["cylinder", "round", "square"]), // Base style
+  baseDiameter: z.number().min(40).max(150),          // Base diameter/width
+  baseHeight: z.number().min(10).max(40),             // Base height
+  tubeHolderHeight: z.number().min(20).max(80),       // Height of tube holder above base
+  tubeHolderDiameter: z.number().min(15).max(40),     // Diameter of tube holder
+  mountingHole: z.boolean(),                          // Add mounting hole in base
+  mountingHoleDiameter: z.number().min(3).max(10),    // Mounting hole size
+  
+  // Border/Frame
+  includeBorder: z.boolean(),                         // Add decorative border around sign
+  borderOffset: z.number().min(10).max(50),           // Distance from sign to border
+  borderStyle: z.enum(["simple", "art_deco", "vintage", "modern"]),
+  borderThickness: z.number().min(5).max(20),         // Border tube thickness
+  
+  // Backing Plate
+  includeBackingPlate: z.boolean(),                   // Auto-generate backing plate
+  backingPlateMargin: z.number().min(20).max(100),    // Margin around sign
+  backingPlateThickness: z.number().min(3).max(10),   // Plate thickness
+  backingPlateMountingHoles: z.boolean(),             // Add mounting holes to plate
+  
+  // Controller Housing
+  includeController: z.boolean(),                     // Generate controller housing
+  controllerType: z.enum(["555_timer", "ws2812b_esp32", "ws2812b_arduino", "attiny", "el_wire", "simple_led"]),
+  controllerPowerSource: z.enum(["usb_5v", "battery_4xaa", "usb_battery_dual", "barrel_jack_12v"]),
+  
+  // Wire Management
+  wireChannels: z.boolean(),                          // Add wire routing channels
+  wireChannelWidth: z.number().min(3).max(10),        // Wire channel width
+});
+
+export type NeonShapesSettings = z.infer<typeof neonShapesSettingsSchema>;
+
+export const defaultNeonShapesSettings: NeonShapesSettings = {
+  shapeType: "heart",
+  size: 120,
+  tubeDiameter: 15,
+  
+  // Tube Design
+  splitTube: true,
+  snapFit: true,
+  
+  // LED Type
+  ledType: "neon_strip",
+  ledChannel: true,
+  ledChannelDiameter: 8,
+  
+  // Base/Holder
+  baseStyle: "cylinder",
+  baseDiameter: 80,
+  baseHeight: 20,
+  tubeHolderHeight: 40,
+  tubeHolderDiameter: 20,
+  mountingHole: true,
+  mountingHoleDiameter: 5,
+  
+  // Border/Frame
+  includeBorder: false,
+  borderOffset: 20,
+  borderStyle: "simple",
+  borderThickness: 10,
+  
+  // Backing Plate
+  includeBackingPlate: true,
+  backingPlateMargin: 30,
+  backingPlateThickness: 5,
+  backingPlateMountingHoles: true,
+  
+  // Controller Housing
+  includeController: true,
+  controllerType: "555_timer",
+  controllerPowerSource: "usb_battery_dual",
+  
+  // Wire Management
+  wireChannels: true,
+  wireChannelWidth: 5,
+};
+
+// Shoe String Mode (Pop Culture Image Tracer)
+export const shoeStringSettingsSchema = z.object({
+  simplificationLevel: z.number().min(1).max(10),     // How loose/simplified the trace is
+  edgeThreshold: z.number().min(1).max(255),          // Edge detection sensitivity
+  minPathLength: z.number().min(5).max(100),          // Minimum path length to keep
+  tubeDiameter: z.number().min(8).max(25),            // Neon tube diameter
+  tubeStyle: z.enum(["outline", "filled", "sketch"]), // Rendering style
+  autoSimplify: z.boolean(),                          // Auto-simplify complex paths
+  preserveDetails: z.boolean(),                       // Keep fine details vs smooth curves
+  invertColors: z.boolean(),                          // Invert image before tracing
+});
+
+export type ShoeStringSettings = z.infer<typeof shoeStringSettingsSchema>;
+
+export const defaultShoeStringSettings: ShoeStringSettings = {
+  simplificationLevel: 5,
+  edgeThreshold: 128,
+  minPathLength: 20,
+  tubeDiameter: 15,
+  tubeStyle: "outline",
+  autoSimplify: true,
+  preserveDetails: false,
+  invertColors: false,
+};
+
 export const defaultPetTagSettings: PetTagSettings = {
   petName: "Max",
   tagShape: "bone",
@@ -285,16 +403,17 @@ export const defaultPetTagSettings: PetTagSettings = {
 };
 
 export const letterSettingsSchema = z.object({
-  text: z.string().min(0).max(200),
+  text: z.string().min(1).max(100),
   fontId: z.string(),
   depth: z.number().min(5).max(100),
-  scale: z.number().min(0.1).max(10),
+  scale: z.number().min(0.1).max(5),
   bevelEnabled: z.boolean(),
   bevelThickness: z.number().min(0).max(10),
-  bevelSize: z.number().min(0).max(5),
-  templateId: z.string().optional(),
+  bevelSize: z.number().min(0).max(10),
+  templateId: z.string(),
   lightDiffuserBevel: z.boolean().optional(),
-  diffuserBevelAngle: z.number().min(15).max(60).optional(),
+  diffuserBevelAngle: z.number().min(15).max(75).optional(),
+  centerlineMode: z.boolean().optional(), // Use skeletonization for single-stroke neon paths
 });
 
 export type LetterSettings = z.infer<typeof letterSettingsSchema>;
@@ -396,6 +515,7 @@ export const defaultLetterSettings: LetterSettings = {
   templateId: "none",
   lightDiffuserBevel: false,
   diffuserBevelAngle: 45,
+  centerlineMode: false, // Default OFF - experimental feature, opt-in only
 };
 
 export const defaultWiringSettings: WiringSettings = {
@@ -439,5 +559,40 @@ export const defaultTubeSettings: TubeSettings = {
   channelType: "filament",
 };
 
+// Controller Housing (Electronics enclosures for LED drivers)
+export const controllerHousingSettingsSchema = z.object({
+  controllerType: z.enum(["555_timer", "ws2812b_esp32", "ws2812b_arduino", "attiny", "el_wire", "simple_led"]),
+  powerSource: z.enum(["usb_5v", "battery_4xaa", "usb_battery_dual", "barrel_jack_12v", "screw_terminal"]),
+  includeSwitch: z.boolean(),
+  includePotentiometer: z.boolean(),
+  outputConnectors: z.number().min(1).max(8),
+  housingStyle: z.enum(["compact", "standard", "spacious"]),
+  mountingStyle: z.enum(["screws", "clips", "magnets"]),
+  ventilation: z.boolean(),
+  accessPanel: z.boolean(),
+  wallThickness: z.number().min(1.5).max(4),
+  cornerRadius: z.number().min(0).max(10),
+});
+
+export type ControllerHousingSettings = z.infer<typeof controllerHousingSettingsSchema>;
+
+export const defaultControllerHousingSettings: ControllerHousingSettings = {
+  controllerType: "555_timer",
+  powerSource: "usb_battery_dual",
+  includeSwitch: true,
+  includePotentiometer: true,
+  outputConnectors: 1,
+  housingStyle: "standard",
+  mountingStyle: "screws",
+  ventilation: true,
+  accessPanel: true,
+  wallThickness: 2,
+  cornerRadius: 3,
+};
+
 export { users, insertUserSchema } from "./users";
 export type { InsertUser, User } from "./users";
+export { neonShapes, neonShapeTypes } from "./neon-shapes";
+export type { NeonShapeType, NeonShapeDefinition } from "./neon-shapes";
+export { controllerTypes, controllerConfigs, componentLibrary } from "./controller-specs";
+export type { ControllerType, ControllerConfig, ComponentDimensions } from "./controller-specs";
