@@ -9,27 +9,7 @@ interface NeonTubePreviewProps {
   tubeScale: number;
 }
 
-// Commercial fonts only - using system fonts for preview
-// Hershey fonts will render as simple text since they're stroke-based
-const fontFileMap: Record<string, string> = {
-  "architects-daughter": "Architects Daughter",
-  "hershey-sans": "monospace",
-  "hershey-script": "cursive",
-  "inter": "Inter",
-  "lora": "Lora",
-  "merriweather": "Merriweather",
-  "montserrat": "Montserrat",
-  "open-sans": "Open Sans",
-  "outfit": "Outfit",
-  "oxanium": "Oxanium",
-  "playfair": "Playfair Display",
-  "poppins": "Poppins",
-  "roboto": "Roboto",
-  "space-grotesk": "Space Grotesk",
-};
-
 export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonTubePreviewProps) {
-  const fontUrl = fontFileMap[fontId] || fontFileMap["hershey-sans"];
   const fontSize = 1.2 * tubeScale;
   const tubeRadius = (tubeDiameter * 0.01) / 2;
   
@@ -40,7 +20,6 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
     <group>
       {/* Main text with tube outline effect */}
       <Text
-        font={fontUrl}
         fontSize={fontSize}
         anchorX="center"
         anchorY="middle"
@@ -60,7 +39,6 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
       
       {/* Outer glow layer for cyberpunk effect */}
       <Text
-        font={fontUrl}
         fontSize={fontSize * 1.02}
         anchorX="center"
         anchorY="middle"
@@ -79,7 +57,6 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
       
       {/* Inner LED glow simulation */}
       <Text
-        font={fontUrl}
         fontSize={fontSize * 0.95}
         anchorX="center"
         anchorY="middle"
@@ -96,7 +73,6 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
       
       {/* Bright core glow */}
       <Text
-        font={fontUrl}
         fontSize={fontSize * 0.9}
         anchorX="center"
         anchorY="middle"
