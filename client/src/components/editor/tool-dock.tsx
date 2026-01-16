@@ -11,6 +11,7 @@ export function ToolDock() {
     { id: "text", icon: Type, label: "Signs", description: "Neon sign text" },
     { id: "draw", icon: Pencil, label: "Draw", description: "Freehand drawing" },
     { id: "image", icon: Image, label: "Image", description: "Upload & trace image" },
+    { id: "presets", icon: Sparkles, label: "Presets", description: "40+ iconic shapes - retro, emoji, stick figures" },
     { id: "neonshapes", icon: Heart, label: "Neon Shapes", description: "Iconic shapes with Edison bases" },
     { id: "pettag", icon: Dog, label: "Pet Tags", description: "Illuminated dog tags" },
     { id: "modular", icon: Hexagon, label: "Panels", description: "Modular light panels" },
