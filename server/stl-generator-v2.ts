@@ -449,38 +449,58 @@ function createRoundTube(
     }
   }
   
-  // Cap the ends
+  // Cap the ends - create annular (ring-shaped) caps
+  // Start cap (facing backward along path)
+  const startProfile = profiles[0];
+  const startCenter = path3D[0];
+  const startTangent = normalize(sub(path3D[1], path3D[0]));
+  const startNormal = scale(startTangent, -1); // Point backward
+  
   for (let j = 0; j < segments; j++) {
-    // Start cap
-    const start = profiles[0];
-    const v1 = start.outer[j];
-    const v2 = start.outer[j + 1];
-    const v3 = start.inner[j];
-    const v4 = start.inner[j + 1];
+    const outerV1 = startProfile.outer[j];
+    const outerV2 = startProfile.outer[j + 1];
+    const innerV1 = startProfile.inner[j];
+    const innerV2 = startProfile.inner[j + 1];
     
+    // Create quad between outer and inner rings
     triangles.push({
-      normal: calcNormal(v1, v3, v2),
-      v1, v2: v3, v3: v2
+      normal: startNormal,
+      v1: outerV1,
+      v2: innerV1,
+      v3: outerV2
     });
     triangles.push({
-      normal: calcNormal(v2, v3, v4),
-      v1: v2, v2: v3, v3: v4
+      normal: startNormal,
+      v1: innerV1,
+      v2: innerV2,
+      v3: outerV2
     });
+  }
+  
+  // End cap (facing forward along path)
+  const endProfile = profiles[profiles.length - 1];
+  const endCenter = path3D[path3D.length - 1];
+  const endTangent = normalize(sub(path3D[path3D.length - 1], path3D[path3D.length - 2]));
+  const endNormal = endTangent; // Point forward
+  
+  for (let j = 0; j < segments; j++) {
+    const outerV1 = endProfile.outer[j];
+    const outerV2 = endProfile.outer[j + 1];
+    const innerV1 = endProfile.inner[j];
+    const innerV2 = endProfile.inner[j + 1];
     
-    // End cap
-    const end = profiles[profiles.length - 1];
-    const e1 = end.outer[j];
-    const e2 = end.outer[j + 1];
-    const e3 = end.inner[j];
-    const e4 = end.inner[j + 1];
-    
+    // Create quad between outer and inner rings (reversed winding)
     triangles.push({
-      normal: calcNormal(e1, e2, e3),
-      v1: e1, v2: e2, v3: e3
+      normal: endNormal,
+      v1: outerV1,
+      v2: outerV2,
+      v3: innerV1
     });
     triangles.push({
-      normal: calcNormal(e2, e4, e3),
-      v1: e2, v2: e4, v3: e3
+      normal: endNormal,
+      v1: innerV1,
+      v2: outerV2,
+      v3: innerV2
     });
   }
   
