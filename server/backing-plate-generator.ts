@@ -164,6 +164,75 @@ function generateCirclePlate(diameter: number, thickness: number, segments: numb
   return triangles;
 }
 
+// Generate a hexagonal plate for modular LED panels
+function generateHexagonPlate(size: number, thickness: number): Triangle[] {
+  const triangles: Triangle[] = [];
+  const t = thickness / 2;
+  const radius = size / 2;
+  
+  // Calculate hexagon vertices (flat-top orientation)
+  const vertices: Array<{x: number, y: number}> = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 2; // Start from top
+    vertices.push({
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius
+    });
+  }
+  
+  // Top face - triangulate from center
+  for (let i = 0; i < 6; i++) {
+    const v1 = vertices[i];
+    const v2 = vertices[(i + 1) % 6];
+    triangles.push({
+      normal: { x: 0, y: 0, z: 1 },
+      v1: { x: 0, y: 0, z: t },
+      v2: { x: v1.x, y: v1.y, z: t },
+      v3: { x: v2.x, y: v2.y, z: t }
+    });
+  }
+  
+  // Bottom face - triangulate from center (reversed winding)
+  for (let i = 0; i < 6; i++) {
+    const v1 = vertices[i];
+    const v2 = vertices[(i + 1) % 6];
+    triangles.push({
+      normal: { x: 0, y: 0, z: -1 },
+      v1: { x: 0, y: 0, z: -t },
+      v2: { x: v2.x, y: v2.y, z: -t },
+      v3: { x: v1.x, y: v1.y, z: -t }
+    });
+  }
+  
+  // Side walls
+  for (let i = 0; i < 6; i++) {
+    const v1 = vertices[i];
+    const v2 = vertices[(i + 1) % 6];
+    
+    // Calculate outward normal for this edge
+    const edgeMidX = (v1.x + v2.x) / 2;
+    const edgeMidY = (v1.y + v2.y) / 2;
+    const normal = normalize({ x: edgeMidX, y: edgeMidY, z: 0 });
+    
+    triangles.push(
+      {
+        normal,
+        v1: { x: v1.x, y: v1.y, z: -t },
+        v2: { x: v1.x, y: v1.y, z: t },
+        v3: { x: v2.x, y: v2.y, z: t }
+      },
+      {
+        normal,
+        v1: { x: v1.x, y: v1.y, z: -t },
+        v2: { x: v2.x, y: v2.y, z: t },
+        v3: { x: v2.x, y: v2.y, z: -t }
+      }
+    );
+  }
+  
+  return triangles;
+}
+
 // Generate a cylinder for holes - creates inner wall only (hole is cut from plate faces)
 function generateHole(x: number, y: number, radius: number, thickness: number, segments: number = 16): Triangle[] {
   const triangles: Triangle[] = [];
@@ -329,6 +398,13 @@ export function generateBackingPlate(settings: BackingPlateSettings): Buffer {
     const diameter = Math.max(width, height);
     triangles.push(...generateCirclePlate(diameter, thickness));
     // Add hole cylinders for circle (simple approach - holes not cut from faces)
+    for (const hole of holes) {
+      triangles.push(...generateHole(hole.x, hole.y, hole.radius, thickness));
+    }
+  } else if (shape === "hexagon") {
+    const size = Math.max(width, height);
+    triangles.push(...generateHexagonPlate(size, thickness));
+    // Add hole cylinders for hexagon
     for (const hole of holes) {
       triangles.push(...generateHole(hole.x, hole.y, hole.radius, thickness));
     }

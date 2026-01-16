@@ -232,7 +232,7 @@ export const defaultNeonTubeSettings: NeonTubeSettings = {
 };
 
 // Backing Plate (separate mounting plates for neon signs)
-export const backingPlateShapes = ["rectangle", "square", "circle", "rounded-rect", "custom"] as const;
+export const backingPlateShapes = ["rectangle", "square", "circle", "rounded-rect", "hexagon", "custom"] as const;
 export type BackingPlateShape = typeof backingPlateShapes[number];
 
 export const holePatterns = ["none", "corners", "grid", "perimeter", "custom"] as const;
@@ -386,8 +386,8 @@ export const insertProjectSchema = projectSchema.omit({ id: true, createdAt: tru
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 
 export const defaultLetterSettings: LetterSettings = {
-  text: "A",
-  fontId: "inter",
+  text: "",
+  fontId: "aguafina-script",
   depth: 20,
   scale: 1,
   bevelEnabled: true,

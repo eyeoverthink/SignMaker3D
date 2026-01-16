@@ -130,30 +130,54 @@ function Canvas2DFallback() {
 }
 
 const fontFileMap: Record<string, string> = {
-  "aerioz": "Aerioz-Demo.otf",
-  "airstream": "Airstream.ttf",
-  "airstream-nf": "AirstreamNF.ttf",
-  "alliston": "Alliston-Demo.ttf",
-  "cookiemonster": "Cookiemonster.ttf",
-  "darlington": "Darlington-Demo.ttf",
-  "dirtyboy": "Dirtyboy.ttf",
-  "future-light": "FutureLight.ttf",
-  "future-light-italic": "FutureLightItalic.ttf",
-  "halimun": "Halimun.ttf",
+  "aguafina-script": "aguafina-script-v24-latin-regular.otf",
+  "alex-brush": "alex-brush-v23-latin-regular.ttf",
+  "allison": "allison-v13-latin-regular.ttf",
+  "allura": "allura-v23-latin-regular.ttf",
+  "amatic-sc": "amatic-sc-v28-latin-regular.ttf",
+  "amita": "amita-v20-latin-regular.ttf",
+  "annie-use-your-telescope": "annie-use-your-telescope-v20-latin-regular.ttf",
+  "architects-daughter": "architects-daughter-v20-latin-regular.ttf",
+  "archivo-black": "archivo-black-v23-latin-regular.ttf",
+  "archivo-narrow": "archivo-narrow-v35-latin-regular.ttf",
+  "are-you-serious": "are-you-serious-v14-latin-regular.otf",
+  "arizonia": "arizonia-v23-latin-regular.ttf",
+  "babylonica": "babylonica-v7-latin-regular.ttf",
+  "bad-script": "bad-script-v18-latin-regular.ttf",
+  "ballet": "ballet-v30-latin-regular.ttf",
+  "beau-rivage": "beau-rivage-v2-latin-regular.ttf",
+  "berkshire-swash": "berkshire-swash-v22-latin-regular.ttf",
+  "beth-ellen": "beth-ellen-v22-latin-regular.ttf",
+  "bilbo": "bilbo-v21-latin-regular.ttf",
+  "bilbo-swash-caps": "bilbo-swash-caps-v23-latin-regular.ttf",
+  "birthstone": "birthstone-v16-latin-regular.ttf",
+  "birthstone-bounce": "birthstone-bounce-v13-latin-regular.ttf",
+  "bonbon": "bonbon-v32-latin-regular.ttf",
+  "bonheur-royale": "bonheur-royale-v15-latin-regular.ttf",
+  "borel": "borel-v10-latin-regular.ttf",
+  "butterfly-kids": "butterfly-kids-v27-latin-regular.ttf",
+  "calligraffitti": "calligraffitti-v20-latin-regular.ttf",
+  "caramel": "caramel-v8-latin-regular.ttf",
+  "cause": "cause-v1-latin-regular.ttf",
+  "caveat": "caveat-v23-latin-regular.ttf",
+  "caveat-brush": "caveat-brush-v12-latin-regular.ttf",
+  "cedarville-cursive": "cedarville-cursive-v18-latin-regular.ttf",
+  "charm": "charm-v14-latin-regular.ttf",
+  "charmonman": "charmonman-v20-latin-regular.ttf",
+  "chilanka": "chilanka-v23-latin-regular.ttf",
+  "edu-nsw-act-cursive": "edu-nsw-act-cursive-v3-latin-regular.ttf",
   "hershey-sans": "Airstream.ttf",
   "hershey-script": "Halimun.ttf",
-  "inter": "Airstream.ttf",
-  "roboto": "Airstream.ttf",
-  "poppins": "Airstream.ttf",
-  "montserrat": "Airstream.ttf",
-  "open-sans": "Airstream.ttf",
-  "playfair": "Darlington-Demo.ttf",
-  "merriweather": "Darlington-Demo.ttf",
-  "lora": "Halimun.ttf",
-  "space-grotesk": "Airstream.ttf",
-  "outfit": "Airstream.ttf",
-  "architects-daughter": "Halimun.ttf",
-  "oxanium": "Airstream.ttf",
+  "inter": "inter-v20-latin-regular.ttf",
+  "inter-tight": "inter-tight-v9-latin-regular.ttf",
+  "lora": "lora-v37-latin-regular.ttf",
+  "montserrat": "montserrat-v31-latin-regular.ttf",
+  "neonderthaw": "neonderthaw-v8-latin-regular.ttf",
+  "open-sans": "open-sans-v44-latin-regular.ttf",
+  "outfit": "outfit-v15-latin-regular.ttf",
+  "playfair-display": "playfair-display-v40-latin-regular.ttf",
+  "recursive": "recursive-v44-latin-regular.otf",
+  "tilt-neon": "tilt-neon-v12-latin-regular.otf",
 };
 
 function WebGL3DCanvas() {
@@ -385,6 +409,7 @@ function WebGL3DCanvas() {
               )}
 
               <Text
+                key={`main-text-${letterSettings.text}-${letterSettings.fontId}`}
                 font={fontUrl}
                 position={[0, 0, letterOffset + letterHeight + 0.02]}
                 fontSize={fontSize}
@@ -399,6 +424,7 @@ function WebGL3DCanvas() {
 
               {geometrySettings.mode === "stencil" && (
                 <Text
+                  key={`stencil-text-${letterSettings.text}-${letterSettings.fontId}`}
                   font={fontUrl}
                   position={[0, 0, backingThickness / 2 + 0.02]}
                   fontSize={fontSize * 0.9}
@@ -415,6 +441,7 @@ function WebGL3DCanvas() {
                   {isFilament ? (
                     <>
                       <Text
+                        key={`filament-outer-${letterSettings.text}-${letterSettings.fontId}`}
                         font={fontUrl}
                         position={[0, 0, tubeWallHeight / 2]}
                         fontSize={fontSize}
@@ -430,6 +457,7 @@ function WebGL3DCanvas() {
                       </Text>
                       
                       <Text
+                        key={`filament-inner-${letterSettings.text}-${letterSettings.fontId}`}
                         font={fontUrl}
                         position={[0, 0, tubeWallHeight / 2 + 0.01]}
                         fontSize={fontSize}
@@ -456,6 +484,7 @@ function WebGL3DCanvas() {
                   ) : (
                     <>
                       <Text
+                        key={`tube-outer-${letterSettings.text}-${letterSettings.fontId}`}
                         font={fontUrl}
                         position={[0, 0, tubeWallHeight / 2]}
                         fontSize={fontSize}
@@ -471,6 +500,7 @@ function WebGL3DCanvas() {
                       </Text>
                       
                       <Text
+                        key={`tube-inner-${letterSettings.text}-${letterSettings.fontId}`}
                         font={fontUrl}
                         position={[0, 0, tubeWallHeight / 2 + 0.01]}
                         fontSize={fontSize}
@@ -489,6 +519,7 @@ function WebGL3DCanvas() {
                   
                   {tubeSettings.enableOverlay && (
                     <Text
+                      key={`overlay-${letterSettings.text}-${letterSettings.fontId}`}
                       font={fontUrl}
                       position={[0, 0, tubeWallHeight + overlayThickness / 2]}
                       fontSize={fontSize}
@@ -506,6 +537,7 @@ function WebGL3DCanvas() {
                   
                   {geometrySettings.enableBacking !== false && (
                     <Text
+                      key={`backing-${letterSettings.text}-${letterSettings.fontId}`}
                       font={fontUrl}
                       position={[0, 0, -backingThickness / 2]}
                       fontSize={fontSize}
@@ -524,6 +556,7 @@ function WebGL3DCanvas() {
               )}
 
               <Text
+                key={`back-text-${letterSettings.text}-${letterSettings.fontId}`}
                 font={fontUrl}
                 position={[0, 0, geometrySettings.mode === "flat" ? -letterHeight / 2 - 0.02 : -backingThickness - 0.02]}
                 fontSize={fontSize}

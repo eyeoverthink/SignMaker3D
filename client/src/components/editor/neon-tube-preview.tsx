@@ -67,10 +67,14 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
   // Display text exactly as user typed it (preserve case)
   const displayText = text || "NEON";
   
+  // Create unique key to force re-render when text or font changes
+  const renderKey = `${displayText}-${fontId}`;
+  
   return (
-    <group>
+    <group key={renderKey}>
       {/* Main text with tube outline effect */}
       <Text
+        key={`main-${renderKey}`}
         font={fontUrl}
         fontSize={fontSize}
         anchorX="center"
@@ -91,6 +95,7 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
       
       {/* Outer glow layer for cyberpunk effect */}
       <Text
+        key={`glow-${renderKey}`}
         font={fontUrl}
         fontSize={fontSize * 1.02}
         anchorX="center"
@@ -110,6 +115,7 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
       
       {/* Inner LED glow simulation */}
       <Text
+        key={`inner-${renderKey}`}
         font={fontUrl}
         fontSize={fontSize * 0.95}
         anchorX="center"
@@ -127,6 +133,7 @@ export function NeonTubePreview({ text, fontId, tubeDiameter, tubeScale }: NeonT
       
       {/* Bright core glow */}
       <Text
+        key={`core-${renderKey}`}
         font={fontUrl}
         fontSize={fontSize * 0.9}
         anchorX="center"

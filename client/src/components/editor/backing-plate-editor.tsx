@@ -10,6 +10,7 @@ import { OrbitControls, RoundedBox } from "@react-three/drei";
 import { Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { backingPlateShapes, holePatterns } from "@shared/schema";
+import * as THREE from "three";
 
 function BackingPlatePreview() {
   const { backingPlateSettings } = useEditorStore();
@@ -65,12 +66,38 @@ function BackingPlatePreview() {
     }
   }
   
+  // Generate hexagon vertices for preview
+  const hexVertices = [];
+  if (shape === "hexagon") {
+    const radius = (Math.max(width, height) / 2) * 0.01;
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 2;
+      hexVertices.push([
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius,
+        0
+      ]);
+    }
+  }
+  
   return (
     <group>
       {/* Main plate - render based on shape */}
       {shape === "circle" ? (
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[w/2, w/2, t, 32]} />
+          <meshStandardMaterial 
+            color="#3b82f6"
+            metalness={0.2}
+            roughness={0.4}
+          />
+        </mesh>
+      ) : shape === "hexagon" ? (
+        <mesh>
+          <extrudeGeometry args={[
+            new THREE.Shape(hexVertices.map(v => new THREE.Vector2(v[0], v[1]))),
+            { depth: t, bevelEnabled: false }
+          ]} />
           <meshStandardMaterial 
             color="#3b82f6"
             metalness={0.2}
