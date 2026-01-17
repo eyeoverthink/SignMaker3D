@@ -326,6 +326,8 @@ export function ImageTracer() {
   );
 }
 
+// Moore-Neighbor Tracing Algorithm (like maze solving)
+// Follows the boundary of shapes by always keeping the edge on one side
 function extractContours(
   data: Uint8ClampedArray,
   width: number,
@@ -333,68 +335,159 @@ function extractContours(
   simplify: number
 ): { x: number; y: number }[][] {
   const contours: { x: number; y: number }[][] = [];
-  const visited = new Set<number>();
-
-  const getPixel = (x: number, y: number): boolean => {
+  const visited = new Uint8Array(width * height); // Track visited pixels
+  
+  // Check if pixel is foreground (black = edge)
+  const isForeground = (x: number, y: number): boolean => {
     if (x < 0 || x >= width || y < 0 || y >= height) return false;
     const idx = (y * width + x) * 4;
-    return data[idx] === 0;
+    return data[idx] === 0; // Black pixels are edges
   };
 
-  const isEdge = (x: number, y: number): boolean => {
-    if (!getPixel(x, y)) return false;
-    return !getPixel(x - 1, y) || !getPixel(x + 1, y) || 
-           !getPixel(x, y - 1) || !getPixel(x, y + 1);
-  };
+  // Moore neighborhood: 8-connected neighbors in clockwise order
+  // Starting from right, going clockwise: E, SE, S, SW, W, NW, N, NE
+  const directions = [
+    [1, 0],   // E
+    [1, 1],   // SE
+    [0, 1],   // S
+    [-1, 1],  // SW
+    [-1, 0],  // W
+    [-1, -1], // NW
+    [0, -1],  // N
+    [1, -1]   // NE
+  ];
 
-  for (let y = 0; y < height; y += simplify) {
-    for (let x = 0; x < width; x += simplify) {
-      const key = y * width + x;
-      if (visited.has(key)) continue;
-      if (!isEdge(x, y)) continue;
-
-      const contour: { x: number; y: number }[] = [];
-      let cx = x, cy = y;
-      const directions = [
-        [1, 0], [1, 1], [0, 1], [-1, 1],
-        [-1, 0], [-1, -1], [0, -1], [1, -1]
-      ];
-
-      let steps = 0;
-      const maxSteps = 10000;
-
-      while (steps < maxSteps) {
-        const ckey = cy * width + cx;
-        if (visited.has(ckey)) break;
-        visited.add(ckey);
-
-        if (steps % simplify === 0) {
-          contour.push({ x: cx, y: cy });
+  // Find starting point for a contour (leftmost foreground pixel)
+  const findStart = (): [number, number] | null => {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        if (isForeground(x, y) && visited[idx] === 0) {
+          return [x, y];
         }
-
-        let found = false;
-        for (const [dx, dy] of directions) {
-          const nx = cx + dx * simplify;
-          const ny = cy + dy * simplify;
-          const nkey = ny * width + nx;
-          
-          if (!visited.has(nkey) && isEdge(nx, ny)) {
-            cx = nx;
-            cy = ny;
-            found = true;
-            break;
-          }
-        }
-
-        if (!found) break;
-        steps++;
-      }
-
-      if (contour.length >= 4) {
-        contours.push(contour);
       }
     }
+    return null;
+  };
+
+  // Trace boundary using Moore-Neighbor algorithm
+  const traceBoundary = (startX: number, startY: number): { x: number; y: number }[] => {
+    const boundary: { x: number; y: number }[] = [];
+    let x = startX;
+    let y = startY;
+    let dir = 0; // Start searching from East
+    
+    const startIdx = y * width + x;
+    let steps = 0;
+    const maxSteps = width * height; // Prevent infinite loops
+    
+    do {
+      // Mark as visited
+      visited[y * width + x] = 1;
+      
+      // Add point to boundary (with simplification)
+      if (steps % Math.max(1, simplify) === 0) {
+        boundary.push({ x, y });
+      }
+      
+      // Search for next boundary pixel using Moore neighborhood
+      // Start from the direction we came from + 2 (to stay on boundary)
+      let searchDir = (dir + 5) % 8; // Start 90° counter-clockwise from where we came
+      let found = false;
+      
+      for (let i = 0; i < 8; i++) {
+        const checkDir = (searchDir + i) % 8;
+        const [dx, dy] = directions[checkDir];
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (isForeground(nx, ny)) {
+          // Found next boundary pixel
+          x = nx;
+          y = ny;
+          dir = checkDir;
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) break; // Dead end
+      steps++;
+      
+      // Stop if we've returned to start
+      if (steps > 2 && x === startX && y === startY) break;
+      
+    } while (steps < maxSteps);
+    
+    return boundary;
+  };
+
+  // Find and trace all contours
+  let start = findStart();
+  while (start !== null) {
+    const [x, y] = start;
+    const contour = traceBoundary(x, y);
+    
+    // Only keep contours with enough points
+    if (contour.length >= 4) {
+      // Simplify using Douglas-Peucker if needed
+      const simplified = simplifyPath(contour, simplify * 0.5);
+      if (simplified.length >= 3) {
+        contours.push(simplified);
+      }
+    }
+    
+    start = findStart();
   }
 
   return contours;
+}
+
+// Douglas-Peucker path simplification algorithm
+function simplifyPath(points: { x: number; y: number }[], tolerance: number): { x: number; y: number }[] {
+  if (points.length <= 2) return points;
+  
+  // Find point with maximum distance from line between first and last
+  let maxDist = 0;
+  let maxIndex = 0;
+  const first = points[0];
+  const last = points[points.length - 1];
+  
+  for (let i = 1; i < points.length - 1; i++) {
+    const dist = perpendicularDistance(points[i], first, last);
+    if (dist > maxDist) {
+      maxDist = dist;
+      maxIndex = i;
+    }
+  }
+  
+  // If max distance is greater than tolerance, recursively simplify
+  if (maxDist > tolerance) {
+    const left = simplifyPath(points.slice(0, maxIndex + 1), tolerance);
+    const right = simplifyPath(points.slice(maxIndex), tolerance);
+    return [...left.slice(0, -1), ...right];
+  } else {
+    return [first, last];
+  }
+}
+
+// Calculate perpendicular distance from point to line
+function perpendicularDistance(
+  point: { x: number; y: number },
+  lineStart: { x: number; y: number },
+  lineEnd: { x: number; y: number }
+): number {
+  const dx = lineEnd.x - lineStart.x;
+  const dy = lineEnd.y - lineStart.y;
+  const norm = Math.sqrt(dx * dx + dy * dy);
+  
+  if (norm === 0) {
+    return Math.sqrt(
+      (point.x - lineStart.x) ** 2 + (point.y - lineStart.y) ** 2
+    );
+  }
+  
+  return Math.abs(
+    dy * point.x - dx * point.y + lineEnd.x * lineStart.y - lineEnd.y * lineStart.x
+  ) / norm;
 }
