@@ -27,11 +27,22 @@ function generateShellProfile(
   
   switch (shape) {
     case "egg":
-      // Egg shape - wider at bottom, tapered at top
+      // True egg shape - wider at bottom (60% down), tapered to point at top
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
-        const angle = t * Math.PI;
-        const radius = halfWidth * Math.sin(angle) * (1 - t * 0.3);
+        // Asymmetric profile: wider bottom, pointed top
+        let radius;
+        if (t < 0.6) {
+          // Bottom 60% - gradual widening
+          const localT = t / 0.6;
+          const angle = localT * Math.PI * 0.5;
+          radius = halfWidth * Math.sin(angle);
+        } else {
+          // Top 40% - sharper taper to point
+          const localT = (t - 0.6) / 0.4;
+          const angle = Math.PI * 0.5 + localT * Math.PI * 0.5;
+          radius = halfWidth * Math.sin(angle) * (1 - localT * 0.4);
+        }
         const y = -height / 2 + t * height;
         profile.push({ x: radius, y });
       }
