@@ -389,7 +389,7 @@ export function RetroNeonEditor() {
       const a = document.createElement("a");
       a.href = url;
       a.download = settings.mode === "edison_bulb" 
-        ? `edison_${settings.edison.filamentShape}_bulb.zip`
+        ? `edison_${settings.edison.shellShape}_bulb.zip`
         : `neon_${settings.neonSign.shape}_sign.zip`;
       document.body.appendChild(a);
       a.click();

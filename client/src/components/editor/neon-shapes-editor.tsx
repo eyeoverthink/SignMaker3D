@@ -346,14 +346,7 @@ export function NeonShapesEditor() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="multi-color">Multi-Color Support</Label>
-                <Switch
-                  id="multi-color"
-                  checked={settings.multiColor}
-                  onCheckedChange={(v) => updateSetting("multiColor", v)}
-                />
-              </div>
+              {/* Multi-color support removed - not in schema */}
             </CardContent>
           </Card>
 

@@ -960,12 +960,12 @@ export async function generateRetroNeonSTL(settings: RetroNeonSettings): Promise
     if (settings.mode === "edison_bulb") {
       const edison = settings.edison;
       
-      // Use new shell-based fields with fallback to legacy fields
-      const shellShape = edison.shellShape || edison.glassShape || "globe";
+      // Use shell-based fields
+      const shellShape = edison.shellShape || "globe";
       const shellScale = edison.shellScale || 1.0;
-      const shellHeight = edison.shellHeight || edison.glassHeight || 80;
-      const shellWallThickness = edison.shellWallThickness || edison.glassWallThickness || 2;
-      const shellMaterial = edison.shellMaterial || edison.glassMaterial || "clear";
+      const shellHeight = edison.shellHeight || 80;
+      const shellWallThickness = edison.shellWallThickness || 2;
+      const shellMaterial = edison.shellMaterial || "clear";
       const openingDiameter = edison.openingDiameter || 25;
       
       // Classic bulb shapes use lathe geometry, primitive shapes use extrusion
@@ -1080,7 +1080,7 @@ export async function generateRetroNeonSTL(settings: RetroNeonSettings): Promise
 
 export function getRetroNeonFilename(settings: RetroNeonSettings): string {
   if (settings.mode === "edison_bulb") {
-    const shellShape = settings.edison.shellShape || settings.edison.glassShape || "shell";
+    const shellShape = settings.edison.shellShape || "shell";
     return `edison_${shellShape}_bulb.zip`;
   }
   return `neon_${settings.neonSign.shape}_sign.zip`;
