@@ -6,10 +6,10 @@ import { z } from "zod";
 export const ledHolderLedTypes = ["3mm", "5mm", "ws2812b", "ws2812b_strip", "10mm_uv"] as const;
 export type LEDHolderLedType = typeof ledHolderLedTypes[number];
 
-export const ledHolderStyles = ["clip", "socket", "cradle"] as const;
+export const ledHolderStyles = ["clip", "socket", "cradle", "canvas_wash"] as const;
 export type LEDHolderStyle = typeof ledHolderStyles[number];
 
-export const ledHolderMountTypes = ["magnetic", "screw", "adhesive", "clip_on"] as const;
+export const ledHolderMountTypes = ["magnetic", "screw", "adhesive", "clip_on", "canvas_clip"] as const;
 export type LEDHolderMountType = typeof ledHolderMountTypes[number];
 
 export const ledHolderSettingsSchema = z.object({

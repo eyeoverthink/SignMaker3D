@@ -12,6 +12,9 @@ import {
   type ModularShapeSettings,
   type NeonTubeSettings,
   type BackingPlateSettings,
+  type CustomShapeSettings,
+  type RetroNeonSettings,
+  type LEDHolderSettings,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
@@ -22,6 +25,9 @@ import {
   defaultModularShapeSettings,
   defaultNeonTubeSettings,
   defaultBackingPlateSettings,
+  defaultCustomShapeSettings,
+  defaultRetroNeonSettings,
+  defaultLEDHolderSettings,
 } from "@shared/schema";
 
 interface EditorState {
@@ -35,6 +41,9 @@ interface EditorState {
   modularShapeSettings: ModularShapeSettings;
   neonTubeSettings: NeonTubeSettings;
   backingPlateSettings: BackingPlateSettings;
+  customShapeSettings: CustomShapeSettings;
+  retroNeonSettings: RetroNeonSettings;
+  ledHolderSettings: LEDHolderSettings;
   sketchPaths: SketchPath[];
   inputMode: InputMode;
   uploadedImageData: string | null;
@@ -54,6 +63,9 @@ interface EditorState {
   setBackingPlateSettings: (settings: Partial<BackingPlateSettings>) => void;
   setModularShapeSettings: (settings: Partial<ModularShapeSettings>) => void;
   setNeonTubeSettings: (settings: Partial<NeonTubeSettings>) => void;
+  setCustomShapeSettings: (settings: Partial<CustomShapeSettings>) => void;
+  setRetroNeonSettings: (settings: Partial<RetroNeonSettings>) => void;
+  setLEDHolderSettings: (settings: Partial<LEDHolderSettings>) => void;
   setSketchPaths: (paths: SketchPath[]) => void;
   addSketchPath: (path: SketchPath) => void;
   removeSketchPath: (id: string) => void;
@@ -79,6 +91,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   modularShapeSettings: defaultModularShapeSettings,
   neonTubeSettings: defaultNeonTubeSettings,
   backingPlateSettings: defaultBackingPlateSettings,
+  customShapeSettings: defaultCustomShapeSettings,
+  retroNeonSettings: defaultRetroNeonSettings,
+  ledHolderSettings: defaultLEDHolderSettings,
   sketchPaths: [],
   inputMode: "text",
   uploadedImageData: null,
@@ -128,6 +143,18 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       backingPlateSettings: { ...state.backingPlateSettings, ...settings },
     })),
+  setCustomShapeSettings: (settings) =>
+    set((state) => ({
+      customShapeSettings: { ...state.customShapeSettings, ...settings },
+    })),
+  setRetroNeonSettings: (settings) =>
+    set((state) => ({
+      retroNeonSettings: { ...state.retroNeonSettings, ...settings },
+    })),
+  setLEDHolderSettings: (settings) =>
+    set((state) => ({
+      ledHolderSettings: { ...state.ledHolderSettings, ...settings },
+    })),
   setSketchPaths: (paths) => set({ sketchPaths: paths }),
   addSketchPath: (path) =>
     set((state) => ({
@@ -157,6 +184,9 @@ export const useEditorStore = create<EditorState>((set) => ({
       modularShapeSettings: defaultModularShapeSettings,
       neonTubeSettings: defaultNeonTubeSettings,
       backingPlateSettings: defaultBackingPlateSettings,
+      customShapeSettings: defaultCustomShapeSettings,
+      retroNeonSettings: defaultRetroNeonSettings,
+      ledHolderSettings: defaultLEDHolderSettings,
       sketchPaths: [],
       inputMode: "text",
       uploadedImageData: null,
