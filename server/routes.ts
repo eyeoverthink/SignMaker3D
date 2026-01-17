@@ -1031,5 +1031,122 @@ export async function registerRoutes(
     }
   });
 
+  // Preset shapes export endpoint
+  app.post("/api/export/preset-shape", async (req, res) => {
+    try {
+      const { presetId, extrudeDepth = 15, wallThickness = 2 } = req.body;
+      
+      if (!presetId) {
+        return res.status(400).json({ error: "presetId required" });
+      }
+      
+      console.log(`[Preset Shape Export] Shape: ${presetId}, Depth: ${extrudeDepth}mm`);
+      
+      const { presetShapes } = await import("@shared/preset-shapes");
+      const { parseSVGPath, pointsToPath, simplifyPath } = await import("./svg-path-parser");
+      const { generateNeonSignV2 } = await import("./stl-generator-v2");
+      const { defaultTwoPartSystem } = await import("@shared/schema");
+      
+      const preset = presetShapes.find(p => p.id === presetId);
+      if (!preset) {
+        return res.status(404).json({ error: "Preset shape not found" });
+      }
+      
+      // Parse SVG path to points
+      const points = parseSVGPath(preset.pathData, 100);
+      const simplified = simplifyPath(points, 0.5);
+      
+      console.log(`[Preset Shape] Parsed ${points.length} points, simplified to ${simplified.length}`);
+      
+      // For now, create a simple letter settings object
+      // In the future, this could use the actual path data for custom geometry
+      const letterSettings = {
+        text: preset.name,
+        fontId: "inter",
+        scale: 1,
+        depth: extrudeDepth,
+        bevelEnabled: true,
+        bevelThickness: 1,
+        bevelSize: 0.5,
+        templateId: "none",
+        lightDiffuserBevel: false,
+        diffuserBevelAngle: 45,
+        centerlineMode: false,
+      };
+      
+      const tubeSettings = {
+        neonTubeDiameter: 10,
+        wallThickness: wallThickness,
+        wallHeight: extrudeDepth,
+        channelDepth: 8,
+        filamentDiameter: 5,
+        tubeWidth: 10,
+        enableOverlay: true,
+        overlayThickness: 2,
+        continuousPath: false,
+      };
+      
+      const twoPartSystem = {
+        ...defaultTwoPartSystem,
+        enabled: true,
+        baseWallThickness: wallThickness,
+        baseWallHeight: extrudeDepth,
+        capThickness: 2,
+        snapTabsEnabled: true,
+      };
+      
+      // Generate STL files
+      const parts = generateNeonSignV2(
+        letterSettings,
+        tubeSettings,
+        twoPartSystem,
+        "stl",
+        [],
+        "text",
+        {}
+      );
+      
+      if (!parts || parts.length === 0) {
+        throw new Error("No parts generated from preset shape");
+      }
+      
+      console.log(`[Preset Shape Export] Generated ${parts.length} parts`);
+      
+      // Create zip archive with all parts
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="preset_${presetId}_${Date.now()}.zip"`);
+      
+      archive.pipe(res);
+      
+      parts.forEach(part => {
+        archive.append(part.content, { name: part.filename });
+      });
+      
+      // Add manifest
+      const manifest = {
+        preset: preset.name,
+        category: preset.category,
+        description: preset.description,
+        parts: parts.map(p => ({
+          filename: p.filename,
+          type: p.partType,
+          material: p.material
+        }))
+      };
+      
+      archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });
+      await archive.finalize();
+      
+    } catch (error) {
+      console.error("Preset shape export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate preset shape STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   return httpServer;
 }

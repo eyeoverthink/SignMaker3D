@@ -27,15 +27,40 @@ export function PresetShapesEditor() {
     }
   };
 
-  const generatePreview = () => {
+  const generatePreview = async () => {
     if (!selectedPreset) return;
     
     const preset = presetShapes.find(p => p.id === selectedPreset);
     if (!preset) return;
 
-    // This would trigger your existing 3D generation pipeline
-    // You'll need to convert the SVG path to your internal shape format
-    console.log('Generating 3D preview for:', preset.name);
+    try {
+      const response = await fetch('/api/export/preset-shape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          presetId: selectedPreset,
+          extrudeDepth: 15,
+          wallThickness: 2
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `preset_${selectedPreset}_${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Failed to export preset shape');
+    }
   };
 
   return (

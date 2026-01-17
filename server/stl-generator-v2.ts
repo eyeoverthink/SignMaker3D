@@ -1995,9 +1995,12 @@ export function generateModularShape(
     connectorEnabled,
     connectorTabWidth,
     connectorTabDepth,
+    framedDiffuser,
+    frameWidth,
+    frameSnapFit,
   } = settings;
   
-  console.log(`[Modular Generator] Creating ${shapeType} tile, edge=${edgeLength}mm`);
+  console.log(`[Modular Generator] Creating ${shapeType} tile, edge=${edgeLength}mm, framedDiffuser=${framedDiffuser}`);
   
   // Generate the polygon path
   const polygonPath = generatePolygonPath(shapeType, edgeLength);
@@ -2021,16 +2024,32 @@ export function generateModularShape(
     console.log(`[Modular Generator] Added ${tabTriangles.length} connector tab triangles`);
   }
   
-  // Create diffuser cap
-  const capTriangles = createDiffuserCap(
-    polygonPath,
-    channelWidth,
-    wallThickness,
-    wallHeight,
-    baseThickness,
-    capThickness,
-    0.2
-  );
+  // Create diffuser cap - either framed or standard
+  let capTriangles: Triangle[];
+  if (framedDiffuser) {
+    // Import framed diffuser generator
+    const { createFramedDiffuserCap } = require('./framed-diffuser-generator');
+    capTriangles = createFramedDiffuserCap(
+      shapeType,
+      edgeLength,
+      frameWidth,
+      capThickness,
+      wallHeight,
+      baseThickness,
+      frameSnapFit
+    );
+    console.log(`[Modular Generator] Generated framed diffuser cap: ${capTriangles.length} triangles`);
+  } else {
+    capTriangles = createDiffuserCap(
+      polygonPath,
+      channelWidth,
+      wallThickness,
+      wallHeight,
+      baseThickness,
+      capThickness,
+      0.2
+    );
+  }
   
   const results: ExportedPart[] = [];
   const shapeNames: Record<ModularShapeType, string> = {
