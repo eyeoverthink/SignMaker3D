@@ -8,6 +8,8 @@ import { Pencil, Minus, Spline, Eraser, Undo2, Trash2, Upload, Download, Loader2
 interface ShoeStringEditorUIProps {
   tracingMode: 'auto' | 'manual';
   setTracingMode: (mode: 'auto' | 'manual') => void;
+  tracingAlgorithm: 'scott' | 'zhang-suen';
+  setTracingAlgorithm: (algorithm: 'scott' | 'zhang-suen') => void;
   activeTool: 'freehand' | 'line' | 'bezier' | 'pan';
   setActiveTool: (tool: 'freehand' | 'line' | 'bezier' | 'pan') => void;
   imageOpacity: number;
@@ -33,6 +35,8 @@ interface ShoeStringEditorUIProps {
 export function ShoeStringEditorUI({
   tracingMode,
   setTracingMode,
+  tracingAlgorithm,
+  setTracingAlgorithm,
   activeTool,
   setActiveTool,
   imageOpacity,
@@ -164,6 +168,36 @@ export function ShoeStringEditorUI({
           </TabsContent>
 
           <TabsContent value="auto" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Tracing Algorithm</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={tracingAlgorithm === 'scott' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTracingAlgorithm('scott')}
+                  className="flex flex-col h-auto py-3"
+                >
+                  <Sparkles className="h-4 w-4 mb-1" />
+                  <span className="text-xs font-semibold">Scott</span>
+                  <span className="text-[10px] text-muted-foreground">Contours</span>
+                </Button>
+                <Button
+                  variant={tracingAlgorithm === 'zhang-suen' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTracingAlgorithm('zhang-suen')}
+                  className="flex flex-col h-auto py-3"
+                >
+                  <Minus className="h-4 w-4 mb-1" />
+                  <span className="text-xs font-semibold">Zhang-Suen</span>
+                  <span className="text-[10px] text-muted-foreground">Centerline</span>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <strong>Scott:</strong> Traces shape boundaries (better for icons)<br />
+                <strong>Zhang-Suen:</strong> Extracts centerlines (better for text)
+              </p>
+            </div>
+
             <Button
               onClick={onProcessImage}
               disabled={isProcessing}

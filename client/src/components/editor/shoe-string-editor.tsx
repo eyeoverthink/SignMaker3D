@@ -12,6 +12,7 @@ import { ShoeStringEditorUI } from "./shoe-string-editor-ui";
 
 type DrawingTool = 'freehand' | 'line' | 'bezier' | 'pan';
 type TracingMode = 'auto' | 'manual';
+type TracingAlgorithm = 'scott' | 'zhang-suen';
 
 export function ShoeStringEditor() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export function ShoeStringEditor() {
 
   // Mode and tool state
   const [tracingMode, setTracingMode] = useState<TracingMode>('manual');
+  const [tracingAlgorithm, setTracingAlgorithm] = useState<TracingAlgorithm>('scott');
   const [activeTool, setActiveTool] = useState<DrawingTool>('freehand');
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<{x: number, y: number}[]>([]);
@@ -244,21 +246,52 @@ export function ShoeStringEditor() {
       // Get image data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       
-      // Step 1: Binarize the image (pure black and white)
-      const binary = binarizeImage(imageData, edgeThreshold, invertColors);
-      
-      // Step 2: Apply Zhang-Suen skeletonization to get centerlines
-      const skeleton = zhangSuenSkeleton(binary, canvas.width, canvas.height);
-      
-      // Step 3: Trace the skeleton paths
-      const paths = traceContours(skeleton, canvas.width, canvas.height, minPathLength);
-      
-      // Simplify paths
-      const simplified = autoSimplify 
-        ? paths.map(path => simplifyPath(path, simplificationLevel))
-        : paths;
+      let paths: Array<Array<{x: number, y: number}>> = [];
 
-      setTracedPaths(simplified);
+      if (tracingAlgorithm === 'scott') {
+        // SCOTT ALGORITHM: Moore-Neighbor boundary tracing + Douglas-Peucker simplification
+        // Combines multi-contour detection with intelligent path optimization
+        console.log('[Scott Algorithm] Starting contour detection...');
+        
+        // Convert to grayscale height map
+        const heightMap = new Float32Array(canvas.width * canvas.height);
+        for (let i = 0; i < canvas.width * canvas.height; i++) {
+          const gray = imageData.data[i * 4] * 0.299 + imageData.data[i * 4 + 1] * 0.587 + imageData.data[i * 4 + 2] * 0.114;
+          heightMap[i] = invertColors ? (255 - gray) / 255 : gray / 255;
+        }
+        
+        // Trace contours using Moore-Neighbor algorithm
+        const threshold = edgeThreshold / 255;
+        const contours = traceContoursScott(heightMap, canvas.width, canvas.height, threshold);
+        console.log(`[Scott Algorithm] Found ${contours.length} contours`);
+        
+        // Simplify using Douglas-Peucker
+        paths = autoSimplify 
+          ? contours.map((path: Array<{x: number, y: number}>) => simplifyPath(path, simplificationLevel))
+          : contours;
+        
+        console.log(`[Scott Algorithm] Simplified to ${paths.reduce((sum, p) => sum + p.length, 0)} total points`);
+        
+      } else {
+        // ZHANG-SUEN ALGORITHM: Centerline extraction via skeletonization
+        console.log('[Zhang-Suen] Starting skeletonization...');
+        
+        // Step 1: Binarize the image (pure black and white)
+        const binary = binarizeImage(imageData, edgeThreshold, invertColors);
+        
+        // Step 2: Apply Zhang-Suen skeletonization to get centerlines
+        const skeleton = zhangSuenSkeleton(binary, canvas.width, canvas.height);
+        
+        // Step 3: Trace the skeleton paths
+        paths = traceContours(skeleton, canvas.width, canvas.height, minPathLength);
+        
+        // Simplify paths
+        paths = autoSimplify 
+          ? paths.map(path => simplifyPath(path, simplificationLevel))
+          : paths;
+      }
+
+      setTracedPaths(paths);
 
       // Draw traced paths on canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -267,7 +300,7 @@ export function ShoeStringEditor() {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      simplified.forEach(path => {
+      paths.forEach((path: Array<{x: number, y: number}>) => {
         if (path.length < 2) return;
         ctx.beginPath();
         ctx.moveTo(path[0].x, path[0].y);
@@ -279,7 +312,7 @@ export function ShoeStringEditor() {
 
       toast({
         title: "Image traced!",
-        description: `Found ${simplified.length} paths`,
+        description: `Found ${paths.length} paths using ${tracingAlgorithm === 'scott' ? 'Scott Algorithm' : 'Zhang-Suen'}`,
       });
     } catch (error) {
       toast({
@@ -396,6 +429,8 @@ export function ShoeStringEditor() {
       <ShoeStringEditorUI
         tracingMode={tracingMode}
         setTracingMode={setTracingMode}
+        tracingAlgorithm={tracingAlgorithm}
+        setTracingAlgorithm={setTracingAlgorithm}
         activeTool={activeTool}
         setActiveTool={setActiveTool}
         imageOpacity={imageOpacity}
@@ -419,6 +454,97 @@ export function ShoeStringEditor() {
       />
     </div>
   );
+}
+
+// SCOTT ALGORITHM: Moore-Neighbor Boundary Tracing
+// Named after the developer who combined Moore-Neighbor traversal with Douglas-Peucker simplification
+// for intelligent multi-contour detection in image tracing applications
+function traceContoursScott(
+  heightMap: Float32Array,
+  width: number,
+  height: number,
+  threshold: number
+): Array<Array<{x: number, y: number}>> {
+  const contours: Array<Array<{x: number, y: number}>> = [];
+  const visited = new Set<number>();
+  
+  // Moore-Neighbor directions (8-connected)
+  const dirs = [
+    {dx: 1, dy: 0},   // E
+    {dx: 1, dy: 1},   // SE
+    {dx: 0, dy: 1},   // S
+    {dx: -1, dy: 1},  // SW
+    {dx: -1, dy: 0},  // W
+    {dx: -1, dy: -1}, // NW
+    {dx: 0, dy: -1},  // N
+    {dx: 1, dy: -1}   // NE
+  ];
+  
+  const isEdge = (x: number, y: number): boolean => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+    return heightMap[y * width + x] > threshold;
+  };
+  
+  // Find all contours
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      if (visited.has(idx) || !isEdge(x, y)) continue;
+      
+      // Check if this is a boundary pixel (has at least one non-edge neighbor)
+      let isBoundary = false;
+      for (const dir of dirs) {
+        if (!isEdge(x + dir.dx, y + dir.dy)) {
+          isBoundary = true;
+          break;
+        }
+      }
+      if (!isBoundary) continue;
+      
+      // Trace contour using Moore-Neighbor
+      const contour: Array<{x: number, y: number}> = [];
+      let cx = x, cy = y;
+      const startX = x, startY = y;
+      let dirIdx = 0;
+      
+      do {
+        contour.push({x: cx, y: cy});
+        visited.add(cy * width + cx);
+        
+        let found = false;
+        for (let i = 0; i < 8; i++) {
+          const checkDir = (dirIdx + i) % 8;
+          const nx = cx + dirs[checkDir].dx;
+          const ny = cy + dirs[checkDir].dy;
+          
+          if (isEdge(nx, ny)) {
+            let nextIsBoundary = false;
+            for (const d of dirs) {
+              if (!isEdge(nx + d.dx, ny + d.dy)) {
+                nextIsBoundary = true;
+                break;
+              }
+            }
+            
+            if (nextIsBoundary) {
+              cx = nx;
+              cy = ny;
+              dirIdx = (checkDir + 6) % 8;
+              found = true;
+              break;
+            }
+          }
+        }
+        if (!found) break;
+      } while (!(cx === startX && cy === startY) && contour.length < width * height);
+      
+      if (contour.length > 10) {
+        contours.push(contour);
+      }
+    }
+  }
+  
+  return contours;
 }
 
 // Step 1: Binarization - Convert to pure black and white
