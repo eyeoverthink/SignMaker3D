@@ -43,6 +43,79 @@ export function ReliefEditor() {
     fileInputRef.current?.click();
   }, []);
 
+  // Moore-Neighbor contour tracing (client-side preview)
+  const traceContours = (heightMap: Float32Array, width: number, height: number, threshold: number) => {
+    const contours: Array<Array<{x: number, y: number}>> = [];
+    const visited = new Set<number>();
+    
+    const dirs = [
+      {dx: 1, dy: 0}, {dx: 1, dy: 1}, {dx: 0, dy: 1}, {dx: -1, dy: 1},
+      {dx: -1, dy: 0}, {dx: -1, dy: -1}, {dx: 0, dy: -1}, {dx: 1, dy: -1}
+    ];
+    
+    const isEdge = (x: number, y: number): boolean => {
+      if (x < 0 || x >= width || y < 0 || y >= height) return false;
+      return heightMap[y * width + x] > threshold;
+    };
+    
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        if (visited.has(idx) || !isEdge(x, y)) continue;
+        
+        let isBoundary = false;
+        for (const dir of dirs) {
+          if (!isEdge(x + dir.dx, y + dir.dy)) {
+            isBoundary = true;
+            break;
+          }
+        }
+        if (!isBoundary) continue;
+        
+        const contour: Array<{x: number, y: number}> = [];
+        let cx = x, cy = y;
+        const startX = x, startY = y;
+        let dirIdx = 0;
+        
+        do {
+          contour.push({x: cx, y: cy});
+          visited.add(cy * width + cx);
+          
+          let found = false;
+          for (let i = 0; i < 8; i++) {
+            const checkDir = (dirIdx + i) % 8;
+            const nx = cx + dirs[checkDir].dx;
+            const ny = cy + dirs[checkDir].dy;
+            
+            if (isEdge(nx, ny)) {
+              let nextIsBoundary = false;
+              for (const d of dirs) {
+                if (!isEdge(nx + d.dx, ny + d.dy)) {
+                  nextIsBoundary = true;
+                  break;
+                }
+              }
+              
+              if (nextIsBoundary) {
+                cx = nx;
+                cy = ny;
+                dirIdx = (checkDir + 6) % 8;
+                found = true;
+                break;
+              }
+            }
+          }
+          if (!found) break;
+        } while (!(cx === startX && cy === startY) && contour.length < width * height);
+        
+        if (contour.length > 10) {
+          contours.push(contour);
+        }
+      }
+    }
+    return contours;
+  };
+
   // Generate preview when image or settings change
   useEffect(() => {
     if (!uploadedImage || !canvasRef.current) return;
@@ -55,56 +128,68 @@ export function ReliefEditor() {
 
     const img = new Image();
     img.onload = () => {
-      // Scale image to fit canvas
       const maxSize = 400;
       const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
       canvas.width = Math.floor(img.width * scale);
       canvas.height = Math.floor(img.height * scale);
 
-      // Draw image
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       
-      // Get image data for height map generation
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       
-      // Convert to grayscale and apply threshold
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        const value = gray > settings.threshold ? 255 : 0;
-        
-        // Visualize depth with gradient
-        const depth = settings.invertDepth ? (255 - gray) : gray;
-        const depthColor = Math.floor(depth * (settings.maxDepth / 50));
-        
-        data[i] = depthColor;     // R
-        data[i + 1] = depthColor; // G
-        data[i + 2] = depthColor; // B
+      // Create height map for contour detection
+      const heightMap = new Float32Array(canvas.width * canvas.height);
+      for (let i = 0; i < canvas.width * canvas.height; i++) {
+        const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+        const normalized = gray / 255;
+        heightMap[i] = settings.invertDepth ? (1 - normalized) : normalized;
       }
       
-      ctx.putImageData(imageData, 0, 0);
-      
-      // Draw LED channel indicators
-      if (settings.ledPlacement !== "none") {
+      // Draw LED channel overlays
+      if (settings.ledPlacement === "edges") {
+        ctx.strokeStyle = "#00ff88";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#00ff88";
+        ctx.shadowBlur = 8;
+        ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+        ctx.shadowBlur = 0;
+      } else if (settings.ledPlacement === "contours") {
+        // Trace contours and draw them
+        const threshold = settings.maxDepth * 0.3 / 50;
+        const contours = traceContours(heightMap, canvas.width, canvas.height, threshold);
+        
         ctx.strokeStyle = "#00ff88";
         ctx.lineWidth = 2;
+        ctx.shadowColor = "#00ff88";
+        ctx.shadowBlur = 6;
         
-        if (settings.ledPlacement === "edges") {
-          ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-        } else if (settings.ledPlacement === "grid") {
-          const gridSize = 40;
-          for (let x = 0; x < canvas.width; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
-            ctx.stroke();
+        contours.forEach(contour => {
+          if (contour.length < 2) return;
+          ctx.beginPath();
+          ctx.moveTo(contour[0].x, contour[0].y);
+          for (let i = 1; i < contour.length; i++) {
+            ctx.lineTo(contour[i].x, contour[i].y);
           }
-          for (let y = 0; y < canvas.height; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
-          }
+          ctx.closePath();
+          ctx.stroke();
+        });
+        ctx.shadowBlur = 0;
+      } else if (settings.ledPlacement === "grid") {
+        ctx.strokeStyle = "#00ff88";
+        ctx.lineWidth = 2;
+        const gridSize = 40;
+        for (let x = 0; x < canvas.width; x += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
         }
       }
       
