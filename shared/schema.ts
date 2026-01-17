@@ -126,7 +126,7 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes", "presets", "custom", "retro", "ledholder"] as const;
+export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes", "presets", "custom", "retro", "ledholder", "eggison"] as const;
 export type InputMode = typeof inputModes[number];
 
 // Pet Tag specific types
@@ -645,6 +645,22 @@ export {
   customInputModes,
   ledStripTypes,
 } from "./custom-shape-types";
+
+export {
+  eggisonShellShapes,
+  eggisonScrewBases,
+  filamentGuideTypes,
+  shellFinishes,
+  eggisonBulbsSettingsSchema,
+  defaultEggisonBulbsSettings,
+} from "./eggison-bulbs-types";
+export type {
+  EggisonShellShape,
+  EggisonScrewBase,
+  FilamentGuideType,
+  ShellFinish,
+  EggisonBulbsSettings,
+} from "./eggison-bulbs-types";
 
 export { users, insertUserSchema } from "./users";
 export type { InsertUser, User } from "./users";

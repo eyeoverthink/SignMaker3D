@@ -11,6 +11,7 @@ import { PresetShapesEditor } from "@/components/editor/preset-shapes-editor";
 import { CustomShapesEditor } from "@/components/editor/custom-shapes-editor";
 import { RetroNeonEditor } from "@/components/editor/retro-neon-editor";
 import { LEDHolderEditor } from "@/components/editor/led-holder-editor";
+import { EggisonBulbsEditor } from "@/components/editor/eggison-bulbs-editor";
 import { ToolDock } from "@/components/editor/tool-dock";
 import { SettingsPanel } from "@/components/editor/settings-panel";
 import { ExportPanel } from "@/components/editor/export-panel";
@@ -73,9 +74,10 @@ export default function Editor() {
             {inputMode === "custom" && <CustomShapesEditor />}
             {inputMode === "retro" && <RetroNeonEditor />}
             {inputMode === "ledholder" && <LEDHolderEditor />}
+            {inputMode === "eggison" && <EggisonBulbsEditor />}
           </div>
           
-          {inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && inputMode !== "shoestring" && inputMode !== "neonshapes" && inputMode !== "presets" && inputMode !== "custom" && inputMode !== "retro" && inputMode !== "ledholder" && (
+          {inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && inputMode !== "shoestring" && inputMode !== "neonshapes" && inputMode !== "presets" && inputMode !== "custom" && inputMode !== "retro" && inputMode !== "ledholder" && inputMode !== "eggison" && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm rounded-lg px-4 py-2 border shadow-lg">
               <p className="text-xs text-muted-foreground">
                 {inputMode === "text" && "Type your text, then adjust settings on the right"}
@@ -86,8 +88,8 @@ export default function Editor() {
           )}
         </main>
 
-        {showSettings && !showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && inputMode !== "shoestring" && inputMode !== "neonshapes" && inputMode !== "presets" && inputMode !== "custom" && inputMode !== "retro" && inputMode !== "ledholder" && <SettingsPanel />}
-        {showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && inputMode !== "shoestring" && inputMode !== "neonshapes" && inputMode !== "presets" && inputMode !== "custom" && inputMode !== "retro" && inputMode !== "ledholder" && (
+        {showSettings && !showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && inputMode !== "shoestring" && inputMode !== "neonshapes" && inputMode !== "presets" && inputMode !== "custom" && inputMode !== "retro" && inputMode !== "ledholder" && inputMode !== "eggison" && <SettingsPanel />}
+        {showExport && inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && inputMode !== "shoestring" && inputMode !== "neonshapes" && inputMode !== "presets" && inputMode !== "custom" && inputMode !== "retro" && inputMode !== "ledholder" && inputMode !== "eggison" && (
           <div className="w-80 border-l bg-sidebar p-4">
             <ExportPanel />
           </div>

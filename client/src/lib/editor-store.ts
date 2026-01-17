@@ -15,6 +15,7 @@ import {
   type CustomShapeSettings,
   type RetroNeonSettings,
   type LEDHolderSettings,
+  type EggisonBulbsSettings,
   defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
@@ -28,6 +29,7 @@ import {
   defaultCustomShapeSettings,
   defaultRetroNeonSettings,
   defaultLEDHolderSettings,
+  defaultEggisonBulbsSettings,
 } from "@shared/schema";
 
 interface EditorState {
@@ -44,6 +46,7 @@ interface EditorState {
   customShapeSettings: CustomShapeSettings;
   retroNeonSettings: RetroNeonSettings;
   ledHolderSettings: LEDHolderSettings;
+  eggisonBulbsSettings: EggisonBulbsSettings;
   sketchPaths: SketchPath[];
   inputMode: InputMode;
   uploadedImageData: string | null;
@@ -66,6 +69,7 @@ interface EditorState {
   setCustomShapeSettings: (settings: Partial<CustomShapeSettings>) => void;
   setRetroNeonSettings: (settings: Partial<RetroNeonSettings>) => void;
   setLEDHolderSettings: (settings: Partial<LEDHolderSettings>) => void;
+  setEggisonBulbsSettings: (settings: Partial<EggisonBulbsSettings>) => void;
   setSketchPaths: (paths: SketchPath[]) => void;
   addSketchPath: (path: SketchPath) => void;
   removeSketchPath: (id: string) => void;
@@ -94,6 +98,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   customShapeSettings: defaultCustomShapeSettings,
   retroNeonSettings: defaultRetroNeonSettings,
   ledHolderSettings: defaultLEDHolderSettings,
+  eggisonBulbsSettings: defaultEggisonBulbsSettings,
   sketchPaths: [],
   inputMode: "text",
   uploadedImageData: null,
@@ -155,6 +160,10 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       ledHolderSettings: { ...state.ledHolderSettings, ...settings },
     })),
+  setEggisonBulbsSettings: (settings) =>
+    set((state) => ({
+      eggisonBulbsSettings: { ...state.eggisonBulbsSettings, ...settings },
+    })),
   setSketchPaths: (paths) => set({ sketchPaths: paths }),
   addSketchPath: (path) =>
     set((state) => ({
@@ -187,6 +196,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       customShapeSettings: defaultCustomShapeSettings,
       retroNeonSettings: defaultRetroNeonSettings,
       ledHolderSettings: defaultLEDHolderSettings,
+      eggisonBulbsSettings: defaultEggisonBulbsSettings,
       sketchPaths: [],
       inputMode: "text",
       uploadedImageData: null,

@@ -1,7 +1,7 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
@@ -14,6 +14,7 @@ export function ToolDock() {
     { id: "presets", icon: Sparkles, label: "Presets", description: "40+ iconic shapes - retro, emoji, stick figures" },
     { id: "custom", icon: Layers, label: "Custom", description: "Custom LED tube shapes" },
     { id: "retro", icon: Lightbulb, label: "Edison", description: "Edison bulbs & retro neon" },
+    { id: "eggison", icon: Egg, label: "Eggison", description: "DIY light bulb shells with shaped filaments" },
     { id: "ledholder", icon: Cable, label: "LED Holder", description: "LED mounting holders" },
     { id: "neonshapes", icon: Heart, label: "Neon Shapes", description: "Iconic shapes with Edison bases" },
     { id: "pettag", icon: Dog, label: "Pet Tags", description: "Illuminated dog tags" },

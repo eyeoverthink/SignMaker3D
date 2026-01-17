@@ -6,7 +6,8 @@ import { generateSignage, generateMultiPartExport, generateTwoPartExport, type E
 import { generateNeonSignV2 } from "./stl-generator-v2";
 import { generatePetTagV2 } from "./pet-tag-generator";
 import { generateModularShape } from "./stl-generator-v2";
-import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema, modularShapeSettingsSchema } from "@shared/schema";
+import { generateEggisonBulb } from "./eggison-bulbs-generator";
+import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema, modularShapeSettingsSchema, eggisonBulbsSettingsSchema } from "@shared/schema";
 import {
   letterSettingsSchema,
   geometrySettingsSchema,
@@ -1143,6 +1144,91 @@ export async function registerRoutes(
       console.error("Preset shape export error:", error);
       res.status(500).json({ 
         error: "Failed to generate preset shape STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Eggison Bulbs export endpoint
+  app.post("/api/export/eggison-bulbs", async (req, res) => {
+    try {
+      const settings = eggisonBulbsSettingsSchema.parse(req.body);
+      
+      const parts = generateEggisonBulb(settings);
+      
+      if (parts.length === 0) {
+        return res.status(400).json({ error: "No parts generated" });
+      }
+
+      // Create ZIP archive
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="eggison_${settings.shellShape}_${Date.now()}.zip"`);
+      
+      archive.pipe(res);
+      
+      // Add each part to the archive
+      for (const part of parts) {
+        archive.append(part.stl, { name: `${part.name}.stl` });
+      }
+      
+      // Add README with assembly instructions
+      const readme = `Eggison Bulbs - DIY Light Bulb Shell
+=====================================
+
+Shell Shape: ${settings.shellShape}
+Shell Dimensions: ${settings.shellHeight}mm x ${settings.shellWidth}mm
+Wall Thickness: ${settings.shellWallThickness}mm
+Screw Base: ${settings.screwBase}
+Filament Guide: ${settings.filamentGuide}
+
+Parts Included:
+${parts.map((p, i) => `${i + 1}. ${p.name}.stl - ${p.description || 'Part'}
+   ${p.slicingNotes || ''}`).join('\n\n')}
+
+⚠️ CRITICAL SLICING INSTRUCTIONS ⚠️
+=====================================
+For GLASS-LIKE CLARITY with clear PETG filament:
+
+SHELL PARTS (top/complete):
+- Enable SPIRAL VASE MODE (also called "vase mode") in your slicer
+- This creates a single continuous wall with no seams
+- Results in maximum light transmission and glass-like appearance
+- Use 0.2mm layer height for best results
+
+SCREW BASE PARTS (bottom):
+- Print with NORMAL settings (NOT vase mode)
+- Needs solid infill for functional screw threads
+- 3-4 perimeters, 20% infill minimum
+
+Assembly Instructions:
+1. Print shell parts in clear/translucent PETG using VASE MODE
+2. Print screw base with normal settings for strength
+3. Shape your LED filament or WS2812B strip into desired pattern
+4. Insert shaped LEDs into shell through top opening
+5. Solder wire connections to screw base conductive paths (use copper tape)
+6. ${settings.splitHorizontal ? 'Snap the top and bottom halves together' : 'Seal the opening with clear epoxy or hot glue'}
+7. Test your custom light bulb!
+
+Pro Tips:
+- Clear PETG + Vase Mode = Best glass-like finish
+- Dry your PETG filament before printing (prevents clouding)
+- Use copper tape or conductive filament for screw base contacts
+- Print at 0.2mm layer height for optimal translucency
+- Consider adding a small amount of diffusion with frosted spray paint (optional)
+- Use heat-resistant filament if using high-power LEDs
+
+Created with Sign-Sculptor - Eggison Bulbs Generator
+`;
+      
+      archive.append(readme, { name: "README.txt" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Eggison Bulbs export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate Eggison Bulb STL",
         details: error instanceof Error ? error.message : String(error)
       });
     }
