@@ -129,14 +129,6 @@ export type SketchPath = z.infer<typeof sketchPathSchema>;
 export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes", "presets", "custom", "retro", "ledholder"] as const;
 export type InputMode = typeof inputModes[number];
 
-// LED strip types - defined early as used by multiple schemas
-export const ledStripTypes = ["simple", "ws2812", "cob", "filament"] as const;
-export type LedStripType = typeof ledStripTypes[number];
-
-// Custom input modes for custom shapes editor
-export const customInputModes = ["text", "draw", "trace"] as const;
-export type CustomInputMode = typeof customInputModes[number];
-
 // Pet Tag specific types
 export const petTagShapes = ["bone", "round", "heart", "rectangle", "military", "paw"] as const;
 export type PetTagShape = typeof petTagShapes[number];
@@ -604,10 +596,55 @@ export const defaultControllerHousingSettings: ControllerHousingSettings = {
   cornerRadius: 3,
 };
 
-// Re-export types from modular type files
-export * from "./retro-neon-types";
-export * from "./led-holder-types";
-export * from "./custom-shape-types";
+// Import and re-export types from modular type files
+export {
+  type RetroNeonSettings,
+  type EdisonBulbSettings,
+  type NeonSignSettings,
+  type ElectronicsHousingSettings,
+  defaultRetroNeonSettings,
+  defaultEdisonBulbSettings,
+  defaultNeonSignSettings,
+  defaultElectronicsHousingSettings,
+  retroNeonSettingsSchema,
+  edisonBulbSettingsSchema,
+  neonSignSettingsSchema,
+  electronicsHousingSettingsSchema,
+  primitiveShapes,
+  type PrimitiveShape,
+  classicBulbShapes,
+  type ClassicBulbShape,
+  shellShapeTypes,
+  type ShellShapeType,
+  glassMaterialTypes,
+  type GlassMaterialType,
+  screwBaseTypes,
+  type ScrewBaseType,
+  standTypes,
+  type StandType,
+} from "./retro-neon-types";
+
+export {
+  type LEDHolderSettings,
+  type LEDHolderLedType,
+  type LEDHolderStyle,
+  type LEDHolderMountType,
+  defaultLEDHolderSettings,
+  ledHolderSettingsSchema,
+  ledHolderLedTypes,
+  ledHolderStyles,
+  ledHolderMountTypes,
+} from "./led-holder-types";
+
+export {
+  type CustomShapeSettings,
+  type CustomInputMode,
+  type LedStripType,
+  defaultCustomShapeSettings,
+  customShapeSettingsSchema,
+  customInputModes,
+  ledStripTypes,
+} from "./custom-shape-types";
 
 export { users, insertUserSchema } from "./users";
 export type { InsertUser, User } from "./users";
