@@ -166,6 +166,15 @@ export function PresetShapesEditor() {
                 </SelectTrigger>
                 <SelectContent>
                 <SelectGroup>
+                  <SelectLabel>✨ Icons & Symbols</SelectLabel>
+                  {getShapesByCategory('icons').map(shape => (
+                    <SelectItem key={shape.id} value={shape.id}>
+                      {shape.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                
+                <SelectGroup>
                   <SelectLabel>🎮 Retro Tech</SelectLabel>
                   {getShapesByCategory('retro').map(shape => (
                     <SelectItem key={shape.id} value={shape.id}>

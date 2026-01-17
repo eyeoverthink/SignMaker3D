@@ -18,6 +18,7 @@ export interface PresetShape {
 }
 
 export const shapeCategories = {
+  icons: 'Icons & Symbols',
   retro: 'Retro Tech',
   space: 'Space & Planets',
   food: 'Food & Drink',
@@ -29,13 +30,79 @@ export const shapeCategories = {
 } as const;
 
 export const presetShapes: PresetShape[] = [
+  // Icons & Symbols (from screenshot)
+  {
+    id: 'heart',
+    name: 'Heart',
+    category: 'icons',
+    description: 'Classic heart shape',
+    pathData: 'M0,-30 C-15,-45 -40,-45 -40,-20 C-40,0 0,30 0,30 C0,30 40,0 40,-20 C40,-45 15,-45 0,-30 Z',
+    viewBox: '-50 -50 100 80'
+  },
+  {
+    id: 'star',
+    name: 'Star',
+    category: 'icons',
+    description: 'Five-pointed star',
+    pathData: 'M0,-40 L12,-12 L40,-12 L18,6 L28,34 L0,16 L-28,34 L-18,6 L-40,-12 L-12,-12 Z',
+    viewBox: '-45 -45 90 85'
+  },
+  {
+    id: 'arrow',
+    name: 'Arrow',
+    category: 'icons',
+    description: 'Right-pointing arrow',
+    pathData: 'M-40,0 L20,0 L20,-20 L50,0 L20,20 L20,0 Z',
+    viewBox: '-45 -25 100 50'
+  },
+  {
+    id: 'lips',
+    name: 'Lips',
+    category: 'icons',
+    description: 'Lips/mouth shape',
+    pathData: 'M-40,0 Q-30,-15 0,-15 Q30,-15 40,0 Q30,15 0,15 Q-30,15 -40,0 M-30,0 Q-20,8 0,8 Q20,8 30,0',
+    viewBox: '-45 -20 90 40'
+  },
+  {
+    id: 'alien',
+    name: 'Alien',
+    category: 'icons',
+    description: 'Alien head',
+    pathData: 'M0,-40 Q-30,-40 -40,-10 Q-40,20 -20,35 L-10,30 Q-15,20 -15,10 Q-15,-5 -10,-10 L-20,-15 Q-25,-5 -25,10 Q-25,25 -15,30 L0,40 L15,30 Q25,25 25,10 Q25,-5 20,-15 L10,-10 Q15,-5 15,10 Q15,20 10,30 L20,35 Q40,20 40,-10 Q30,-40 0,-40 Z M-15,0 Q-15,-8 -10,-8 Q-5,-8 -5,0 Q-5,8 -10,8 Q-15,8 -15,0 M15,0 Q15,-8 20,-8 Q25,-8 25,0 Q25,8 20,8 Q15,8 15,0',
+    viewBox: '-45 -45 90 90'
+  },
+  {
+    id: 'leaf',
+    name: 'Leaf',
+    category: 'icons',
+    description: 'Cannabis leaf',
+    pathData: 'M0,-40 L0,40 M0,0 Q-10,-15 -20,-10 Q-15,0 0,5 M0,0 Q10,-15 20,-10 Q15,0 0,5 M0,-10 Q-15,-25 -30,-20 Q-20,-5 0,0 M0,-10 Q15,-25 30,-20 Q20,-5 0,0 M0,-20 Q-20,-35 -35,-25 Q-25,-10 0,-5 M0,-20 Q20,-35 35,-25 Q25,-10 0,-5',
+    viewBox: '-40 -45 80 90'
+  },
+  {
+    id: 'pineapple',
+    name: 'Pineapple',
+    category: 'icons',
+    description: 'Pineapple fruit',
+    pathData: 'M0,-40 L-5,-30 L5,-30 Z M-10,-30 L-5,-20 L5,-20 L10,-30 M-15,-20 Q-20,0 -15,20 Q-10,30 0,35 Q10,30 15,20 Q20,0 15,-20 M-10,-15 L10,-5 M-10,-5 L10,5 M-10,5 L10,15 M10,-15 L-10,-5 M10,-5 L-10,5 M10,5 L-10,15',
+    viewBox: '-25 -45 50 85'
+  },
+  {
+    id: 'music-note',
+    name: 'Music Note',
+    category: 'icons',
+    description: 'Musical note',
+    pathData: 'M10,-40 L10,20 Q10,30 0,30 Q-10,30 -10,20 Q-10,10 0,10 Q10,10 10,20 L10,-30 L30,-25 L30,-15 L10,-20',
+    viewBox: '-15 -45 50 80'
+  },
+  
   // Retro Tech
   {
     id: 'retro-computer',
     name: '1980s Computer',
     category: 'retro',
     description: 'Classic desktop computer with CRT monitor',
-    pathData: 'M-50,-40 L50,-40 L50,40 L-50,40 Z M-40,-28 L40,-28 L40,28 L-40,28 Z M-30,40 L-30,50 L30,50 L30,40',
+    pathData: 'M-50,-40 L50,-40 L50,40 L-50,40 L-50,-40 M-40,-28 L40,-28 L40,28 L-40,28 L-40,-28 M-30,40 L-30,50 L30,50 L30,40',
     viewBox: '-60 -50 120 110'
   },
   {
@@ -43,7 +110,7 @@ export const presetShapes: PresetShape[] = [
     name: 'Floppy Disk',
     category: 'retro',
     description: '3.5" floppy disk',
-    pathData: 'M-40,-45 L40,-45 L40,45 L-40,45 Z M-32,-13 L32,-13 L32,23 L-32,23 Z M-36,-45 L-36,-23 L36,-23 L36,-45',
+    pathData: 'M-40,-45 L40,-45 L40,45 L-40,45 L-40,-45 M-32,-13 L32,-13 L32,23 L-32,23 L-32,-13 M-36,-45 L-36,-23 L36,-23 L36,-45',
     viewBox: '-50 -55 100 110'
   },
   {
@@ -59,8 +126,8 @@ export const presetShapes: PresetShape[] = [
     name: 'Brick Phone',
     category: 'retro',
     description: '1990s mobile phone',
-    pathData: 'M-30,-60 L30,-60 L30,60 L-30,60 Z M-24,18 L24,18 L24,48 L-24,48 Z M-15,-48 Q-15,-42 -10,-42 Q-5,-42 -5,-48 M0,-48 Q0,-42 5,-42 Q10,-42 10,-48 M15,-48 Q15,-42 20,-42 Q25,-42 25,-48 M-15,-36 Q-15,-30 -10,-30 Q-5,-30 -5,-36 M0,-36 Q0,-30 5,-30 Q10,-30 10,-36 M15,-36 Q15,-30 20,-30 Q25,-30 25,-36 M-15,-24 Q-15,-18 -10,-18 Q-5,-18 -5,-24 M0,-24 Q0,-18 5,-18 Q10,-18 10,-24 M15,-24 Q15,-18 20,-18 Q25,-18 25,-24 M-15,-12 Q-15,-6 -10,-6 Q-5,-6 -5,-12 M0,-12 Q0,-6 5,-6 Q10,-6 10,-12 M15,-12 Q15,-6 20,-6 Q25,-6 25,-12 M-12,60 L-12,90 L-8,90 L-8,60',
-    viewBox: '-40 -70 80 170'
+    pathData: 'M-30,-60 L30,-60 L30,60 L-30,60 L-30,-60 M-24,18 L24,18 L24,48 L-24,48 L-24,18 M-10,-70 L-10,-60',
+    viewBox: '-40 -75 80 145'
   },
 
   // Space & Planets
