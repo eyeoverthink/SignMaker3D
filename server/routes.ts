@@ -1155,7 +1155,14 @@ export async function registerRoutes(
   // Preset shapes export endpoint
   app.post("/api/export/preset-shape", async (req, res) => {
     try {
-      const { presetId, extrudeDepth = 15, wallThickness = 2 } = req.body;
+      const { 
+        presetId, 
+        extrudeDepth = 15, 
+        wallThickness = 2,
+        includeDiffuser = false,
+        diffuserThickness = 3,
+        diffuserOffset = 5
+      } = req.body;
       
       if (!presetId) {
         return res.status(400).json({ error: "presetId required" });
@@ -1209,12 +1216,15 @@ export async function registerRoutes(
       
       const twoPartSystem = {
         ...defaultTwoPartSystem,
-        enabled: true,
+        enabled: includeDiffuser,
         baseWallThickness: wallThickness,
         baseWallHeight: extrudeDepth,
-        capThickness: 2,
+        capThickness: diffuserThickness,
         snapTabsEnabled: true,
+        capOffset: diffuserOffset,
       };
+      
+      console.log(`[Preset Shape] Diffuser: ${includeDiffuser}, Thickness: ${diffuserThickness}mm, Offset: ${diffuserOffset}mm`);
       
       // Generate STL files
       const parts = generateNeonSignV2(

@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { presetShapes, getShapesByCategory, type PresetShape } from "@shared/preset-shapes";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Layers } from "lucide-react";
 
 // Parse SVG path data to points for extrusion
 function parseSVGPath(pathData: string): THREE.Vector2[] {
@@ -60,12 +61,28 @@ function parseSVGPath(pathData: string): THREE.Vector2[] {
   return points;
 }
 
-function PresetShapePreview({ preset, depth }: { preset: PresetShape; depth: number }) {
+function PresetShapePreview({ 
+  preset, 
+  depth, 
+  includeDiffuser, 
+  diffuserThickness, 
+  diffuserOffset 
+}: { 
+  preset: PresetShape; 
+  depth: number;
+  includeDiffuser: boolean;
+  diffuserThickness: number;
+  diffuserOffset: number;
+}) {
   const meshRef = useRef<THREE.Mesh>(null);
+  const diffuserRef = useRef<THREE.Mesh>(null);
   
   useFrame(() => {
     if (meshRef.current) {
       meshRef.current.rotation.y += 0.005;
+    }
+    if (diffuserRef.current) {
+      diffuserRef.current.rotation.y += 0.005;
     }
   });
   
@@ -90,16 +107,67 @@ function PresetShapePreview({ preset, depth }: { preset: PresetShape; depth: num
     }
   })();
   
+  // Create diffuser cover geometry - wraps around the shape
+  const diffuserGeometry = (() => {
+    if (!includeDiffuser) return null;
+    
+    try {
+      const points = parseSVGPath(preset.pathData);
+      if (points.length < 3) return null;
+      
+      // Offset points outward to create wrap-around cover
+      const offsetPoints = points.map(p => {
+        const angle = Math.atan2(p.y, p.x);
+        return new THREE.Vector2(
+          p.x + Math.cos(angle) * diffuserOffset,
+          p.y + Math.sin(angle) * diffuserOffset
+        );
+      });
+      
+      const shape = new THREE.Shape(offsetPoints);
+      const extrudeSettings = {
+        depth: depth + diffuserThickness * 2,
+        bevelEnabled: false
+      };
+      
+      return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    } catch (error) {
+      console.error('Error creating diffuser geometry:', error);
+      return null;
+    }
+  })();
+  
   return (
-    <mesh ref={meshRef} geometry={geometry}>
-      <meshStandardMaterial color="#00ff88" emissive="#00ff88" emissiveIntensity={0.3} />
-    </mesh>
+    <>
+      <mesh ref={meshRef} geometry={geometry}>
+        <meshStandardMaterial color="#1a1a2e" />
+      </mesh>
+      
+      {includeDiffuser && diffuserGeometry && (
+        <mesh 
+          ref={diffuserRef} 
+          geometry={diffuserGeometry}
+          position={[0, 0, -diffuserThickness]}
+        >
+          <meshStandardMaterial 
+            color="#00ff88" 
+            transparent 
+            opacity={0.4}
+            emissive="#00ff88" 
+            emissiveIntensity={0.3} 
+          />
+        </mesh>
+      )}
+    </>
   );
 }
 
 export function PresetShapesEditor() {
   const [selectedPreset, setSelectedPreset] = useState<string>("");
   const [extrudeDepth, setExtrudeDepth] = useState<number>(15);
+  const [includeDiffuser, setIncludeDiffuser] = useState<boolean>(true);
+  const [diffuserThickness, setDiffuserThickness] = useState<number>(3);
+  const [diffuserOffset, setDiffuserOffset] = useState<number>(5);
 
   const handlePresetSelect = (presetId: string) => {
     setSelectedPreset(presetId);
@@ -118,7 +186,10 @@ export function PresetShapesEditor() {
         body: JSON.stringify({
           presetId: selectedPreset,
           extrudeDepth: extrudeDepth,
-          wallThickness: 2
+          wallThickness: 2,
+          includeDiffuser: includeDiffuser,
+          diffuserThickness: diffuserThickness,
+          diffuserOffset: diffuserOffset
         })
       });
 
@@ -265,6 +336,48 @@ export function PresetShapesEditor() {
                   step={1}
                 />
               </div>
+
+              <div className="pt-4 border-t space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    <Label>Diffuser Cover</Label>
+                  </div>
+                  <Switch
+                    checked={includeDiffuser}
+                    onCheckedChange={setIncludeDiffuser}
+                  />
+                </div>
+
+                {includeDiffuser && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Cover Thickness: {diffuserThickness}mm</Label>
+                      <Slider
+                        value={[diffuserThickness]}
+                        onValueChange={(v) => setDiffuserThickness(v[0])}
+                        min={2}
+                        max={6}
+                        step={0.5}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Gap/Offset: {diffuserOffset}mm</Label>
+                      <Slider
+                        value={[diffuserOffset]}
+                        onValueChange={(v) => setDiffuserOffset(v[0])}
+                        min={2}
+                        max={10}
+                        step={0.5}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Space between shape and diffuser for LED strips
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
               
               <Button 
                 onClick={handleExport} 
@@ -278,8 +391,7 @@ export function PresetShapesEditor() {
 
           <div className="pt-4 border-t">
             <p className="text-xs text-muted-foreground">
-              💡 <strong>Pro Tip:</strong> These simple, iconic shapes are perfect for neon signs and light bulbs. 
-              Nostalgic designs like stick figures and retro tech are what people actually put on their walls!
+              💡 <strong>Pro Tip:</strong> Enable diffuser cover to create a snug-fitting translucent shell perfect for WS2812B or nano LED strips!
             </p>
           </div>
         </CardContent>
@@ -293,7 +405,13 @@ export function PresetShapesEditor() {
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} intensity={1} />
             <pointLight position={[-10, -10, -10]} intensity={0.5} />
-            <PresetShapePreview preset={selectedShape} depth={extrudeDepth} />
+            <PresetShapePreview 
+              preset={selectedShape} 
+              depth={extrudeDepth}
+              includeDiffuser={includeDiffuser}
+              diffuserThickness={diffuserThickness}
+              diffuserOffset={diffuserOffset}
+            />
             <OrbitControls enableDamping dampingFactor={0.05} />
             <gridHelper args={[200, 20, '#444', '#222']} />
           </Canvas>
