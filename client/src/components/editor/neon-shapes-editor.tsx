@@ -5,10 +5,10 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Download, Sparkles } from "lucide-react";
+import { Download, Sparkles, Layers, Square, Hexagon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { NeonShapesSettings } from "@shared/schema";
-import { defaultNeonShapesSettings } from "@shared/schema";
+import { defaultNeonShapesSettings, diffuserTypes } from "@shared/schema";
 import { neonShapes, neonShapeTypes, type NeonShapeType } from "@shared/neon-shapes";
 
 export function NeonShapesEditor() {
@@ -221,6 +221,74 @@ export function NeonShapesEditor() {
                   step={1}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Diffuser Cap Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Diffuser Cover
+              </CardTitle>
+              <CardDescription>Add translucent cap over neon shape for light diffusion</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="include-diffuser">Include Diffuser Cap</Label>
+                <Switch
+                  id="include-diffuser"
+                  checked={settings.includeDiffuser}
+                  onCheckedChange={(v) => updateSetting("includeDiffuser", v)}
+                />
+              </div>
+
+              {settings.includeDiffuser && (
+                <>
+                  <div>
+                    <Label className="text-xs mb-2 block">Diffuser Type</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant={settings.diffuserType === "shell" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => updateSetting("diffuserType", "shell")}
+                        className="flex items-center gap-2"
+                      >
+                        <Square className="h-4 w-4" />
+                        Shell (Full)
+                      </Button>
+                      <Button
+                        variant={settings.diffuserType === "outline" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => updateSetting("diffuserType", "outline")}
+                        className="flex items-center gap-2"
+                      >
+                        <Hexagon className="h-4 w-4" />
+                        Outline
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {settings.diffuserType === "shell" 
+                        ? "Solid cover for smooth light diffusion (like Nanoleaf)" 
+                        : "Edge-only cover follows tube outline"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Diffuser Thickness</Label>
+                      <span className="text-sm text-muted-foreground">{settings.diffuserThickness}mm</span>
+                    </div>
+                    <Slider
+                      value={[settings.diffuserThickness]}
+                      onValueChange={([v]) => updateSetting("diffuserThickness", v)}
+                      min={1.5}
+                      max={4}
+                      step={0.5}
+                    />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 

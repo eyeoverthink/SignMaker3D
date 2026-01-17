@@ -160,6 +160,14 @@ export type PetTagSettings = z.infer<typeof petTagSettingsSchema>;
 export const modularShapeTypes = ["hexagon", "triangle", "square", "pentagon", "octagon"] as const;
 export type ModularShapeType = typeof modularShapeTypes[number];
 
+// Connector types for modular panels - male tabs protrude, female slots receive
+export const connectorTypes = ["male", "female"] as const;
+export type ConnectorType = typeof connectorTypes[number];
+
+// Diffuser types - outline (edge only) or shell (full cover)
+export const diffuserTypes = ["outline", "shell"] as const;
+export type DiffuserType = typeof diffuserTypes[number];
+
 export const modularShapeSettingsSchema = z.object({
   shapeType: z.enum(modularShapeTypes),
   edgeLength: z.number().min(30).max(200),  // Length of each edge in mm
@@ -168,10 +176,12 @@ export const modularShapeSettingsSchema = z.object({
   wallThickness: z.number().min(1.5).max(4), // Wall thickness
   baseThickness: z.number().min(2).max(6),   // Base plate thickness
   capThickness: z.number().min(1.5).max(4),  // Diffuser cap thickness
+  diffuserType: z.enum(diffuserTypes),       // Outline (edge only) or Shell (full cover)
   connectorEnabled: z.boolean(),             // Enable edge connectors
-  connectorTabWidth: z.number().min(5).max(20), // Width of connector tabs
-  connectorTabDepth: z.number().min(2).max(8),  // Depth of connector tabs
-  connectorTolerance: z.number().min(0.1).max(0.4), // Fit tolerance
+  connectorType: z.enum(connectorTypes),     // Male (tabs) or Female (slots)
+  connectorTabWidth: z.number().min(5).max(20), // Width of connector tabs/slots
+  connectorTabDepth: z.number().min(2).max(8),  // Depth of connector tabs/slots
+  connectorTolerance: z.number().min(0.1).max(0.4), // Fit tolerance for snap fit
   tileCount: z.number().min(1).max(20),      // Number of tiles to generate
   framedDiffuser: z.boolean(),               // Generate framed diffuser cap that covers entire panel
   frameWidth: z.number().min(2).max(10),     // Width of the frame around diffuser
@@ -188,7 +198,9 @@ export const defaultModularShapeSettings: ModularShapeSettings = {
   wallThickness: 2,
   baseThickness: 3,
   capThickness: 2,
+  diffuserType: "shell",
   connectorEnabled: true,
+  connectorType: "male",
   connectorTabWidth: 10,
   connectorTabDepth: 4,
   connectorTolerance: 0.2,
@@ -283,6 +295,11 @@ export const neonShapesSettingsSchema = z.object({
   splitTube: z.boolean(),                             // Split tube in half for easy LED insertion
   snapFit: z.boolean(),                               // Add snap-fit clips (vs screws)
   
+  // Diffuser Cap
+  includeDiffuser: z.boolean(),                       // Add diffuser cap over shape
+  diffuserType: z.enum(diffuserTypes),                // Shell (full cover) or Outline (edge only)
+  diffuserThickness: z.number().min(1.5).max(4),      // Diffuser cap thickness
+  
   // LED Type
   ledType: z.enum(["neon_strip", "ws2812b", "attiny", "el_wire", "standard_3mm", "standard_5mm"]),
   ledChannel: z.boolean(),                            // Add LED channel in tube
@@ -329,6 +346,11 @@ export const defaultNeonShapesSettings: NeonShapesSettings = {
   // Tube Design
   splitTube: true,
   snapFit: true,
+  
+  // Diffuser Cap
+  includeDiffuser: true,
+  diffuserType: "shell",
+  diffuserThickness: 2,
   
   // LED Type
   ledType: "neon_strip",
@@ -647,18 +669,19 @@ export {
 } from "./custom-shape-types";
 
 export {
-  eggisonShellShapes,
-  eggisonScrewBases,
-  filamentGuideTypes,
-  shellFinishes,
+  eggisonShellStyles,
+  eggisonBaseTypes,
+  eggisonLightTypes,
+  eggisonSettingsSchema,
+  defaultEggisonSettings,
   eggisonBulbsSettingsSchema,
   defaultEggisonBulbsSettings,
 } from "./eggison-bulbs-types";
 export type {
-  EggisonShellShape,
-  EggisonScrewBase,
-  FilamentGuideType,
-  ShellFinish,
+  EggisonShellStyle,
+  EggisonBaseType,
+  EggisonLightType,
+  EggisonSettings,
   EggisonBulbsSettings,
 } from "./eggison-bulbs-types";
 

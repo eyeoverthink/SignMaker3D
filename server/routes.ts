@@ -7,7 +7,9 @@ import { generateNeonSignV2 } from "./stl-generator-v2";
 import { generatePetTagV2 } from "./pet-tag-generator";
 import { generateModularShape } from "./stl-generator-v2";
 import { generateEggisonBulb } from "./eggison-bulbs-generator";
-import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema, modularShapeSettingsSchema, eggisonBulbsSettingsSchema } from "@shared/schema";
+import { generateRetroNeonSTL } from "./retro-neon-generator";
+import { generateLEDHolder } from "./led-holder-generator";
+import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema, modularShapeSettingsSchema, eggisonSettingsSchema, retroNeonSettingsSchema, ledHolderSettingsSchema } from "@shared/schema";
 import {
   letterSettingsSchema,
   geometrySettingsSchema,
@@ -26,6 +28,7 @@ import { z } from "zod";
 import archiver from "archiver";
 import path from "path";
 import fs from "fs";
+import opentype from "opentype.js";
 
 const fontFileMap: Record<string, string> = {
   "aerioz": "Aerioz-Demo.otf",
@@ -658,6 +661,121 @@ export async function registerRoutes(
     }
   });
 
+  // Get text paths for custom shape preview (used by Custom Shapes Editor)
+  app.post("/api/preview/text-path", (req, res) => {
+    try {
+      const { text, fontId, fontSize } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: "Text is required" });
+      }
+      
+      const fontFileName = fontFileMap[fontId || "inter"] || "Inter-Bold.ttf";
+      
+      let fontPath = path.join(process.cwd(), "server/fonts", fontFileName);
+      if (!fs.existsSync(fontPath)) {
+        fontPath = path.join(process.cwd(), "public/fonts", fontFileName);
+      }
+      
+      if (!fs.existsSync(fontPath)) {
+        console.log(`Font not found: ${fontId} -> ${fontFileName}`);
+        return res.status(404).json({ error: "Font not found" });
+      }
+      
+      const fontBuffer = fs.readFileSync(fontPath);
+      const arrayBuffer = fontBuffer.buffer.slice(fontBuffer.byteOffset, fontBuffer.byteOffset + fontBuffer.byteLength) as ArrayBuffer;
+      const font = opentype.parse(arrayBuffer);
+      
+      const scale = (fontSize || 50) / font.unitsPerEm;
+      const paths: { points: { x: number; y: number }[]; closed: boolean }[] = [];
+      
+      let xOffset = 0;
+      for (const char of text) {
+        const glyph = font.charToGlyph(char);
+        if (!glyph || !glyph.path) {
+          xOffset += (glyph?.advanceWidth || font.unitsPerEm * 0.5) * scale;
+          continue;
+        }
+        
+        const glyphPath = glyph.getPath(xOffset, 0, fontSize || 50);
+        let currentPath: { x: number; y: number }[] = [];
+        
+        for (const cmd of glyphPath.commands) {
+          if (cmd.type === 'M') {
+            if (currentPath.length > 0) {
+              paths.push({ points: currentPath, closed: false });
+            }
+            currentPath = [{ x: cmd.x, y: -cmd.y }];
+          } else if (cmd.type === 'L') {
+            currentPath.push({ x: cmd.x, y: -cmd.y });
+          } else if (cmd.type === 'Q') {
+            const lastPt = currentPath[currentPath.length - 1];
+            for (let t = 0.25; t <= 1; t += 0.25) {
+              const mt = 1 - t;
+              currentPath.push({
+                x: mt * mt * lastPt.x + 2 * mt * t * cmd.x1 + t * t * cmd.x,
+                y: -(mt * mt * (-lastPt.y) + 2 * mt * t * cmd.y1 + t * t * cmd.y)
+              });
+            }
+          } else if (cmd.type === 'C') {
+            const lastPt = currentPath[currentPath.length - 1];
+            for (let t = 0.2; t <= 1; t += 0.2) {
+              const mt = 1 - t;
+              currentPath.push({
+                x: mt * mt * mt * lastPt.x + 3 * mt * mt * t * cmd.x1 + 3 * mt * t * t * cmd.x2 + t * t * t * cmd.x,
+                y: -(mt * mt * mt * (-lastPt.y) + 3 * mt * mt * t * cmd.y1 + 3 * mt * t * t * cmd.y2 + t * t * t * cmd.y)
+              });
+            }
+          } else if (cmd.type === 'Z') {
+            if (currentPath.length > 0) {
+              paths.push({ points: currentPath, closed: true });
+              currentPath = [];
+            }
+          }
+        }
+        
+        if (currentPath.length > 0) {
+          paths.push({ points: currentPath, closed: false });
+        }
+        
+        xOffset += (glyph.advanceWidth || font.unitsPerEm * 0.5) * scale;
+      }
+      
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const p of paths) {
+        for (const pt of p.points) {
+          minX = Math.min(minX, pt.x);
+          maxX = Math.max(maxX, pt.x);
+          minY = Math.min(minY, pt.y);
+          maxY = Math.max(maxY, pt.y);
+        }
+      }
+      
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      
+      for (const p of paths) {
+        for (const pt of p.points) {
+          pt.x -= centerX;
+          pt.y -= centerY;
+        }
+      }
+      
+      res.json({
+        paths,
+        bounds: {
+          width: maxX - minX,
+          height: maxY - minY,
+          centerX: 0,
+          centerY: 0
+        }
+      });
+    } catch (error) {
+      console.error("Text path preview error:", error);
+      res.status(500).json({ error: "Failed to generate text path preview" });
+    }
+  });
+
   // Neon tube export endpoint - generates free-floating tube paths
   app.post("/api/export/neon-tube", async (req, res) => {
     try {
@@ -1149,10 +1267,56 @@ export async function registerRoutes(
     }
   });
 
-  // Eggison Bulbs export endpoint
-  app.post("/api/export/eggison-bulbs", async (req, res) => {
+  // Retro Neon export endpoint
+  app.post("/api/export/retro-neon", async (req, res) => {
     try {
-      const settings = eggisonBulbsSettingsSchema.parse(req.body);
+      const settings = retroNeonSettingsSchema.parse(req.body);
+      
+      const zipBuffer = await generateRetroNeonSTL(settings);
+      
+      if (!zipBuffer) {
+        return res.status(400).json({ error: "No parts generated" });
+      }
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="retro_neon_${settings.mode}_${Date.now()}.zip"`);
+      res.send(zipBuffer);
+    } catch (error) {
+      console.error("Retro Neon export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate Retro Neon STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // LED Holder export endpoint
+  app.post("/api/export/led-holder", async (req, res) => {
+    try {
+      const settings = ledHolderSettingsSchema.parse(req.body);
+      
+      const zipBuffer = generateLEDHolder(settings);
+      
+      if (!zipBuffer) {
+        return res.status(400).json({ error: "No parts generated" });
+      }
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="led_holder_${settings.ledType}_${Date.now()}.zip"`);
+      res.send(zipBuffer);
+    } catch (error) {
+      console.error("LED Holder export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate LED Holder STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Eggison Bulbs export endpoint
+  app.post("/api/export/eggison", async (req, res) => {
+    try {
+      const settings = eggisonSettingsSchema.parse(req.body);
       
       const parts = generateEggisonBulb(settings);
       
@@ -1164,7 +1328,7 @@ export async function registerRoutes(
       const archive = archiver("zip", { zlib: { level: 9 } });
       
       res.setHeader("Content-Type", "application/zip");
-      res.setHeader("Content-Disposition", `attachment; filename="eggison_${settings.shellShape}_${Date.now()}.zip"`);
+      res.setHeader("Content-Disposition", `attachment; filename="eggison_${settings.shellStyle}_${Date.now()}.zip"`);
       
       archive.pipe(res);
       
@@ -1177,11 +1341,17 @@ export async function registerRoutes(
       const readme = `Eggison Bulbs - DIY Light Bulb Shell
 =====================================
 
-Shell Shape: ${settings.shellShape}
+Shell Style: ${settings.shellStyle}
 Shell Dimensions: ${settings.shellHeight}mm x ${settings.shellWidth}mm
-Wall Thickness: ${settings.shellWallThickness}mm
-Screw Base: ${settings.screwBase}
-Filament Guide: ${settings.filamentGuide}
+Wall Thickness: ${settings.wallThickness}mm
+Screw Base: ${settings.baseType}
+Light Type: ${settings.lightType}
+Filament Channel: ${settings.includeFilamentChannel ? `Yes (${settings.filamentChannelDiameter}mm)` : 'No'}
+Accessories: ${[
+  settings.includeGlasses && 'Glasses',
+  settings.includeFeet && 'Feet',
+  settings.includeBatteryHolder && 'Battery Holder'
+].filter(Boolean).join(', ') || 'None'}
 
 Parts Included:
 ${parts.map((p, i) => `${i + 1}. ${p.name}.stl - ${p.description || 'Part'}
@@ -1191,13 +1361,13 @@ ${parts.map((p, i) => `${i + 1}. ${p.name}.stl - ${p.description || 'Part'}
 =====================================
 For GLASS-LIKE CLARITY with clear PETG filament:
 
-SHELL PARTS (top/complete):
+SHELL PARTS (egg shell):
 - Enable SPIRAL VASE MODE (also called "vase mode") in your slicer
 - This creates a single continuous wall with no seams
 - Results in maximum light transmission and glass-like appearance
 - Use 0.2mm layer height for best results
 
-SCREW BASE PARTS (bottom):
+SCREW BASE PARTS:
 - Print with NORMAL settings (NOT vase mode)
 - Needs solid infill for functional screw threads
 - 3-4 perimeters, 20% infill minimum
@@ -1206,9 +1376,9 @@ Assembly Instructions:
 1. Print shell parts in clear/translucent PETG using VASE MODE
 2. Print screw base with normal settings for strength
 3. Shape your LED filament or WS2812B strip into desired pattern
-4. Insert shaped LEDs into shell through top opening
-5. Solder wire connections to screw base conductive paths (use copper tape)
-6. ${settings.splitHorizontal ? 'Snap the top and bottom halves together' : 'Seal the opening with clear epoxy or hot glue'}
+4. Insert shaped LEDs into shell
+5. Solder wire connections to screw base contacts (use copper tape)
+6. Attach shell to base (glue or snap fit depending on style)
 7. Test your custom light bulb!
 
 Pro Tips:

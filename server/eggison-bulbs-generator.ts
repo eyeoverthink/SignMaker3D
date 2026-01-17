@@ -1,7 +1,7 @@
 // Eggison Bulbs Generator - Custom 3D-printed light bulb shells
 // Generates hollow shells with screw bases for DIY LED filament bulbs
 
-import type { EggisonBulbsSettings } from "../shared/eggison-bulbs-types";
+import type { EggisonSettings } from "../shared/eggison-bulbs-types";
 
 interface Triangle {
   vertices: [number, number, number][];
@@ -26,11 +26,10 @@ function generateShellProfile(
   const halfWidth = width / 2;
   
   switch (shape) {
-    case "egg":
-      // True egg shape - wider at bottom (60% down), tapered to point at top
+    case "classic":
+      // Classic egg shape - wider at bottom (60% down), tapered to point at top
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
-        // Asymmetric profile: wider bottom, pointed top
         let radius;
         if (t < 0.6) {
           // Bottom 60% - gradual widening
@@ -39,6 +38,55 @@ function generateShellProfile(
           radius = halfWidth * Math.sin(angle);
         } else {
           // Top 40% - sharper taper to point
+          const localT = (t - 0.6) / 0.4;
+          const angle = Math.PI * 0.5 + localT * Math.PI * 0.5;
+          radius = halfWidth * Math.sin(angle) * (1 - localT * 0.4);
+        }
+        const y = -height / 2 + t * height;
+        profile.push({ x: radius, y });
+      }
+      break;
+    case "tall":
+      // Tall and narrow
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = t * Math.PI;
+        const radius = halfWidth * Math.sin(angle) * 0.8;
+        const y = -height / 2 + t * height;
+        profile.push({ x: radius, y });
+      }
+      break;
+    case "wide":
+      // Wide and short
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = t * Math.PI;
+        const radius = halfWidth * Math.sin(angle) * 1.2;
+        const y = -height / 2 + t * height;
+        profile.push({ x: radius, y });
+      }
+      break;
+    case "mini":
+      // Mini rounded
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = t * Math.PI;
+        const radius = halfWidth * Math.sin(angle);
+        const y = -height / 2 + t * height;
+        profile.push({ x: radius, y });
+      }
+      break;
+    case "cracked":
+    case "split":
+      // Same as classic for now
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        let radius;
+        if (t < 0.6) {
+          const localT = t / 0.6;
+          const angle = localT * Math.PI * 0.5;
+          radius = halfWidth * Math.sin(angle);
+        } else {
           const localT = (t - 0.6) / 0.4;
           const angle = Math.PI * 0.5 + localT * Math.PI * 0.5;
           radius = halfWidth * Math.sin(angle) * (1 - localT * 0.4);
@@ -327,77 +375,48 @@ function trianglesToSTL(triangles: Triangle[], name: string): string {
 }
 
 // Main generator function
-export function generateEggisonBulb(settings: EggisonBulbsSettings): ExportedPart[] {
+export function generateEggisonBulb(settings: EggisonSettings): ExportedPart[] {
   const parts: ExportedPart[] = [];
   
-  // Generate shell profile
+  // Generate shell profile based on style
   const profile = generateShellProfile(
-    settings.shellShape,
+    settings.shellStyle,
     settings.shellHeight,
     settings.shellWidth
   );
   
   // Generate hollow shell
-  const shellTriangles = generateHollowShell(profile, settings.shellWallThickness);
+  const shellTriangles = generateHollowShell(profile, settings.wallThickness);
   
-  // Generate screw base if not "none"
-  let baseTriangles: Triangle[] = [];
-  if (settings.screwBase !== "none") {
-    baseTriangles = generateScrewBase(
-      settings.baseDiameter,
-      settings.baseHeight,
-      settings.threadPitch,
-      settings.conductivePathGroove,
-      settings.grooveWidth,
-      settings.grooveDepth
-    );
-  }
+  // Generate screw base
+  const baseDiameter = settings.baseType === "E26" ? 26 : settings.baseType === "E27" ? 27 : 14;
+  const baseTriangles = generateScrewBase(
+    baseDiameter,
+    settings.baseHeight,
+    1.0, // thread pitch
+    false, // no conductive groove
+    0, // groove width
+    0  // groove depth
+  );
   
-  // Generate filament guide if not "none"
-  let guideTriangles: Triangle[] = [];
-  if (settings.filamentGuide !== "none") {
-    guideTriangles = generateFilamentGuide(
-      settings.filamentGuide,
-      settings.guideHeight,
-      settings.guideThickness,
-      settings.guideMountPoints
-    );
-  }
+  // Combine shell and base
+  const allTriangles = [...shellTriangles, ...baseTriangles];
   
-  // Combine all triangles for complete bulb
-  const allTriangles = [...shellTriangles, ...baseTriangles, ...guideTriangles];
+  // Export shell
+  parts.push({
+    name: `eggison_${settings.shellStyle}_shell`,
+    stl: trianglesToSTL(shellTriangles, "eggison_shell"),
+    description: `${settings.shellStyle} style egg shell`,
+    slicingNotes: "⚠️ IMPORTANT: Enable SPIRAL VASE MODE (vase mode) in your slicer for glass-like clarity with clear PETG!"
+  });
   
-  if (settings.splitHorizontal) {
-    // Split into top and bottom halves
-    const topTriangles = allTriangles.filter(t => 
-      t.vertices.some(v => v[1] > settings.splitHeight)
-    );
-    const bottomTriangles = allTriangles.filter(t => 
-      t.vertices.some(v => v[1] <= settings.splitHeight)
-    );
-    
-    parts.push({
-      name: `eggison_${settings.shellShape}_top`,
-      stl: trianglesToSTL(topTriangles, "eggison_top"),
-      description: "Top half of Eggison bulb shell",
-      slicingNotes: "⚠️ IMPORTANT: Enable SPIRAL VASE MODE (vase mode) in your slicer for glass-like clarity with clear PETG!"
-    });
-    
-    parts.push({
-      name: `eggison_${settings.shellShape}_bottom`,
-      stl: trianglesToSTL(bottomTriangles, "eggison_bottom"),
-      description: "Bottom half with screw base",
-      slicingNotes: "Print with normal settings (NOT vase mode) - needs solid screw threads"
-    });
-  } else {
-    // Export as single piece
-    parts.push({
-      name: `eggison_${settings.shellShape}_complete`,
-      stl: trianglesToSTL(allTriangles, "eggison_bulb"),
-      description: "Complete Eggison bulb shell",
-      slicingNotes: "⚠️ IMPORTANT: Enable SPIRAL VASE MODE (vase mode) in your slicer for glass-like clarity with clear PETG!"
-    });
-  }
+  // Export base
+  parts.push({
+    name: `eggison_${settings.baseType}_base`,
+    stl: trianglesToSTL(baseTriangles, "eggison_base"),
+    description: `${settings.baseType} screw base`,
+    slicingNotes: "Print with normal settings (NOT vase mode) - needs solid screw threads"
+  });
   
   return parts;
 }

@@ -1,106 +1,55 @@
-// Eggison Bulbs - Custom 3D-printed light bulb shells
-// For DIY LED filament bulbs with shaped interiors
+// Eggison Bulbs - Egg-shaped Edison bulb shells with screw bases and accessories
+// Based on reference implementation from egg-refrence-updates
 
 import { z } from "zod";
 
-// Shell shape types
-export const eggisonShellShapes = ["egg", "sphere", "teardrop", "pear", "tube", "dome", "custom"] as const;
-export type EggisonShellShape = typeof eggisonShellShapes[number];
+// Shell style types (from reference)
+export const eggisonShellStyles = ["classic", "tall", "wide", "mini", "cracked", "split"] as const;
+export type EggisonShellStyle = typeof eggisonShellStyles[number];
 
-// Screw base types (standard bulb bases)
-export const eggisonScrewBases = ["e26", "e27", "e14", "e12", "gu10", "none"] as const;
-export type EggisonScrewBase = typeof eggisonScrewBases[number];
+// Screw base types (from reference)
+export const eggisonBaseTypes = ["E26", "E27", "E14"] as const;
+export type EggisonBaseType = typeof eggisonBaseTypes[number];
 
-// Filament guide types (internal structure for shaping LEDs)
-export const filamentGuideTypes = ["none", "heart", "infinity", "spiral", "zigzag", "letter", "custom_path"] as const;
-export type FilamentGuideType = typeof filamentGuideTypes[number];
+// Light types supported (from reference)
+export const eggisonLightTypes = ["filament", "ws2812b", "led_strip", "fairy_lights"] as const;
+export type EggisonLightType = typeof eggisonLightTypes[number];
 
-// Material finish
-export const shellFinishes = ["clear", "frosted", "translucent", "opaque"] as const;
-export type ShellFinish = typeof shellFinishes[number];
-
-// Eggison Bulbs Settings Schema
-export const eggisonBulbsSettingsSchema = z.object({
-  // Shell properties
-  shellShape: z.enum(eggisonShellShapes),
-  shellHeight: z.number().min(40).max(200),
-  shellWidth: z.number().min(30).max(150),
-  shellWallThickness: z.number().min(1).max(5),
-  shellFinish: z.enum(shellFinishes),
-  
-  // Screw base
-  screwBase: z.enum(eggisonScrewBases),
-  baseHeight: z.number().min(10).max(40),
-  baseDiameter: z.number().min(20).max(30),
-  threadPitch: z.number().min(2).max(5),
-  
-  // Wire channels for conductive paths
-  wireCenterHole: z.boolean(),
-  wireHoleDiameter: z.number().min(2).max(8),
-  conductivePathGroove: z.boolean(),
-  grooveWidth: z.number().min(1).max(3),
-  grooveDepth: z.number().min(0.5).max(2),
-  
-  // Filament guide (internal structure)
-  filamentGuide: z.enum(filamentGuideTypes),
-  guideHeight: z.number().min(20).max(150),
-  guideThickness: z.number().min(1).max(3),
-  guideMountPoints: z.number().min(2).max(8),
-  
-  // Custom filament path (for custom_path guide type)
-  customFilamentPath: z.string().optional(),
-  
-  // Assembly features
-  splitHorizontal: z.boolean(),
-  splitHeight: z.number().min(0).max(100),
-  snapFitTabs: z.boolean(),
-  tabCount: z.number().min(2).max(8),
-  
-  // Top opening (for inserting filament)
-  topOpening: z.boolean(),
-  openingDiameter: z.number().min(10).max(40),
-  
-  // Mounting features
-  hangingLoop: z.boolean(),
-  loopDiameter: z.number().min(3).max(8),
+// Eggison Settings Schema (matching reference implementation)
+export const eggisonSettingsSchema = z.object({
+  shellHeight: z.number().min(40).max(150),
+  shellWidth: z.number().min(30).max(120),
+  wallThickness: z.number().min(1).max(4),
+  shellStyle: z.enum(eggisonShellStyles),
+  baseType: z.enum(eggisonBaseTypes),
+  baseHeight: z.number().min(15).max(40),
+  lightType: z.enum(eggisonLightTypes),
+  filamentChannelDiameter: z.number().min(2).max(8),
+  includeGlasses: z.boolean(),
+  includeFeet: z.boolean(),
+  includeBatteryHolder: z.boolean(),
+  includeFilamentChannel: z.boolean(),
 });
 
-export type EggisonBulbsSettings = z.infer<typeof eggisonBulbsSettingsSchema>;
+export type EggisonSettings = z.infer<typeof eggisonSettingsSchema>;
 
-// Default settings
-export const defaultEggisonBulbsSettings: EggisonBulbsSettings = {
-  shellShape: "egg",
-  shellHeight: 80,
-  shellWidth: 60,
-  shellWallThickness: 2,
-  shellFinish: "translucent",
-  
-  screwBase: "e26",
+// Default settings (matching reference)
+export const defaultEggisonSettings: EggisonSettings = {
+  shellHeight: 100,
+  shellWidth: 70,
+  wallThickness: 2,
+  shellStyle: "classic",
+  baseType: "E26",
   baseHeight: 25,
-  baseDiameter: 26,
-  threadPitch: 3.5,
-  
-  wireCenterHole: true,
-  wireHoleDiameter: 4,
-  conductivePathGroove: true,
-  grooveWidth: 2,
-  grooveDepth: 1,
-  
-  filamentGuide: "heart",
-  guideHeight: 50,
-  guideThickness: 2,
-  guideMountPoints: 4,
-  
-  customFilamentPath: "",
-  
-  splitHorizontal: true,
-  splitHeight: 50,
-  snapFitTabs: true,
-  tabCount: 4,
-  
-  topOpening: true,
-  openingDiameter: 20,
-  
-  hangingLoop: false,
-  loopDiameter: 5,
+  lightType: "filament",
+  filamentChannelDiameter: 4,
+  includeGlasses: false,
+  includeFeet: false,
+  includeBatteryHolder: false,
+  includeFilamentChannel: true,
 };
+
+// Legacy exports for backward compatibility
+export const eggisonBulbsSettingsSchema = eggisonSettingsSchema;
+export type EggisonBulbsSettings = EggisonSettings;
+export const defaultEggisonBulbsSettings = defaultEggisonSettings;

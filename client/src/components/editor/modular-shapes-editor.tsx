@@ -5,10 +5,10 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Hexagon, Triangle, Square, Pentagon, Octagon, Download, Loader2, Link2, Lightbulb } from "lucide-react";
+import { Hexagon, Triangle, Square, Pentagon, Octagon, Download, Loader2, Link2, Lightbulb, ArrowRightFromLine, ArrowLeftToLine, Layers } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { modularShapeTypes, type ModularShapeType } from "@shared/schema";
+import { modularShapeTypes, connectorTypes, diffuserTypes, type ModularShapeType, type ConnectorType, type DiffuserType } from "@shared/schema";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Environment } from "@react-three/drei";
 import * as THREE from "three";
@@ -41,7 +41,7 @@ const MIN_EDGE_LENGTH = 30;
 
 function ModularShapePreview3D() {
   const { modularShapeSettings } = useEditorStore();
-  const { shapeType, edgeLength, channelWidth, wallHeight, wallThickness, connectorEnabled, connectorTabWidth, connectorTabDepth } = modularShapeSettings;
+  const { shapeType, edgeLength, channelWidth, wallHeight, wallThickness, diffuserType, connectorEnabled, connectorType, connectorTabWidth, connectorTabDepth } = modularShapeSettings;
   
   const sides = shapeInfo[shapeType].sides;
   const scale = 0.01;
@@ -94,13 +94,24 @@ function ModularShapePreview3D() {
       const midY = ((v1.y + v2.y) / 2) * scale;
       const angle = Math.atan2(v2.y - v1.y, v2.x - v1.x);
       
+      // For male: push outward (add offset in normal direction)
+      // For female: push inward (subtract offset - recessed into wall)
+      const normalX = Math.cos(angle + Math.PI / 2);
+      const normalY = Math.sin(angle + Math.PI / 2);
+      const offset = (connectorTabDepth / 2) * scale;
+      const direction = connectorType === "male" ? 1 : -1;
+      
       tabs.push({
-        position: new THREE.Vector3(midX, midY, (wallHeight / 2) * scale),
+        position: new THREE.Vector3(
+          midX + normalX * offset * direction,
+          midY + normalY * offset * direction,
+          (wallHeight / 2) * scale
+        ),
         rotation: angle + Math.PI / 2,
       });
     }
     return tabs;
-  }, [connectorEnabled, sides, safeEdgeLength, wallHeight, connectorTabWidth, connectorTabDepth, scale]);
+  }, [connectorEnabled, connectorType, sides, safeEdgeLength, wallHeight, connectorTabWidth, connectorTabDepth, scale]);
   
   return (
     <group>
@@ -108,6 +119,7 @@ function ModularShapePreview3D() {
         <meshStandardMaterial color="#333" metalness={0.1} roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
       
+      {/* Male: solid protruding tabs, Female: darker recessed slots */}
       {connectorTabs.map((tab, i) => (
         <mesh
           key={i}
@@ -115,14 +127,26 @@ function ModularShapePreview3D() {
           rotation={[0, 0, tab.rotation]}
         >
           <boxGeometry args={[connectorTabWidth * scale, connectorTabDepth * scale, wallHeight * 0.6 * scale]} />
-          <meshStandardMaterial color="#555" metalness={0.2} roughness={0.6} />
+          <meshStandardMaterial 
+            color={connectorType === "male" ? "#666" : "#111"} 
+            metalness={0.2} 
+            roughness={0.6}
+          />
         </mesh>
       ))}
       
-      <mesh position={[0, 0, (wallHeight + 0.1) * scale]}>
-        <cylinderGeometry args={[Math.max(0.01, innerEdgeLength * scale * 0.5), Math.max(0.01, innerEdgeLength * scale * 0.5), 0.02, sides]} />
-        <meshStandardMaterial color="#99ddff" transparent opacity={0.6} metalness={0.1} roughness={0.2} />
-      </mesh>
+      {/* Diffuser: Shell = solid fill, Outline = just edge ring */}
+      {diffuserType === "shell" ? (
+        <mesh position={[0, 0, (wallHeight + 0.1) * scale]}>
+          <cylinderGeometry args={[safeEdgeLength * scale * 0.5, safeEdgeLength * scale * 0.5, 0.02, sides]} />
+          <meshStandardMaterial color="#99ddff" transparent opacity={0.7} metalness={0.1} roughness={0.2} />
+        </mesh>
+      ) : (
+        <mesh position={[0, 0, (wallHeight + 0.1) * scale]}>
+          <cylinderGeometry args={[Math.max(0.01, innerEdgeLength * scale * 0.5), Math.max(0.01, innerEdgeLength * scale * 0.5), 0.02, sides]} />
+          <meshStandardMaterial color="#99ddff" transparent opacity={0.6} metalness={0.1} roughness={0.2} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -399,8 +423,39 @@ export function ModularShapesEditor() {
               {modularShapeSettings.connectorEnabled && (
                 <>
                   <div>
+                    <Label className="text-xs mb-2 block">Connector Type</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant={modularShapeSettings.connectorType === "male" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setModularShapeSettings({ connectorType: "male" })}
+                        className="flex items-center gap-2"
+                        data-testid="button-connector-male"
+                      >
+                        <ArrowRightFromLine className="h-4 w-4" />
+                        Male (Tabs)
+                      </Button>
+                      <Button
+                        variant={modularShapeSettings.connectorType === "female" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setModularShapeSettings({ connectorType: "female" })}
+                        className="flex items-center gap-2"
+                        data-testid="button-connector-female"
+                      >
+                        <ArrowLeftToLine className="h-4 w-4" />
+                        Female (Slots)
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {modularShapeSettings.connectorType === "male" 
+                        ? "Tabs protrude outward to insert into female slots" 
+                        : "Slots receive male tabs for snap-fit assembly"}
+                    </p>
+                  </div>
+                  
+                  <div>
                     <div className="flex justify-between mb-2">
-                      <Label className="text-xs">Tab Width</Label>
+                      <Label className="text-xs">{modularShapeSettings.connectorType === "male" ? "Tab" : "Slot"} Width</Label>
                       <span className="text-xs text-muted-foreground">{modularShapeSettings.connectorTabWidth}mm</span>
                     </div>
                     <Slider
@@ -415,7 +470,7 @@ export function ModularShapesEditor() {
                   
                   <div>
                     <div className="flex justify-between mb-2">
-                      <Label className="text-xs">Tab Depth</Label>
+                      <Label className="text-xs">{modularShapeSettings.connectorType === "male" ? "Tab" : "Slot"} Depth</Label>
                       <span className="text-xs text-muted-foreground">{modularShapeSettings.connectorTabDepth}mm</span>
                     </div>
                     <Slider
@@ -452,9 +507,43 @@ export function ModularShapesEditor() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Diffuser Cap Options</CardTitle>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Diffuser Cover
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label className="text-xs mb-2 block">Diffuser Type</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant={modularShapeSettings.diffuserType === "shell" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setModularShapeSettings({ diffuserType: "shell" })}
+                    className="flex items-center gap-2"
+                    data-testid="button-diffuser-shell"
+                  >
+                    <Square className="h-4 w-4" />
+                    Shell (Full)
+                  </Button>
+                  <Button
+                    variant={modularShapeSettings.diffuserType === "outline" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setModularShapeSettings({ diffuserType: "outline" })}
+                    className="flex items-center gap-2"
+                    data-testid="button-diffuser-outline"
+                  >
+                    <Hexagon className="h-4 w-4" />
+                    Outline
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {modularShapeSettings.diffuserType === "shell" 
+                    ? "Solid cover for smooth RGB light diffusion (Nanoleaf style)" 
+                    : "Edge-only cover follows channel outline"}
+                </p>
+              </div>
+              
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Framed Diffuser</Label>
                 <Switch
@@ -464,7 +553,7 @@ export function ModularShapesEditor() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Creates a full-panel diffuser cap with frame that covers entire shape (like Nanoleaf panels)
+                Creates a full-panel diffuser cap with frame that covers entire shape
               </p>
               
               {modularShapeSettings.framedDiffuser && (

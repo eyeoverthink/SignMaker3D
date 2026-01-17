@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEditorStore } from "@/lib/editor-store";
 import { Lightbulb, Download } from "lucide-react";
-import type { EggisonShellShape, EggisonScrewBase, FilamentGuideType, ShellFinish } from "@shared/schema";
+import type { EggisonShellStyle, EggisonBaseType, EggisonLightType } from "@shared/schema";
 
 // 3D Preview Component
 function BulbPreview({ settings }: { settings: any }) {
@@ -28,7 +28,7 @@ function BulbPreview({ settings }: { settings: any }) {
     }
   });
 
-  // Generate shell geometry based on shape
+  // Generate shell geometry based on style
   const generateShellGeometry = () => {
     const height = settings.shellHeight / 10; // Scale down for preview
     const width = settings.shellWidth / 10;
@@ -36,12 +36,11 @@ function BulbPreview({ settings }: { settings: any }) {
     
     const points: THREE.Vector2[] = [];
     
-    switch (settings.shellShape) {
-      case "egg":
-        // True egg shape - wider at bottom (60% down), tapered to point at top
+    switch (settings.shellStyle) {
+      case "classic":
+        // Classic egg shape - wider at bottom (60% down), tapered to point at top
         for (let i = 0; i <= segments; i++) {
           const t = i / segments;
-          // Asymmetric profile: wider bottom, pointed top
           let radius;
           if (t < 0.6) {
             // Bottom 60% - gradual widening
@@ -58,35 +57,57 @@ function BulbPreview({ settings }: { settings: any }) {
           points.push(new THREE.Vector2(radius, y));
         }
         break;
-      case "sphere":
+      case "tall":
+        // Tall and narrow
         for (let i = 0; i <= segments; i++) {
           const t = i / segments;
           const angle = t * Math.PI;
-          const radius = (width / 2) * Math.sin(angle);
-          const y = -height / 2 + (width / 2) * (1 - Math.cos(angle));
-          points.push(new THREE.Vector2(radius, y));
-        }
-        break;
-      case "teardrop":
-        for (let i = 0; i <= segments; i++) {
-          const t = i / segments;
-          const angle = t * Math.PI;
-          const radius = (width / 2) * Math.sin(angle) * (1 - t * 0.6);
+          const radius = (width / 2) * Math.sin(angle) * 0.8;
           const y = -height / 2 + t * height;
           points.push(new THREE.Vector2(radius, y));
         }
         break;
-      case "pear":
+      case "wide":
+        // Wide and short
         for (let i = 0; i <= segments; i++) {
           const t = i / segments;
           const angle = t * Math.PI;
-          const bulge = 1 + 0.3 * Math.sin(t * Math.PI);
-          const radius = (width / 2) * Math.sin(angle) * bulge * (1 - t * 0.4);
+          const radius = (width / 2) * Math.sin(angle) * 1.2;
+          const y = -height / 2 + t * height;
+          points.push(new THREE.Vector2(radius, y));
+        }
+        break;
+      case "mini":
+        // Mini rounded
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments;
+          const angle = t * Math.PI;
+          const radius = (width / 2) * Math.sin(angle);
+          const y = -height / 2 + t * height;
+          points.push(new THREE.Vector2(radius, y));
+        }
+        break;
+      case "cracked":
+      case "split":
+        // Same as classic for preview
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments;
+          let radius;
+          if (t < 0.6) {
+            const localT = t / 0.6;
+            const angle = localT * Math.PI * 0.5;
+            radius = (width / 2) * Math.sin(angle);
+          } else {
+            const localT = (t - 0.6) / 0.4;
+            const angle = Math.PI * 0.5 + localT * Math.PI * 0.5;
+            radius = (width / 2) * Math.sin(angle) * (1 - localT * 0.4);
+          }
           const y = -height / 2 + t * height;
           points.push(new THREE.Vector2(radius, y));
         }
         break;
       default:
+        // Default egg shape
         for (let i = 0; i <= segments; i++) {
           const t = i / segments;
           const angle = t * Math.PI;
@@ -117,24 +138,24 @@ function BulbPreview({ settings }: { settings: any }) {
 }
 
 export function EggisonBulbsEditor() {
-  const { eggisonBulbsSettings, setEggisonBulbsSettings } = useEditorStore();
+  const { eggisonSettings, setEggisonSettings } = useEditorStore();
   const [isExporting, setIsExporting] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
 
-  const updateSetting = <K extends keyof typeof eggisonBulbsSettings>(
+  const updateSetting = <K extends keyof typeof eggisonSettings>(
     key: K,
-    value: typeof eggisonBulbsSettings[K]
+    value: typeof eggisonSettings[K]
   ) => {
-    setEggisonBulbsSettings({ ...eggisonBulbsSettings, [key]: value });
+    setEggisonSettings({ [key]: value });
   };
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const response = await fetch("/api/export/eggison-bulbs", {
+      const response = await fetch("/api/export/eggison", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(eggisonBulbsSettings),
+        body: JSON.stringify(eggisonSettings),
       });
 
       if (!response.ok) throw new Error("Export failed");
@@ -143,7 +164,7 @@ export function EggisonBulbsEditor() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `eggison_${eggisonBulbsSettings.shellShape}_${Date.now()}.zip`;
+      a.download = `eggison_${eggisonSettings.shellStyle}_${Date.now()}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -171,24 +192,23 @@ export function EggisonBulbsEditor() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-          {/* Shell Shape */}
+          {/* Shell Style */}
           <div className="space-y-2">
-            <Label>Shell Shape</Label>
+            <Label>Shell Style</Label>
             <Select
-              value={eggisonBulbsSettings.shellShape}
-              onValueChange={(v) => updateSetting("shellShape", v as EggisonShellShape)}
+              value={eggisonSettings.shellStyle}
+              onValueChange={(v) => updateSetting("shellStyle", v as EggisonShellStyle)}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="egg">Egg</SelectItem>
-                <SelectItem value="sphere">Sphere</SelectItem>
-                <SelectItem value="teardrop">Teardrop</SelectItem>
-                <SelectItem value="pear">Pear</SelectItem>
-                <SelectItem value="tube">Tube</SelectItem>
-                <SelectItem value="dome">Dome</SelectItem>
-                <SelectItem value="custom">Custom</SelectItem>
+                <SelectItem value="classic">Classic (100×70mm)</SelectItem>
+                <SelectItem value="tall">Tall (130×60mm)</SelectItem>
+                <SelectItem value="wide">Wide (80×90mm)</SelectItem>
+                <SelectItem value="mini">Mini (50×35mm)</SelectItem>
+                <SelectItem value="cracked">Cracked/Hatched</SelectItem>
+                <SelectItem value="split">Split Halves</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -196,249 +216,137 @@ export function EggisonBulbsEditor() {
           {/* Shell Dimensions */}
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Shell Height: {eggisonBulbsSettings.shellHeight}mm</Label>
+              <Label>Shell Height: {eggisonSettings.shellHeight}mm</Label>
               <Slider
-                value={[eggisonBulbsSettings.shellHeight]}
+                value={[eggisonSettings.shellHeight]}
                 onValueChange={([v]) => updateSetting("shellHeight", v)}
                 min={40}
-                max={200}
-                step={5}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Shell Width: {eggisonBulbsSettings.shellWidth}mm</Label>
-              <Slider
-                value={[eggisonBulbsSettings.shellWidth]}
-                onValueChange={([v]) => updateSetting("shellWidth", v)}
-                min={30}
                 max={150}
                 step={5}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Wall Thickness: {eggisonBulbsSettings.shellWallThickness}mm</Label>
+              <Label>Shell Width: {eggisonSettings.shellWidth}mm</Label>
               <Slider
-                value={[eggisonBulbsSettings.shellWallThickness]}
-                onValueChange={([v]) => updateSetting("shellWallThickness", v)}
+                value={[eggisonSettings.shellWidth]}
+                onValueChange={([v]) => updateSetting("shellWidth", v)}
+                min={30}
+                max={120}
+                step={5}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Wall Thickness: {eggisonSettings.wallThickness}mm</Label>
+              <Slider
+                value={[eggisonSettings.wallThickness]}
+                onValueChange={([v]) => updateSetting("wallThickness", v)}
                 min={1}
-                max={5}
+                max={4}
                 step={0.5}
               />
             </div>
           </div>
 
-          {/* Shell Finish */}
+          {/* Light Type */}
           <div className="space-y-2">
-            <Label>Shell Finish</Label>
+            <Label>Light Type</Label>
             <Select
-              value={eggisonBulbsSettings.shellFinish}
-              onValueChange={(v) => updateSetting("shellFinish", v as ShellFinish)}
+              value={eggisonSettings.lightType}
+              onValueChange={(v) => updateSetting("lightType", v as EggisonLightType)}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="clear">Clear</SelectItem>
-                <SelectItem value="frosted">Frosted</SelectItem>
-                <SelectItem value="translucent">Translucent</SelectItem>
-                <SelectItem value="opaque">Opaque</SelectItem>
+                <SelectItem value="filament">LED Filament</SelectItem>
+                <SelectItem value="ws2812b">WS2812B Addressable</SelectItem>
+                <SelectItem value="led_strip">LED Strip</SelectItem>
+                <SelectItem value="fairy_lights">Fairy Lights</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Screw Base */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Screw Base Type</Label>
-              <Select
-                value={eggisonBulbsSettings.screwBase}
-                onValueChange={(v) => updateSetting("screwBase", v as EggisonScrewBase)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="e26">E26 (Standard US)</SelectItem>
-                  <SelectItem value="e27">E27 (Standard EU)</SelectItem>
-                  <SelectItem value="e14">E14 (Candelabra)</SelectItem>
-                  <SelectItem value="e12">E12 (Small Candelabra)</SelectItem>
-                  <SelectItem value="gu10">GU10 (Twist & Lock)</SelectItem>
-                  <SelectItem value="none">None (Custom Mount)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {eggisonBulbsSettings.screwBase !== "none" && (
-              <>
-                <div className="space-y-2">
-                  <Label>Base Height: {eggisonBulbsSettings.baseHeight}mm</Label>
-                  <Slider
-                    value={[eggisonBulbsSettings.baseHeight]}
-                    onValueChange={([v]) => updateSetting("baseHeight", v)}
-                    min={10}
-                    max={40}
-                    step={1}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="conductive-groove">Conductive Path Groove</Label>
-                  <Switch
-                    id="conductive-groove"
-                    checked={eggisonBulbsSettings.conductivePathGroove}
-                    onCheckedChange={(v) => updateSetting("conductivePathGroove", v)}
-                  />
-                </div>
-              </>
-            )}
+          <div className="space-y-2">
+            <Label>Screw Base Type</Label>
+            <Select
+              value={eggisonSettings.baseType}
+              onValueChange={(v) => updateSetting("baseType", v as EggisonBaseType)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="E26">E26 (Standard US)</SelectItem>
+                <SelectItem value="E27">E27 (Standard EU)</SelectItem>
+                <SelectItem value="E14">E14 (Candelabra)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Filament Guide */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Internal Filament Guide</Label>
-              <Select
-                value={eggisonBulbsSettings.filamentGuide}
-                onValueChange={(v) => updateSetting("filamentGuide", v as FilamentGuideType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="heart">Heart</SelectItem>
-                  <SelectItem value="infinity">Infinity (∞)</SelectItem>
-                  <SelectItem value="spiral">Spiral</SelectItem>
-                  <SelectItem value="zigzag">Zigzag</SelectItem>
-                  <SelectItem value="letter">Letter</SelectItem>
-                  <SelectItem value="custom_path">Custom Path</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {eggisonBulbsSettings.filamentGuide !== "none" && (
-              <>
-                <div className="space-y-2">
-                  <Label>Guide Height: {eggisonBulbsSettings.guideHeight}mm</Label>
-                  <Slider
-                    value={[eggisonBulbsSettings.guideHeight]}
-                    onValueChange={([v]) => updateSetting("guideHeight", v)}
-                    min={20}
-                    max={150}
-                    step={5}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Mount Points: {eggisonBulbsSettings.guideMountPoints}</Label>
-                  <Slider
-                    value={[eggisonBulbsSettings.guideMountPoints]}
-                    onValueChange={([v]) => updateSetting("guideMountPoints", v)}
-                    min={2}
-                    max={8}
-                    step={1}
-                  />
-                </div>
-              </>
-            )}
+          <div className="space-y-2">
+            <Label>Base Height: {eggisonSettings.baseHeight}mm</Label>
+            <Slider
+              value={[eggisonSettings.baseHeight]}
+              onValueChange={([v]) => updateSetting("baseHeight", v)}
+              min={15}
+              max={40}
+              step={1}
+            />
           </div>
 
-          {/* Assembly Features */}
-          <div className="space-y-4">
+          {/* Filament Channel */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="split-horizontal">Split Horizontally</Label>
+              <Label>Filament Channel</Label>
               <Switch
-                id="split-horizontal"
-                checked={eggisonBulbsSettings.splitHorizontal}
-                onCheckedChange={(v) => updateSetting("splitHorizontal", v)}
+                checked={eggisonSettings.includeFilamentChannel}
+                onCheckedChange={(v) => updateSetting("includeFilamentChannel", v)}
               />
             </div>
-
-            {eggisonBulbsSettings.splitHorizontal && (
-              <>
-                <div className="space-y-2">
-                  <Label>Split Height: {eggisonBulbsSettings.splitHeight}mm</Label>
-                  <Slider
-                    value={[eggisonBulbsSettings.splitHeight]}
-                    onValueChange={([v]) => updateSetting("splitHeight", v)}
-                    min={0}
-                    max={100}
-                    step={5}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="snap-fit">Snap-Fit Tabs</Label>
-                  <Switch
-                    id="snap-fit"
-                    checked={eggisonBulbsSettings.snapFitTabs}
-                    onCheckedChange={(v) => updateSetting("snapFitTabs", v)}
-                  />
-                </div>
-
-                {eggisonBulbsSettings.snapFitTabs && (
-                  <div className="space-y-2">
-                    <Label>Tab Count: {eggisonBulbsSettings.tabCount}</Label>
-                    <Slider
-                      value={[eggisonBulbsSettings.tabCount]}
-                      onValueChange={([v]) => updateSetting("tabCount", v)}
-                      min={2}
-                      max={8}
-                      step={1}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="top-opening">Top Opening (for LED insertion)</Label>
-              <Switch
-                id="top-opening"
-                checked={eggisonBulbsSettings.topOpening}
-                onCheckedChange={(v) => updateSetting("topOpening", v)}
-              />
-            </div>
-
-            {eggisonBulbsSettings.topOpening && (
+            {eggisonSettings.includeFilamentChannel && (
               <div className="space-y-2">
-                <Label>Opening Diameter: {eggisonBulbsSettings.openingDiameter}mm</Label>
+                <Label>Channel Diameter: {eggisonSettings.filamentChannelDiameter}mm</Label>
                 <Slider
-                  value={[eggisonBulbsSettings.openingDiameter]}
-                  onValueChange={([v]) => updateSetting("openingDiameter", v)}
-                  min={10}
-                  max={40}
-                  step={2}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Wire Channels */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="wire-hole">Center Wire Hole</Label>
-              <Switch
-                id="wire-hole"
-                checked={eggisonBulbsSettings.wireCenterHole}
-                onCheckedChange={(v) => updateSetting("wireCenterHole", v)}
-              />
-            </div>
-
-            {eggisonBulbsSettings.wireCenterHole && (
-              <div className="space-y-2">
-                <Label>Wire Hole Diameter: {eggisonBulbsSettings.wireHoleDiameter}mm</Label>
-                <Slider
-                  value={[eggisonBulbsSettings.wireHoleDiameter]}
-                  onValueChange={([v]) => updateSetting("wireHoleDiameter", v)}
+                  value={[eggisonSettings.filamentChannelDiameter]}
+                  onValueChange={([v]) => updateSetting("filamentChannelDiameter", v)}
                   min={2}
                   max={8}
                   step={0.5}
                 />
               </div>
             )}
+          </div>
+
+          {/* Accessories */}
+          <div className="space-y-3">
+            <Label>Accessories</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="glasses">Glasses</Label>
+              <Switch
+                id="glasses"
+                checked={eggisonSettings.includeGlasses}
+                onCheckedChange={(v) => updateSetting("includeGlasses", v)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="feet">Feet</Label>
+              <Switch
+                id="feet"
+                checked={eggisonSettings.includeFeet}
+                onCheckedChange={(v) => updateSetting("includeFeet", v)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="battery">Battery Holder</Label>
+              <Switch
+                id="battery"
+                checked={eggisonSettings.includeBatteryHolder}
+                onCheckedChange={(v) => updateSetting("includeBatteryHolder", v)}
+              />
+            </div>
           </div>
 
           {/* Export Button */}
@@ -469,7 +377,7 @@ export function EggisonBulbsEditor() {
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1} />
             <directionalLight position={[-10, -10, -5]} intensity={0.5} />
-            <BulbPreview settings={eggisonBulbsSettings} />
+            <BulbPreview settings={eggisonSettings} />
             <OrbitControls enablePan={false} />
             <gridHelper args={[20, 20, '#888888', '#444444']} />
           </Canvas>
@@ -477,10 +385,10 @@ export function EggisonBulbsEditor() {
         <div className="p-4 border-t bg-background/95 backdrop-blur">
           <div className="text-center">
             <p className="text-sm font-medium">
-              {eggisonBulbsSettings.shellShape.charAt(0).toUpperCase() + eggisonBulbsSettings.shellShape.slice(1)} Shell
+              {eggisonSettings.shellStyle.charAt(0).toUpperCase() + eggisonSettings.shellStyle.slice(1)} Shell
             </p>
             <p className="text-xs text-muted-foreground">
-              {eggisonBulbsSettings.shellHeight}mm × {eggisonBulbsSettings.shellWidth}mm • {eggisonBulbsSettings.screwBase.toUpperCase()} Base
+              {eggisonSettings.shellHeight}mm × {eggisonSettings.shellWidth}mm • {eggisonSettings.baseType.toUpperCase()} Base
             </p>
           </div>
         </div>
