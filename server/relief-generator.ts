@@ -159,12 +159,153 @@ function generateBasePlate(settings: ReliefSettings): Triangle[] {
   return triangles;
 }
 
+// Moore-Neighbor boundary tracing (maze algorithm)
+function traceContours(
+  heightMap: Float32Array,
+  width: number,
+  height: number,
+  threshold: number
+): Array<Array<{x: number, y: number}>> {
+  const contours: Array<Array<{x: number, y: number}>> = [];
+  const visited = new Set<number>();
+  
+  // Moore-Neighbor directions (8-connected)
+  const dirs = [
+    {dx: 1, dy: 0},   // E
+    {dx: 1, dy: 1},   // SE
+    {dx: 0, dy: 1},   // S
+    {dx: -1, dy: 1},  // SW
+    {dx: -1, dy: 0},  // W
+    {dx: -1, dy: -1}, // NW
+    {dx: 0, dy: -1},  // N
+    {dx: 1, dy: -1}   // NE
+  ];
+  
+  const isEdge = (x: number, y: number): boolean => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+    const idx = y * width + x;
+    return heightMap[idx] > threshold;
+  };
+  
+  // Find all contours
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      
+      if (visited.has(idx) || !isEdge(x, y)) continue;
+      
+      // Check if this is a boundary pixel (has at least one non-edge neighbor)
+      let isBoundary = false;
+      for (const dir of dirs) {
+        if (!isEdge(x + dir.dx, y + dir.dy)) {
+          isBoundary = true;
+          break;
+        }
+      }
+      
+      if (!isBoundary) continue;
+      
+      // Trace contour using Moore-Neighbor
+      const contour: Array<{x: number, y: number}> = [];
+      let cx = x, cy = y;
+      let startX = x, startY = y;
+      let dirIdx = 0; // Start searching East
+      
+      do {
+        contour.push({x: cx, y: cy});
+        visited.add(cy * width + cx);
+        
+        // Moore-Neighbor: search in clockwise direction
+        let found = false;
+        for (let i = 0; i < 8; i++) {
+          const checkDir = (dirIdx + i) % 8;
+          const nx = cx + dirs[checkDir].dx;
+          const ny = cy + dirs[checkDir].dy;
+          
+          if (isEdge(nx, ny)) {
+            // Check if it's a boundary pixel
+            let nextIsBoundary = false;
+            for (const d of dirs) {
+              if (!isEdge(nx + d.dx, ny + d.dy)) {
+                nextIsBoundary = true;
+                break;
+              }
+            }
+            
+            if (nextIsBoundary) {
+              cx = nx;
+              cy = ny;
+              dirIdx = (checkDir + 6) % 8; // Turn left to search next
+              found = true;
+              break;
+            }
+          }
+        }
+        
+        if (!found) break;
+        
+      } while (!(cx === startX && cy === startY) && contour.length < width * height);
+      
+      if (contour.length > 10) { // Minimum contour size
+        contours.push(contour);
+      }
+    }
+  }
+  
+  return contours;
+}
+
+// Simplify path using Douglas-Peucker algorithm
+function simplifyPath(points: Array<{x: number, y: number}>, tolerance: number): Array<{x: number, y: number}> {
+  if (points.length <= 2) return points;
+  
+  const distanceToSegment = (p: {x: number, y: number}, a: {x: number, y: number}, b: {x: number, y: number}): number => {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lenSq = dx * dx + dy * dy;
+    
+    if (lenSq === 0) {
+      const pdx = p.x - a.x;
+      const pdy = p.y - a.y;
+      return Math.sqrt(pdx * pdx + pdy * pdy);
+    }
+    
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
+    const projX = a.x + t * dx;
+    const projY = a.y + t * dy;
+    const pdx = p.x - projX;
+    const pdy = p.y - projY;
+    
+    return Math.sqrt(pdx * pdx + pdy * pdy);
+  };
+  
+  let maxDist = 0;
+  let maxIdx = 0;
+  
+  for (let i = 1; i < points.length - 1; i++) {
+    const dist = distanceToSegment(points[i], points[0], points[points.length - 1]);
+    if (dist > maxDist) {
+      maxDist = dist;
+      maxIdx = i;
+    }
+  }
+  
+  if (maxDist > tolerance) {
+    const left = simplifyPath(points.slice(0, maxIdx + 1), tolerance);
+    const right = simplifyPath(points.slice(maxIdx), tolerance);
+    return [...left.slice(0, -1), ...right];
+  }
+  
+  return [points[0], points[points.length - 1]];
+}
+
 // Add LED channels to mesh
 function addLEDChannels(
   triangles: Triangle[],
   settings: ReliefSettings,
   width: number,
-  height: number
+  height: number,
+  heightMap: Float32Array
 ): Triangle[] {
   const ledTriangles: Triangle[] = [];
   
@@ -174,14 +315,15 @@ function addLEDChannels(
   
   const channelWidth = settings.ledChannelWidth;
   const channelDepth = settings.ledChannelDepth;
+  const scaleX = settings.baseWidth / width;
+  const scaleY = settings.baseHeight / height;
   
   if (settings.ledPlacement === "edges") {
     // Add channels around the perimeter
     const w = settings.baseWidth;
     const h = settings.baseHeight;
-    const offset = 5; // Offset from edge
+    const offset = 5;
     
-    // Top edge channel
     ledTriangles.push(...createChannelSegment(
       { x: offset, y: offset, z: 0 },
       { x: w - offset, y: offset, z: 0 },
@@ -189,7 +331,6 @@ function addLEDChannels(
       channelDepth
     ));
     
-    // Right edge channel
     ledTriangles.push(...createChannelSegment(
       { x: w - offset, y: offset, z: 0 },
       { x: w - offset, y: h - offset, z: 0 },
@@ -197,7 +338,6 @@ function addLEDChannels(
       channelDepth
     ));
     
-    // Bottom edge channel
     ledTriangles.push(...createChannelSegment(
       { x: w - offset, y: h - offset, z: 0 },
       { x: offset, y: h - offset, z: 0 },
@@ -205,13 +345,61 @@ function addLEDChannels(
       channelDepth
     ));
     
-    // Left edge channel
     ledTriangles.push(...createChannelSegment(
       { x: offset, y: h - offset, z: 0 },
       { x: offset, y: offset, z: 0 },
       channelWidth,
       channelDepth
     ));
+  } else if (settings.ledPlacement === "contours") {
+    // Use Moore-Neighbor boundary tracing
+    const threshold = settings.maxDepth * 0.3; // Detect edges at 30% depth
+    const contours = traceContours(heightMap, width, height, threshold);
+    
+    console.log(`[Relief] Found ${contours.length} contours`);
+    
+    for (const contour of contours) {
+      // Simplify contour using Douglas-Peucker
+      const simplified = simplifyPath(contour, 2.0);
+      
+      console.log(`[Relief] Contour: ${contour.length} points -> ${simplified.length} simplified`);
+      
+      // Create LED channels along simplified contour
+      for (let i = 0; i < simplified.length - 1; i++) {
+        const p1 = simplified[i];
+        const p2 = simplified[i + 1];
+        
+        ledTriangles.push(...createChannelSegment(
+          { x: p1.x * scaleX, y: p1.y * scaleY, z: 0 },
+          { x: p2.x * scaleX, y: p2.y * scaleY, z: 0 },
+          channelWidth,
+          channelDepth
+        ));
+      }
+    }
+  } else if (settings.ledPlacement === "grid") {
+    // Grid pattern
+    const spacing = 20;
+    const w = settings.baseWidth;
+    const h = settings.baseHeight;
+    
+    for (let x = spacing; x < w; x += spacing) {
+      ledTriangles.push(...createChannelSegment(
+        { x, y: 5, z: 0 },
+        { x, y: h - 5, z: 0 },
+        channelWidth,
+        channelDepth
+      ));
+    }
+    
+    for (let y = spacing; y < h; y += spacing) {
+      ledTriangles.push(...createChannelSegment(
+        { x: 5, y, z: 0 },
+        { x: w - 5, y, z: 0 },
+        channelWidth,
+        channelDepth
+      ));
+    }
   }
   
   return ledTriangles;
@@ -342,7 +530,7 @@ export async function generateReliefSTL(
       console.log(`[Relief Generator] Mesh created: ${triangles.length} triangles`);
       
       // Add LED channels
-      const ledTriangles = addLEDChannels(triangles, settings, imageWidth, imageHeight);
+      const ledTriangles = addLEDChannels(triangles, settings, imageWidth, imageHeight, heightMap);
       triangles.push(...ledTriangles);
       console.log(`[Relief Generator] LED channels added: ${ledTriangles.length} triangles`);
       
