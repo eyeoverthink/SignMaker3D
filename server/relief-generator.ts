@@ -4,6 +4,7 @@
 import type { ReliefSettings } from "@shared/relief-types";
 import archiver from "archiver";
 import { Writable } from "stream";
+import { createCanvas, loadImage } from "canvas";
 
 interface Vector3 {
   x: number;
@@ -18,29 +19,52 @@ interface Triangle {
 }
 
 // Convert image data to height map
-function imageToHeightMap(
+async function imageToHeightMap(
   imageData: string,
   width: number,
   height: number,
   settings: ReliefSettings
-): Float32Array {
-  // Extract base64 data
-  const base64Data = imageData.split(',')[1];
-  const buffer = Buffer.from(base64Data, 'base64');
-  
-  // For now, create a simple height map based on grayscale
-  // In production, this would parse the actual image
-  const heightMap = new Float32Array(width * height);
-  
-  // Simulate grayscale conversion (will be replaced with actual image parsing)
-  for (let i = 0; i < heightMap.length; i++) {
-    const gray = Math.random() * 255; // Placeholder - will parse actual image
-    const normalized = gray / 255;
-    const depth = normalized * settings.maxDepth;
-    heightMap[i] = settings.invertDepth ? (settings.maxDepth - depth) : depth;
+): Promise<Float32Array> {
+  try {
+    // Load image from base64 data
+    const image = await loadImage(imageData);
+    
+    // Create canvas and get pixel data
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    
+    // Draw image scaled to target dimensions
+    ctx.drawImage(image, 0, 0, width, height);
+    
+    // Get pixel data
+    const imageDataObj = ctx.getImageData(0, 0, width, height);
+    const pixels = imageDataObj.data;
+    
+    // Convert to grayscale height map
+    const heightMap = new Float32Array(width * height);
+    
+    for (let i = 0; i < width * height; i++) {
+      const r = pixels[i * 4];
+      const g = pixels[i * 4 + 1];
+      const b = pixels[i * 4 + 2];
+      
+      // Convert RGB to grayscale (luminance formula)
+      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      
+      // Normalize to 0-1 and apply depth
+      const normalized = gray / 255;
+      const depth = normalized * settings.maxDepth;
+      
+      heightMap[i] = settings.invertDepth ? (settings.maxDepth - depth) : depth;
+    }
+    
+    console.log(`[Relief] Parsed image: ${width}x${height}, depth range: 0-${settings.maxDepth}mm`);
+    
+    return heightMap;
+  } catch (error) {
+    console.error('[Relief] Image parsing error:', error);
+    throw new Error('Failed to parse image data');
   }
-  
-  return heightMap;
 }
 
 // Smooth height map using box blur
@@ -507,7 +531,7 @@ export async function generateReliefSTL(
   settings: ReliefSettings,
   imageData: string
 ): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
       console.log('[Relief Generator] Starting generation...');
       
@@ -516,7 +540,7 @@ export async function generateReliefSTL(
       const imageHeight = 100;
       
       // Convert image to height map
-      let heightMap = imageToHeightMap(imageData, imageWidth, imageHeight, settings);
+      let heightMap = await imageToHeightMap(imageData, imageWidth, imageHeight, settings);
       console.log('[Relief Generator] Height map created');
       
       // Smooth height map
