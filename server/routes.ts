@@ -9,7 +9,9 @@ import { generateModularShape } from "./stl-generator-v2";
 import { generateEggisonBulb } from "./eggison-bulbs-generator";
 import { generateRetroNeonSTL } from "./retro-neon-generator";
 import { generateLEDHolder } from "./led-holder-generator";
+import { generateReliefSTL } from "./relief-generator";
 import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema, modularShapeSettingsSchema, eggisonSettingsSchema, retroNeonSettingsSchema, ledHolderSettingsSchema } from "@shared/schema";
+import { reliefSettingsSchema } from "@shared/relief-types";
 import {
   letterSettingsSchema,
   geometrySettingsSchema,
@@ -1308,6 +1310,38 @@ export async function registerRoutes(
       console.error("LED Holder export error:", error);
       res.status(500).json({ 
         error: "Failed to generate LED Holder STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // 2.5D Relief export endpoint
+  app.post("/api/export/relief", async (req, res) => {
+    try {
+      const { settings, imageData } = req.body;
+      
+      const validatedSettings = reliefSettingsSchema.parse(settings);
+      
+      if (!imageData) {
+        return res.status(400).json({ error: "Image data required" });
+      }
+
+      console.log('[Relief Export] Generating relief model...');
+      const zipBuffer = await generateReliefSTL(validatedSettings, imageData);
+      
+      if (!zipBuffer) {
+        return res.status(400).json({ error: "No parts generated" });
+      }
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="relief_${validatedSettings.reliefStyle}_${Date.now()}.zip"`);
+      res.send(zipBuffer);
+      
+      console.log('[Relief Export] Successfully sent relief model');
+    } catch (error) {
+      console.error("Relief export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate relief STL",
         details: error instanceof Error ? error.message : String(error)
       });
     }

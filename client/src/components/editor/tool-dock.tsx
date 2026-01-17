@@ -1,16 +1,18 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
   const { inputMode, setInputMode, showGrid, setShowGrid } = useEditorStore();
 
   const modes: { id: InputMode; icon: typeof Type; label: string; description: string }[] = [
-    { id: "text", icon: Type, label: "Signs", description: "Neon sign text" },
-    { id: "draw", icon: Pencil, label: "Draw", description: "Freehand drawing" },
-    { id: "image", icon: Image, label: "Image", description: "Upload & trace image" },
+    { id: "text", icon: Type, label: "Text", description: "Create neon text signs" },
+    { id: "draw", icon: Pencil, label: "Draw", description: "Freehand neon tubes" },
+    { id: "image", icon: Image, label: "Bubble", description: "Bubble letter style from images" },
+    { id: "shoestring", icon: Sparkles, label: "Shoestring", description: "Pop culture image tracer" },
+    { id: "relief", icon: Mountain, label: "2.5D Relief", description: "Embossed/engraved surfaces with LED channels" },
     { id: "presets", icon: Sparkles, label: "Presets", description: "40+ iconic shapes - retro, emoji, stick figures" },
     { id: "custom", icon: Layers, label: "Custom", description: "Custom LED tube shapes" },
     { id: "retro", icon: Lightbulb, label: "Edison", description: "Edison bulbs & retro neon" },
