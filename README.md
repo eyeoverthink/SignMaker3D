@@ -1,19 +1,22 @@
-<<<<<<< HEAD
-# SignCraft 3D - Neon Sign Generator
+# SignCraft 3D - Professional Neon Sign & 3D Relief Generator
 
-A professional web-based 3D neon sign generator for makers and small businesses. Create custom illuminated signage with integrated LED/neon light channels, ready for 3D printing.
+A professional web-based 3D generator for makers and small businesses. Create custom illuminated signage, 2.5D relief surfaces, modular light panels, and more - all with integrated LED channels, ready for 3D printing.
 
 ![SignCraft 3D](generated-icon.png)
 
-## Features
+## ✨ Features
 
-### 🎨 Multiple Input Modes
+### 🎨 Multiple Creation Modes
 
-- **Text Mode**: Create custom neon signs from text with 27+ fonts
+- **Text Mode**: Custom neon signs from text with 27+ fonts
 - **Draw Mode**: Freehand drawing converted to 3D neon tubes
 - **Image Mode**: Upload and trace images into bubble letter style
+- **2.5D Relief Mode**: Convert images to embossed/engraved surfaces with contour-following LED channels ⭐ NEW
 - **Pet Tag Mode**: Mini illuminated pet tags with 6 shape options
-- **Modular Panels**: Nanoleaf-style geometric light tiles (hexagons, triangles, etc.)
+- **Modular Panels**: Nanoleaf-style geometric light tiles (hexagons, triangles, squares)
+- **Preset Shapes**: Hearts, stars, arrows with snap-fit diffuser covers
+- **Neon Shapes**: Pre-designed neon elements with Edison base mounts
+- **Backing Plates**: Custom mounting plates with wire management
 
 ### 🔧 Advanced Customization
 
@@ -22,6 +25,8 @@ A professional web-based 3D neon sign generator for makers and small businesses.
 - **Mounting Patterns**: 2-point, 4-corner, 6-point, custom hole patterns
 - **Geometry Modes**: Raised, stencil, layered, flat, outline
 - **Material Settings**: Opaque, transparent, diffuser configurations
+- **LED Channel Placement**: Edges, contours (Moore-Neighbor tracing), grid patterns
+- **Real-time Preview**: See traced contours before export with glowing overlays
 
 ### 📦 Export Formats
 
@@ -32,12 +37,16 @@ A professional web-based 3D neon sign generator for makers and small businesses.
 
 ### ✨ Professional Features
 
-- Real-time 3D preview with WebGL
-- Snap-fit engineering with configurable tolerances
-- Registration pins for part alignment
-- Diffusion ribs for even light distribution
-- Cable channels for clean wiring
-- Mirror, weld, and feed hole options
+- **Real-time 3D preview** with WebGL (React Three Fiber)
+- **Snap-fit engineering** with configurable tolerances
+- **Registration pins** for part alignment
+- **Diffusion ribs** for even light distribution
+- **Cable channels** for clean wiring
+- **Mirror, weld, and feed hole** options
+- **Moore-Neighbor boundary tracing** for intelligent contour detection
+- **Douglas-Peucker path simplification** for optimized geometry
+- **Image-to-height-map conversion** with grayscale processing
+- **Multi-contour detection** for complex shapes
 
 ## Tech Stack
 
@@ -124,6 +133,8 @@ npm start
 - `POST /api/export` - Generate and download 3D files
 - `POST /api/export/pet-tag` - Export pet tag designs
 - `POST /api/export/modular-shape` - Export modular panels
+- `POST /api/export/preset-shape` - Export preset shapes with diffusers
+- `POST /api/export/relief` - Export 2.5D relief models with LED channels ⭐ NEW
 - `GET /api/projects` - List saved projects (in-memory)
 - `POST /api/projects` - Create new project
 - `PATCH /api/projects/:id` - Update project
@@ -160,6 +171,25 @@ npm start
 5. Configure hang position
 6. Export base + cap for mini neon effect
 
+### Creating 2.5D Relief with LED Contours
+
+1. Select **2.5D Relief Mode** from tool dock
+2. Upload an image (PNG, JPG, GIF)
+3. Adjust settings:
+   - Relief style: Raised (embossed), Recessed (engraved), or Both
+   - Max depth: 1-50mm
+   - LED placement: **Follow Contours** (uses Moore-Neighbor algorithm)
+   - Channel width and depth for LED strips
+4. See **real-time green contour preview** overlaid on your image
+5. Export STL files with carved LED channels following detected boundaries
+
+**The Moore-Neighbor algorithm automatically:**
+- Detects all shape boundaries in your image
+- Traces each contour independently
+- Simplifies paths using Douglas-Peucker algorithm
+- Carves LED channels along traced boundaries
+- Handles complex shapes, overlaps, and multiple objects
+
 ## Configuration
 
 ### Environment Variables
@@ -188,11 +218,35 @@ Key principles:
 - Professional utility over flashy visuals
 - Real-time preview with instant feedback
 
+## Algorithms & Technical Highlights
+
+### Moore-Neighbor Boundary Tracing (Maze Algorithm)
+Implemented for 2.5D Relief contour detection:
+- 8-connected directional search (E, SE, S, SW, W, NW, N, NE)
+- Clockwise boundary traversal
+- Multi-contour detection for complex images
+- Tested with chaos patterns (60+ contours successfully traced)
+- Real-time client-side preview + server-side STL generation
+
+### Douglas-Peucker Path Simplification
+- Reduces redundant points while preserving shape accuracy
+- Configurable tolerance for detail vs. performance
+- Optimizes LED channel geometry
+
+### Image Processing Pipeline
+1. Base64 image decode (PNG/JPG support)
+2. Canvas API rendering at target resolution
+3. RGB to grayscale conversion (luminance formula: 0.299R + 0.587G + 0.114B)
+4. Height map generation with depth scaling
+5. Contour detection at configurable threshold
+6. LED channel carving along traced paths
+7. Binary STL export with ZIP packaging
+
 ## Known Limitations
 
 - Projects stored in memory only (resets on server restart)
 - No user authentication (schema ready but not implemented)
-- Limited pre-made template library (4 templates)
+- Limited pre-made template library
 - No frontend UI for project save/load (API exists)
 
 ## Contributing
@@ -213,6 +267,21 @@ MIT License - see LICENSE file for details
 - Hershey fonts for single-stroke geometry
 - 3D rendering with [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
 - UI components from [Shadcn/ui](https://ui.shadcn.com/)
+- Canvas API for image processing
+- Moore-Neighbor algorithm for boundary tracing
+- Douglas-Peucker algorithm for path simplification
+
+## Recent Updates
+
+### v2.5.0 - 2.5D Relief Generator (January 2026)
+- ✅ Moore-Neighbor boundary tracing algorithm implementation
+- ✅ Real-time contour preview with glowing overlays
+- ✅ Image-to-height-map conversion with Canvas API
+- ✅ Douglas-Peucker path simplification
+- ✅ Multi-contour detection for complex images
+- ✅ LED channel placement: Edges, Contours, Grid patterns
+- ✅ Chaos-tested with 60+ contours successfully traced
+- ✅ Production-ready STL export with carved LED channels
 
 ## Support
 
@@ -220,7 +289,4 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 
 ---
 
-**Built for makers, by makers.** Create professional neon signs for your business, home, or projects.
-=======
-"# SignMaker3D" 
->>>>>>> 33504e4ace41721bd6457f6819efef6d26850a39
+**Built for makers, by makers.** Create professional neon signs, 3D relief art, and illuminated designs for your business, home, or projects. 🚀
