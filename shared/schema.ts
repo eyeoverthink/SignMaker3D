@@ -173,6 +173,9 @@ export const modularShapeSettingsSchema = z.object({
   connectorTabDepth: z.number().min(2).max(8),  // Depth of connector tabs
   connectorTolerance: z.number().min(0.1).max(0.4), // Fit tolerance
   tileCount: z.number().min(1).max(20),      // Number of tiles to generate
+  framedDiffuser: z.boolean(),               // Generate framed diffuser cap that covers entire panel
+  frameWidth: z.number().min(2).max(10),     // Width of the frame around diffuser
+  frameSnapFit: z.boolean(),                 // Add snap-fit clips to frame
 });
 
 export type ModularShapeSettings = z.infer<typeof modularShapeSettingsSchema>;
@@ -190,6 +193,9 @@ export const defaultModularShapeSettings: ModularShapeSettings = {
   connectorTabDepth: 4,
   connectorTolerance: 0.2,
   tileCount: 1,
+  framedDiffuser: false,
+  frameWidth: 4,
+  frameSnapFit: true,
 };
 
 // Neon Tube (realistic glass tube neon with 3D printed casings)

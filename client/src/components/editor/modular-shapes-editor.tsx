@@ -452,6 +452,56 @@ export function ModularShapesEditor() {
 
           <Card>
             <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Diffuser Cap Options</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Framed Diffuser</Label>
+                <Switch
+                  checked={modularShapeSettings.framedDiffuser}
+                  onCheckedChange={(checked) => setModularShapeSettings({ framedDiffuser: checked })}
+                  data-testid="switch-framed-diffuser"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Creates a full-panel diffuser cap with frame that covers entire shape (like Nanoleaf panels)
+              </p>
+              
+              {modularShapeSettings.framedDiffuser && (
+                <>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <Label className="text-xs">Frame Width</Label>
+                      <span className="text-xs text-muted-foreground">{modularShapeSettings.frameWidth}mm</span>
+                    </div>
+                    <Slider
+                      value={[modularShapeSettings.frameWidth]}
+                      onValueChange={([v]) => setModularShapeSettings({ frameWidth: v })}
+                      min={2}
+                      max={10}
+                      step={0.5}
+                      data-testid="slider-frame-width"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Snap-Fit Clips</Label>
+                    <Switch
+                      checked={modularShapeSettings.frameSnapFit}
+                      onCheckedChange={(checked) => setModularShapeSettings({ frameSnapFit: checked })}
+                      data-testid="switch-frame-snap-fit"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Adds snap-fit clips to frame for secure attachment to base
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm">Printing Tips</CardTitle>
             </CardHeader>
             <CardContent>
@@ -460,6 +510,9 @@ export function ModularShapesEditor() {
                 <li>Print cap in translucent for diffusion</li>
                 <li>Tiles snap together via edge tabs</li>
                 <li>Use 5mm LED strips inside channels</li>
+                {modularShapeSettings.framedDiffuser && (
+                  <li className="font-medium text-primary">Framed diffuser covers entire panel for uniform glow</li>
+                )}
               </ul>
             </CardContent>
           </Card>
