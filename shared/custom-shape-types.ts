@@ -2,7 +2,6 @@
 // Extracted from Replit additions
 
 import { z } from "zod";
-import { sketchPathSchema } from "./schema";
 
 // Custom input modes for custom shapes editor
 export const customInputModes = ["text", "draw", "trace"] as const;
@@ -11,6 +10,13 @@ export type CustomInputMode = typeof customInputModes[number];
 // LED strip types
 export const ledStripTypes = ["simple", "ws2812", "cob", "filament"] as const;
 export type LedStripType = typeof ledStripTypes[number];
+
+// Sketch path schema (defined here to avoid circular dependency)
+const sketchPathSchema = z.object({
+  id: z.string(),
+  points: z.array(z.object({ x: z.number(), y: z.number() })),
+  closed: z.boolean(),
+});
 
 // Custom Shape Settings - for creating split-half channels for LED insertion
 export const customShapeSettingsSchema = z.object({
