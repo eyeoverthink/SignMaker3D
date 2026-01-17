@@ -10,6 +10,7 @@ import { generateEggisonBulb } from "./eggison-bulbs-generator";
 import { generateRetroNeonSTL } from "./retro-neon-generator";
 import { generateLEDHolder } from "./led-holder-generator";
 import { generateReliefSTL } from "./relief-generator";
+import { generateLithophaneSTL } from "./lithophane-generator";
 import { twoPartSystemSchema, defaultTwoPartSystem, petTagSettingsSchema, modularShapeSettingsSchema, eggisonSettingsSchema, retroNeonSettingsSchema, ledHolderSettingsSchema } from "@shared/schema";
 import { reliefSettingsSchema } from "@shared/relief-types";
 import {
@@ -1352,6 +1353,36 @@ export async function registerRoutes(
       console.error("Relief export error:", error);
       res.status(500).json({ 
         error: "Failed to generate relief STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Lithophane export endpoint
+  app.post("/api/export/lithophane", async (req, res) => {
+    try {
+      const settings = req.body;
+      
+      if (!settings.image) {
+        return res.status(400).json({ error: "Image data required" });
+      }
+
+      console.log('[Lithophane Export] Generating lithophane...');
+      const stl = await generateLithophaneSTL(settings);
+      
+      if (!stl) {
+        return res.status(400).json({ error: "Failed to generate lithophane" });
+      }
+
+      res.setHeader("Content-Type", "application/sla");
+      res.setHeader("Content-Disposition", `attachment; filename="lithophane_${Date.now()}.stl"`);
+      res.send(stl);
+      
+      console.log('[Lithophane Export] Successfully sent lithophane STL');
+    } catch (error) {
+      console.error("Lithophane export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate lithophane STL",
         details: error instanceof Error ? error.message : String(error)
       });
     }

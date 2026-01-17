@@ -1,7 +1,7 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain, Lamp } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
@@ -13,6 +13,7 @@ export function ToolDock() {
     { id: "image", icon: Image, label: "Bubble", description: "Bubble letter style from images" },
     { id: "shoestring", icon: Sparkles, label: "Shoestring", description: "Pop culture image tracer" },
     { id: "relief", icon: Mountain, label: "2.5D Relief", description: "Embossed/engraved surfaces with LED channels" },
+    { id: "lithophane", icon: Lamp, label: "Lithophane", description: "Backlit 3D image panels for streamers" },
     { id: "presets", icon: Sparkles, label: "Presets", description: "40+ iconic shapes - retro, emoji, stick figures" },
     { id: "custom", icon: Layers, label: "Custom", description: "Custom LED tube shapes" },
     { id: "retro", icon: Lightbulb, label: "Edison", description: "Edison bulbs & retro neon" },
@@ -23,7 +24,6 @@ export function ToolDock() {
     { id: "modular", icon: Hexagon, label: "Panels", description: "Modular light panels" },
     { id: "neontube", icon: Zap, label: "Neon Tubes", description: "Realistic tube casings" },
     { id: "backingplate", icon: Square, label: "Backing Plates", description: "Mounting plates with holes" },
-    { id: "shoestring", icon: Sparkles, label: "Shoe String", description: "Pop culture image tracer" },
   ];
 
   return (
