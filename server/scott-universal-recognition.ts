@@ -77,14 +77,15 @@ export class ScottUniversalRecognition {
     let bestMatch: GeometricSignature | null = null;
     let bestSimilarity = 0;
     
-    this.database.forEach((knownSig) => {
+    const signatures = Array.from(this.database.values());
+    for (const knownSig of signatures) {
       const similarity = this.geometricSimilarity(unknownSig, knownSig);
       
       if (similarity > bestSimilarity) {
         bestSimilarity = similarity;
         bestMatch = knownSig;
       }
-    });
+    }
     
     const matchTime = Date.now() - startTime;
     const confidence = bestSimilarity;
