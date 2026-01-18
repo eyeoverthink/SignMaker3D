@@ -1,18 +1,12 @@
 // Eggison Bulbs Generator - Custom 3D-printed light bulb shells
 // Generates hollow shells with screw bases for DIY LED filament bulbs
 
-import type { EggisonSettings } from "../shared/eggison-bulbs-types";
+import type { EggisonSettings } from "@shared/schema";
+import type { ExportedPart } from "./stl-generator";
 
 interface Triangle {
   vertices: [number, number, number][];
   normal?: [number, number, number];
-}
-
-interface ExportedPart {
-  name: string;
-  stl: string;
-  description?: string;
-  slicingNotes?: string;
 }
 
 // Generate shell profile based on shape type
@@ -404,18 +398,18 @@ export function generateEggisonBulb(settings: EggisonSettings): ExportedPart[] {
   
   // Export shell
   parts.push({
-    name: `eggison_${settings.shellStyle}_shell`,
-    stl: trianglesToSTL(shellTriangles, "eggison_shell"),
-    description: `${settings.shellStyle} style egg shell`,
-    slicingNotes: "⚠️ IMPORTANT: Enable SPIRAL VASE MODE (vase mode) in your slicer for glass-like clarity with clear PETG!"
+    filename: `eggison_${settings.shellStyle}_shell.stl`,
+    content: trianglesToSTL(shellTriangles, "eggison_shell"),
+    partType: "shell",
+    material: "translucent"
   });
   
   // Export base
   parts.push({
-    name: `eggison_${settings.baseType}_base`,
-    stl: trianglesToSTL(baseTriangles, "eggison_base"),
-    description: `${settings.baseType} screw base`,
-    slicingNotes: "Print with normal settings (NOT vase mode) - needs solid screw threads"
+    filename: `eggison_${settings.baseType}_base.stl`,
+    content: trianglesToSTL(baseTriangles, "eggison_base"),
+    partType: "base",
+    material: "standard"
   });
   
   return parts;
