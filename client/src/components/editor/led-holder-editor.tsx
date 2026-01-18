@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Download, Lightbulb, Magnet, Wrench, Cable, Zap, Sun, AlertCircle } from "lucide-react";
+import { Download, Lightbulb, Magnet, Wrench, Cable, Zap, Sun, AlertCircle, MoveVertical } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Canvas } from "@react-three/fiber";
@@ -89,131 +90,143 @@ function getLEDDimensions(ledType: LEDHolderLedType) {
 
 function LEDHolderPreview({ settings }: { settings: LEDHolderSettings }) {
   const led = getLEDDimensions(settings.ledType);
-  const wall = settings.wallThickness;
   const tiltRad = (settings.tiltAngle * Math.PI) / 180;
-
-  const socketInnerRadius = led.bodyRadius + 0.3;
-  const socketOuterRadius = socketInnerRadius + wall;
-  const socketDepth = Math.min(led.bodyHeight * 0.7, 10);
-
-  const stemRadius = settings.wireChannelDiameter / 2 + wall;
-  const stemLength = 25;
-
   const magnetRadius = settings.magnetDiameter / 2;
-  const magnetHousingRadius = magnetRadius + 0.2 + wall;
+  const reflectorDepth = settings.reflectorDepth || 12;
+  const beamAngle = settings.beamAngle || 45;
+  const hasDiffuser = settings.hasDiffuser !== false;
 
-  const scale = 0.05;
-
-  const isWS2812 = settings.ledType === "ws2812b" || settings.ledType === "ws2812b_strip";
+  const scale = 0.035;
 
   const holderGeometry = useMemo(() => {
     const group = new THREE.Group();
+    
+    const reflectorMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xc0c0c0,
+      roughness: 0.2,
+      metalness: 0.8,
+      side: THREE.DoubleSide,
+    });
+    
+    const diffuserMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff,
+      roughness: 0.9,
+      metalness: 0.0,
+      transparent: true,
+      opacity: 0.7,
+    });
+    
+    const baseMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x6b7280,
+      roughness: 0.5,
+      metalness: 0.3,
+    });
+    
+    const channelMaterial = new THREE.MeshStandardMaterial({
+      color: 0x4b5563,
+      roughness: 0.6,
+      metalness: 0.2,
+    });
 
-    if (isWS2812) {
-      const ws2812Size = settings.ledType === "ws2812b" ? 5 : 12;
-      const cradleInner = ws2812Size / 2 + 0.3;
-      const cradleOuter = cradleInner + wall;
-      const cradleHeight = ws2812Size + wall * 2;
-      const backThickness = wall + 2;
-      const totalHeight = cradleHeight + backThickness;
+    const beamRad = (beamAngle * Math.PI) / 180;
+    const openingRadius = led.bodyRadius + reflectorDepth * Math.tan(beamRad / 2);
 
-      const cradleShape = new THREE.Shape();
-      cradleShape.absarc(0, 0, cradleOuter, 0, Math.PI * 2, false);
-      const cradleHole = new THREE.Path();
-      cradleHole.absarc(0, 0, cradleInner, 0, Math.PI * 2, true);
-      cradleShape.holes.push(cradleHole);
+    if (settings.adjustableHeight) {
+      const baseRadius = Math.max(10, led.bodyRadius + 7);
+      const baseHeight = 5;
+      const baseGeom = new THREE.CylinderGeometry(baseRadius, baseRadius, baseHeight, 24);
+      const baseMesh = new THREE.Mesh(baseGeom, baseMaterial);
+      baseMesh.position.set(0, baseHeight / 2, 0);
+      group.add(baseMesh);
 
-      const cradleGeom = new THREE.ExtrudeGeometry(cradleShape, {
-        depth: totalHeight,
-        bevelEnabled: false,
-      });
-      const cradleMesh = new THREE.Mesh(cradleGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-      cradleMesh.rotation.x = -Math.PI / 2;
-      group.add(cradleMesh);
+      const magnetGeom = new THREE.CylinderGeometry(magnetRadius, magnetRadius, settings.magnetDepth, 24);
+      const magnetMesh = new THREE.Mesh(magnetGeom, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+      magnetMesh.position.set(0, settings.magnetDepth / 2, 0);
+      group.add(magnetMesh);
 
-      const stemGeom = new THREE.CylinderGeometry(stemRadius, stemRadius, stemLength, 24);
-      const stemMesh = new THREE.Mesh(stemGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-      stemMesh.position.y = -stemLength / 2;
-      group.add(stemMesh);
+      const channelLength = settings.maxHeight || 30;
+      const channelRadius = settings.wireChannelDiameter / 2 + settings.wallThickness;
+      const channelGeom = new THREE.CylinderGeometry(channelRadius, channelRadius, channelLength, 16);
+      const channelMesh = new THREE.Mesh(channelGeom, channelMaterial);
+      channelMesh.position.set(0, baseHeight + channelLength / 2, 0);
+      group.add(channelMesh);
 
-      if (settings.mountType === "magnetic") {
-        const mountHeight = settings.magnetDepth + wall;
-        const mountGeom = new THREE.CylinderGeometry(magnetHousingRadius, magnetHousingRadius, mountHeight, 24);
-        const mountMesh = new THREE.Mesh(mountGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-        mountMesh.position.y = -stemLength - mountHeight / 2;
-        group.add(mountMesh);
-      }
-    } else {
-      const bodyHeight = socketDepth + wall;
+      const socketY = baseHeight + channelLength;
+      
+      const reflectorGeom = new THREE.CylinderGeometry(openingRadius, led.bodyRadius + 1, reflectorDepth, 32, 1, true);
+      const reflectorMesh = new THREE.Mesh(reflectorGeom, reflectorMaterial);
+      reflectorMesh.position.set(0, socketY + reflectorDepth / 2, 0);
+      group.add(reflectorMesh);
 
-      const socketShape = new THREE.Shape();
-      socketShape.absarc(0, 0, socketOuterRadius, 0, Math.PI * 2, false);
-      const socketHole = new THREE.Path();
-      socketHole.absarc(0, 0, socketInnerRadius, 0, Math.PI * 2, true);
-      socketShape.holes.push(socketHole);
-
-      const socketGeom = new THREE.ExtrudeGeometry(socketShape, {
-        depth: bodyHeight,
-        bevelEnabled: false,
-      });
-      const socketMesh = new THREE.Mesh(socketGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-      socketMesh.rotation.x = -Math.PI / 2;
-      socketMesh.rotation.z = tiltRad;
+      const socketGeom = new THREE.CylinderGeometry(led.bodyRadius + 1, led.bodyRadius + 1, led.bodyHeight * 0.6, 16);
+      const socketMesh = new THREE.Mesh(socketGeom, new THREE.MeshStandardMaterial({ color: 0x374151 }));
+      socketMesh.position.set(0, socketY - led.bodyHeight * 0.3, 0);
       group.add(socketMesh);
 
-      const domeGeom = new THREE.SphereGeometry(socketOuterRadius, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-      const domeMesh = new THREE.Mesh(domeGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-      domeMesh.rotation.x = Math.PI;
-      domeMesh.rotation.z = tiltRad;
-      group.add(domeMesh);
-
-      const stemConnectionY = -socketOuterRadius * Math.sin(Math.PI / 4);
-      const stemConnectionX = stemConnectionY * Math.sin(tiltRad);
-
-      const stemGeom = new THREE.CylinderGeometry(stemRadius, stemRadius, stemLength, 24);
-      const stemMesh = new THREE.Mesh(stemGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-      stemMesh.position.set(stemConnectionX, stemConnectionY - stemLength / 2, 0);
-      group.add(stemMesh);
-
-      if (settings.mountType === "magnetic") {
-        const mountHeight = settings.magnetDepth + wall;
-        const mountGeom = new THREE.CylinderGeometry(magnetHousingRadius, magnetHousingRadius, mountHeight, 24);
-        const mountMesh = new THREE.Mesh(mountGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-        mountMesh.position.set(stemConnectionX, stemConnectionY - stemLength - mountHeight / 2, 0);
-        group.add(mountMesh);
-      } else if (settings.mountType === "screw") {
-        const plateGeom = new THREE.BoxGeometry(20, 3, 20);
-        const plateMesh = new THREE.Mesh(plateGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-        plateMesh.position.set(stemConnectionX, stemConnectionY - stemLength - 1.5, 0);
-        group.add(plateMesh);
-      } else if (settings.mountType === "adhesive") {
-        const padGeom = new THREE.CylinderGeometry(10, 10, 2, 24);
-        const padMesh = new THREE.Mesh(padGeom, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-        padMesh.position.set(stemConnectionX, stemConnectionY - stemLength - 1, 0);
-        group.add(padMesh);
-      } else if (settings.mountType === "clip_on") {
-        const clipGap = 4;
-        const clipDepth = 8;
-
-        const leftArm = new THREE.BoxGeometry(wall, clipDepth, wall);
-        const leftMesh = new THREE.Mesh(leftArm, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-        leftMesh.position.set(stemConnectionX - clipGap / 2 - wall / 2, stemConnectionY - stemLength - clipDepth / 2, 0);
-        group.add(leftMesh);
-
-        const rightMesh = new THREE.Mesh(leftArm.clone(), new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-        rightMesh.position.set(stemConnectionX + clipGap / 2 + wall / 2, stemConnectionY - stemLength - clipDepth / 2, 0);
-        group.add(rightMesh);
-
-        const crossBar = new THREE.BoxGeometry(clipGap + wall * 2, wall, wall);
-        const crossMesh = new THREE.Mesh(crossBar, new THREE.MeshStandardMaterial({ color: 0x4a90d9 }));
-        crossMesh.position.set(stemConnectionX, stemConnectionY - stemLength - clipDepth - wall / 2, 0);
-        group.add(crossMesh);
+      if (hasDiffuser) {
+        const domeGeom = new THREE.SphereGeometry(openingRadius, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const domeMesh = new THREE.Mesh(domeGeom, diffuserMaterial);
+        domeMesh.rotation.x = Math.PI;
+        domeMesh.position.set(0, socketY + reflectorDepth, 0);
+        group.add(domeMesh);
       }
+
+    } else {
+      const plateW = 24;
+      const plateH = 18;
+      const plateD = 6;
+      
+      const frontPlateGeom = new THREE.BoxGeometry(plateW, plateD, plateH);
+      const frontPlateMesh = new THREE.Mesh(frontPlateGeom, baseMaterial);
+      frontPlateMesh.position.set(0, plateD / 2, plateH / 2);
+      group.add(frontPlateMesh);
+
+      const reflectorY = plateD;
+      const reflectorGeom = new THREE.CylinderGeometry(openingRadius, led.bodyRadius + 1, reflectorDepth, 32, 1, true);
+      const reflectorMesh = new THREE.Mesh(reflectorGeom, reflectorMaterial);
+      reflectorMesh.rotation.x = -tiltRad;
+      reflectorMesh.position.set(
+        0, 
+        reflectorY + (reflectorDepth / 2) * Math.cos(tiltRad), 
+        plateH / 2 - (reflectorDepth / 2) * Math.sin(tiltRad)
+      );
+      group.add(reflectorMesh);
+
+      if (hasDiffuser) {
+        const domeGeom = new THREE.SphereGeometry(openingRadius * 0.8, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const domeMesh = new THREE.Mesh(domeGeom, diffuserMaterial);
+        domeMesh.rotation.x = Math.PI - tiltRad;
+        domeMesh.position.set(
+          0,
+          reflectorY + reflectorDepth * Math.cos(tiltRad),
+          plateH / 2 - reflectorDepth * Math.sin(tiltRad)
+        );
+        group.add(domeMesh);
+      }
+
+      const magnetPocketGeom = new THREE.CylinderGeometry(magnetRadius, magnetRadius, settings.magnetDepth, 24);
+      const magnetPocketMesh = new THREE.Mesh(magnetPocketGeom, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+      magnetPocketMesh.rotation.x = Math.PI / 2;
+      magnetPocketMesh.position.set(0, -settings.magnetDepth / 2, plateH / 2);
+      group.add(magnetPocketMesh);
+
+      const backPlateGeom = new THREE.BoxGeometry(plateW, plateD, plateH);
+      const backPlateMesh = new THREE.Mesh(backPlateGeom, baseMaterial);
+      backPlateMesh.position.set(35, plateD / 2, plateH / 2);
+      group.add(backPlateMesh);
+
+      const backMagnetGeom = new THREE.CylinderGeometry(magnetRadius, magnetRadius, settings.magnetDepth, 24);
+      const backMagnetMesh = new THREE.Mesh(backMagnetGeom, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+      backMagnetMesh.rotation.x = Math.PI / 2;
+      backMagnetMesh.position.set(35, plateD + settings.magnetDepth / 2, plateH / 2);
+      group.add(backMagnetMesh);
     }
 
     return group;
   }, [settings.ledType, settings.mountType, settings.wallThickness, settings.wireChannelDiameter, 
-      settings.magnetDiameter, settings.magnetDepth, settings.tiltAngle]);
+      settings.magnetDiameter, settings.magnetDepth, settings.tiltAngle, settings.adjustableHeight,
+      settings.minHeight, settings.maxHeight, reflectorDepth, beamAngle, hasDiffuser,
+      led.bodyRadius, led.bodyHeight, tiltRad, magnetRadius]);
 
   return (
     <primitive object={holderGeometry} scale={scale} />
@@ -468,6 +481,118 @@ export function LEDHolderEditor() {
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <MoveVertical className="w-4 h-4" />
+                Height Adjustment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Adjustable Height</Label>
+                <Switch
+                  checked={ledHolderSettings.adjustableHeight || false}
+                  onCheckedChange={(checked) => setLEDHolderSettings({ adjustableHeight: checked })}
+                  data-testid="switch-adjustable-height"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {ledHolderSettings.adjustableHeight 
+                  ? "Threaded post design - screw the light up/down to adjust height" 
+                  : "Fixed height canvas clip design"}
+              </p>
+              {ledHolderSettings.adjustableHeight && (
+                <>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Min Height: {ledHolderSettings.minHeight || 20}mm
+                    </Label>
+                    <Slider
+                      value={[ledHolderSettings.minHeight || 20]}
+                      onValueChange={([value]) => setLEDHolderSettings({ minHeight: value })}
+                      min={10}
+                      max={50}
+                      step={5}
+                      className="mt-2"
+                      data-testid="slider-min-height"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Max Height: {ledHolderSettings.maxHeight || 60}mm
+                    </Label>
+                    <Slider
+                      value={[ledHolderSettings.maxHeight || 60]}
+                      onValueChange={([value]) => setLEDHolderSettings({ maxHeight: value })}
+                      min={20}
+                      max={100}
+                      step={5}
+                      className="mt-2"
+                      data-testid="slider-max-height"
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sun className="w-4 h-4" />
+                Light Control
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">
+                  Reflector Depth: {ledHolderSettings.reflectorDepth || 12}mm
+                </Label>
+                <Slider
+                  value={[ledHolderSettings.reflectorDepth || 12]}
+                  onValueChange={([value]) => setLEDHolderSettings({ reflectorDepth: value })}
+                  min={5}
+                  max={25}
+                  step={1}
+                  className="mt-2"
+                  data-testid="slider-reflector-depth"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Deeper reflector = more focused beam
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">
+                  Beam Angle: {ledHolderSettings.beamAngle || 45}°
+                </Label>
+                <Slider
+                  value={[ledHolderSettings.beamAngle || 45]}
+                  onValueChange={([value]) => setLEDHolderSettings({ beamAngle: value })}
+                  min={15}
+                  max={120}
+                  step={5}
+                  className="mt-2"
+                  data-testid="slider-beam-angle"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Narrow = spotlight, Wide = flood
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">Diffuser Dome</Label>
+                  <p className="text-xs text-muted-foreground">Softens and spreads light evenly</p>
+                </div>
+                <Switch
+                  checked={ledHolderSettings.hasDiffuser !== false}
+                  onCheckedChange={(checked) => setLEDHolderSettings({ hasDiffuser: checked })}
+                  data-testid="switch-diffuser"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader className="pb-2">

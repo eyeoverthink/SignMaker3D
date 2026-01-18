@@ -5,12 +5,19 @@ export const ledHolderSettingsSchema = z.object({
   holderStyle: z.enum(["clip", "socket", "cradle"]),
   mountType: z.enum(["magnetic", "screw", "adhesive", "clip_on"]),
   wireChannelDiameter: z.number().min(1).max(10).default(3),
-  magnetDiameter: z.number().min(3).max(15).default(6),
-  magnetDepth: z.number().min(1).max(5).default(2),
+  magnetDiameter: z.number().min(3).max(15).default(8),
+  magnetDepth: z.number().min(1).max(5).default(3),
   screwHoleDiameter: z.number().min(2).max(6).default(3),
   wallThickness: z.number().min(1).max(5).default(2),
-  tiltAngle: z.number().min(0).max(90).default(30),
+  tiltAngle: z.number().min(0).max(90).default(45),
   quantity: z.number().min(1).max(20).default(1),
+  adjustableHeight: z.boolean().optional(),
+  minHeight: z.number().min(10).max(50).optional(),
+  maxHeight: z.number().min(20).max(100).optional(),
+  // New optical features
+  reflectorDepth: z.number().min(5).max(25).default(12),
+  beamAngle: z.number().min(15).max(120).default(45),
+  hasDiffuser: z.boolean().default(true),
 });
 
 export type LEDHolderSettings = z.infer<typeof ledHolderSettingsSchema>;
@@ -52,7 +59,8 @@ function trianglesToBinarySTL(triangles: Triangle[]): Buffer {
   const bufferSize = headerSize + triangleCountSize + triangles.length * triangleSize;
   const buffer = Buffer.alloc(bufferSize);
 
-  buffer.fill(0, 0, headerSize);
+  const header = "SignCraft3D LED Holder - Light Diffuser & Director";
+  buffer.write(header.slice(0, 79), 0);
   buffer.writeUInt32LE(triangles.length, headerSize);
 
   let offset = headerSize + triangleCountSize;
@@ -76,463 +84,576 @@ function trianglesToBinarySTL(triangles: Triangle[]): Buffer {
   return buffer;
 }
 
-function rotatePoint(p: Vector3, angleRad: number, axis: 'x' | 'y' | 'z'): Vector3 {
-  const cos = Math.cos(angleRad);
-  const sin = Math.sin(angleRad);
-  
-  if (axis === 'x') {
-    return { x: p.x, y: p.y * cos - p.z * sin, z: p.y * sin + p.z * cos };
-  } else if (axis === 'y') {
-    return { x: p.x * cos + p.z * sin, y: p.y, z: -p.x * sin + p.z * cos };
-  } else {
-    return { x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos, z: p.z };
+function getLEDDimensions(ledType: string): { diameter: number; depth: number; isRound: boolean } {
+  switch (ledType) {
+    case "3mm":
+      return { diameter: 3.2, depth: 8, isRound: true };
+    case "5mm":
+      return { diameter: 5.2, depth: 10, isRound: true };
+    case "10mm_uv":
+      return { diameter: 10.2, depth: 15, isRound: true };
+    case "ws2812b":
+      return { diameter: 5.5, depth: 3, isRound: false };
+    case "ws2812b_strip":
+      return { diameter: 12, depth: 5, isRound: false };
+    default:
+      return { diameter: 5.2, depth: 10, isRound: true };
   }
 }
 
-function translatePoint(p: Vector3, offset: Vector3): Vector3 {
-  return { x: p.x + offset.x, y: p.y + offset.y, z: p.z + offset.z };
+// Generate a parabolic reflector cone that focuses/directs LED light
+function generateParabolicReflector(triangles: Triangle[], 
+  cx: number, cy: number, cz: number,
+  ledRadius: number, reflectorDepth: number, beamAngle: number,
+  wallThickness: number, segments: number = 32): void {
+  
+  const beamRad = (beamAngle * Math.PI) / 180;
+  const openingRadius = ledRadius + reflectorDepth * Math.tan(beamRad / 2);
+  const innerOpeningR = openingRadius;
+  const outerOpeningR = openingRadius + wallThickness;
+  const innerBackR = ledRadius + 0.5; // LED sits here
+  const outerBackR = ledRadius + wallThickness + 0.5;
+  
+  // Generate parabolic reflector surface (inner reflective surface)
+  for (let i = 0; i < segments; i++) {
+    const angle1 = (i / segments) * Math.PI * 2;
+    const angle2 = ((i + 1) / segments) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    // Parabolic curve from back (LED) to front (opening)
+    const curveSteps = 12;
+    for (let j = 0; j < curveSteps; j++) {
+      const t1 = j / curveSteps;
+      const t2 = (j + 1) / curveSteps;
+      
+      // Parabolic profile: r = r_led + (r_open - r_led) * t^0.7
+      // This creates a curved reflector surface
+      const r1_inner = innerBackR + (innerOpeningR - innerBackR) * Math.pow(t1, 0.7);
+      const r2_inner = innerBackR + (innerOpeningR - innerBackR) * Math.pow(t2, 0.7);
+      const r1_outer = outerBackR + (outerOpeningR - outerBackR) * Math.pow(t1, 0.7);
+      const r2_outer = outerBackR + (outerOpeningR - outerBackR) * Math.pow(t2, 0.7);
+      
+      const y1 = cy + t1 * reflectorDepth;
+      const y2 = cy + t2 * reflectorDepth;
+      
+      // Inner surface (reflective side facing LED)
+      const pi1: Vector3 = { x: cx + cos1 * r1_inner, y: y1, z: cz + sin1 * r1_inner };
+      const pi2: Vector3 = { x: cx + cos2 * r1_inner, y: y1, z: cz + sin2 * r1_inner };
+      const pi3: Vector3 = { x: cx + cos2 * r2_inner, y: y2, z: cz + sin2 * r2_inner };
+      const pi4: Vector3 = { x: cx + cos1 * r2_inner, y: y2, z: cz + sin1 * r2_inner };
+      
+      // Inner surface faces inward (toward LED)
+      addTriangle(triangles, pi1, pi3, pi2);
+      addTriangle(triangles, pi1, pi4, pi3);
+      
+      // Outer surface (shell exterior)
+      const po1: Vector3 = { x: cx + cos1 * r1_outer, y: y1, z: cz + sin1 * r1_outer };
+      const po2: Vector3 = { x: cx + cos2 * r1_outer, y: y1, z: cz + sin2 * r1_outer };
+      const po3: Vector3 = { x: cx + cos2 * r2_outer, y: y2, z: cz + sin2 * r2_outer };
+      const po4: Vector3 = { x: cx + cos1 * r2_outer, y: y2, z: cz + sin1 * r2_outer };
+      
+      // Outer surface faces outward
+      addTriangle(triangles, po1, po2, po3);
+      addTriangle(triangles, po1, po3, po4);
+    }
+    
+    // Back rim (connects inner to outer at LED end)
+    const backInner1: Vector3 = { x: cx + cos1 * innerBackR, y: cy, z: cz + sin1 * innerBackR };
+    const backInner2: Vector3 = { x: cx + cos2 * innerBackR, y: cy, z: cz + sin2 * innerBackR };
+    const backOuter1: Vector3 = { x: cx + cos1 * outerBackR, y: cy, z: cz + sin1 * outerBackR };
+    const backOuter2: Vector3 = { x: cx + cos2 * outerBackR, y: cy, z: cz + sin2 * outerBackR };
+    
+    addTriangle(triangles, backInner1, backOuter2, backOuter1);
+    addTriangle(triangles, backInner1, backInner2, backOuter2);
+    
+    // Front rim (connects inner to outer at opening)
+    const frontInner1: Vector3 = { x: cx + cos1 * innerOpeningR, y: cy + reflectorDepth, z: cz + sin1 * innerOpeningR };
+    const frontInner2: Vector3 = { x: cx + cos2 * innerOpeningR, y: cy + reflectorDepth, z: cz + sin2 * innerOpeningR };
+    const frontOuter1: Vector3 = { x: cx + cos1 * outerOpeningR, y: cy + reflectorDepth, z: cz + sin1 * outerOpeningR };
+    const frontOuter2: Vector3 = { x: cx + cos2 * outerOpeningR, y: cy + reflectorDepth, z: cz + sin2 * outerOpeningR };
+    
+    addTriangle(triangles, frontInner1, frontOuter1, frontOuter2);
+    addTriangle(triangles, frontInner1, frontOuter2, frontInner2);
+  }
 }
 
-function getLEDDimensions(ledType: string): { bodyRadius: number; bodyHeight: number; legSpacing: number } {
-  switch (ledType) {
-    case "3mm":
-      return { bodyRadius: 1.5, bodyHeight: 5, legSpacing: 2.54 };
-    case "5mm":
-      return { bodyRadius: 2.5, bodyHeight: 8.6, legSpacing: 2.54 };
-    case "10mm_uv":
-      return { bodyRadius: 5, bodyHeight: 13, legSpacing: 2.54 };
-    case "ws2812b":
-      return { bodyRadius: 2.5, bodyHeight: 1.6, legSpacing: 5.0 };
-    case "ws2812b_strip":
-      return { bodyRadius: 6, bodyHeight: 3, legSpacing: 10 };
-    default:
-      return { bodyRadius: 2.5, bodyHeight: 8.6, legSpacing: 2.54 };
+// Generate LED socket that holds the LED securely at the back of reflector
+function generateLEDSocket(triangles: Triangle[],
+  cx: number, cy: number, cz: number,
+  ledRadius: number, ledDepth: number,
+  wallThickness: number, segments: number = 24): void {
+  
+  const innerR = ledRadius + 0.2; // Slight clearance for LED
+  const outerR = ledRadius + wallThickness + 0.2;
+  const socketDepth = ledDepth * 0.6; // Socket holds 60% of LED body
+  
+  // Socket cylinder walls
+  for (let i = 0; i < segments; i++) {
+    const angle1 = (i / segments) * Math.PI * 2;
+    const angle2 = ((i + 1) / segments) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    // Inner wall (LED slides into this)
+    const ib1: Vector3 = { x: cx + cos1 * innerR, y: cy - socketDepth, z: cz + sin1 * innerR };
+    const ib2: Vector3 = { x: cx + cos2 * innerR, y: cy - socketDepth, z: cz + sin2 * innerR };
+    const it1: Vector3 = { x: cx + cos1 * innerR, y: cy, z: cz + sin1 * innerR };
+    const it2: Vector3 = { x: cx + cos2 * innerR, y: cy, z: cz + sin2 * innerR };
+    
+    addTriangle(triangles, ib1, it2, it1);
+    addTriangle(triangles, ib1, ib2, it2);
+    
+    // Outer wall
+    const ob1: Vector3 = { x: cx + cos1 * outerR, y: cy - socketDepth, z: cz + sin1 * outerR };
+    const ob2: Vector3 = { x: cx + cos2 * outerR, y: cy - socketDepth, z: cz + sin2 * outerR };
+    const ot1: Vector3 = { x: cx + cos1 * outerR, y: cy, z: cz + sin1 * outerR };
+    const ot2: Vector3 = { x: cx + cos2 * outerR, y: cy, z: cz + sin2 * outerR };
+    
+    addTriangle(triangles, ob1, ot1, ot2);
+    addTriangle(triangles, ob1, ot2, ob2);
+    
+    // Bottom ring (connects inner to outer at socket bottom)
+    addTriangle(triangles, ib1, ob2, ob1);
+    addTriangle(triangles, ib1, ib2, ob2);
+  }
+  
+  // Wire exit hole at bottom of socket
+  const wireHoleR = 1.5; // 3mm diameter wire channel
+  for (let i = 0; i < 16; i++) {
+    const angle1 = (i / 16) * Math.PI * 2;
+    const angle2 = ((i + 1) / 16) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    // Ring around wire hole
+    const center: Vector3 = { x: cx, y: cy - socketDepth, z: cz };
+    const p1: Vector3 = { x: cx + cos1 * wireHoleR, y: cy - socketDepth, z: cz + sin1 * wireHoleR };
+    const p2: Vector3 = { x: cx + cos2 * wireHoleR, y: cy - socketDepth, z: cz + sin2 * wireHoleR };
+    const p3: Vector3 = { x: cx + cos1 * innerR, y: cy - socketDepth, z: cz + sin1 * innerR };
+    const p4: Vector3 = { x: cx + cos2 * innerR, y: cy - socketDepth, z: cz + sin2 * innerR };
+    
+    // Bottom face with hole
+    addTriangle(triangles, p1, p4, p3);
+    addTriangle(triangles, p1, p2, p4);
+  }
+}
+
+// Generate diffuser dome that spreads light evenly
+function generateDiffuserDome(triangles: Triangle[],
+  cx: number, cy: number, cz: number,
+  domeRadius: number, domeHeight: number,
+  wallThickness: number, segments: number = 24): void {
+  
+  const innerR = domeRadius;
+  const outerR = domeRadius + wallThickness;
+  const latSteps = 12;
+  
+  // Hemispherical dome
+  for (let i = 0; i < segments; i++) {
+    const phi1 = (i / segments) * Math.PI * 2;
+    const phi2 = ((i + 1) / segments) * Math.PI * 2;
+    
+    for (let j = 0; j < latSteps; j++) {
+      const theta1 = (j / latSteps) * (Math.PI / 2);
+      const theta2 = ((j + 1) / latSteps) * (Math.PI / 2);
+      
+      // Outer dome surface
+      const getOuter = (theta: number, phi: number): Vector3 => ({
+        x: cx + outerR * Math.sin(theta) * Math.cos(phi),
+        y: cy + domeHeight * Math.cos(theta),
+        z: cz + outerR * Math.sin(theta) * Math.sin(phi)
+      });
+      
+      const po1 = getOuter(theta1, phi1);
+      const po2 = getOuter(theta1, phi2);
+      const po3 = getOuter(theta2, phi2);
+      const po4 = getOuter(theta2, phi1);
+      
+      addTriangle(triangles, po1, po2, po3);
+      addTriangle(triangles, po1, po3, po4);
+      
+      // Inner dome surface (for wall thickness)
+      const getInner = (theta: number, phi: number): Vector3 => ({
+        x: cx + innerR * Math.sin(theta) * Math.cos(phi),
+        y: cy + (domeHeight - wallThickness) * Math.cos(theta),
+        z: cz + innerR * Math.sin(theta) * Math.sin(phi)
+      });
+      
+      const pi1 = getInner(theta1, phi1);
+      const pi2 = getInner(theta1, phi2);
+      const pi3 = getInner(theta2, phi2);
+      const pi4 = getInner(theta2, phi1);
+      
+      addTriangle(triangles, pi1, pi3, pi2);
+      addTriangle(triangles, pi1, pi4, pi3);
+    }
+  }
+  
+  // Rim connecting outer to inner at base
+  for (let i = 0; i < segments; i++) {
+    const phi1 = (i / segments) * Math.PI * 2;
+    const phi2 = ((i + 1) / segments) * Math.PI * 2;
+    const cos1 = Math.cos(phi1);
+    const sin1 = Math.sin(phi1);
+    const cos2 = Math.cos(phi2);
+    const sin2 = Math.sin(phi2);
+    
+    const outerTheta = Math.PI / 2;
+    const ro1: Vector3 = { x: cx + outerR * cos1, y: cy, z: cz + outerR * sin1 };
+    const ro2: Vector3 = { x: cx + outerR * cos2, y: cy, z: cz + outerR * sin2 };
+    const ri1: Vector3 = { x: cx + innerR * cos1, y: cy, z: cz + innerR * sin1 };
+    const ri2: Vector3 = { x: cx + innerR * cos2, y: cy, z: cz + innerR * sin2 };
+    
+    addTriangle(triangles, ro1, ri2, ri1);
+    addTriangle(triangles, ro1, ro2, ri2);
+  }
+}
+
+// Generate magnetic mount base
+function generateMagneticBase(triangles: Triangle[],
+  cx: number, cy: number, cz: number,
+  baseRadius: number, baseHeight: number,
+  magnetRadius: number, magnetDepth: number,
+  segments: number = 24): void {
+  
+  for (let i = 0; i < segments; i++) {
+    const angle1 = (i / segments) * Math.PI * 2;
+    const angle2 = ((i + 1) / segments) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    // Side walls
+    const pb1: Vector3 = { x: cx + cos1 * baseRadius, y: cy, z: cz + sin1 * baseRadius };
+    const pb2: Vector3 = { x: cx + cos2 * baseRadius, y: cy, z: cz + sin2 * baseRadius };
+    const pt1: Vector3 = { x: cx + cos1 * baseRadius, y: cy + baseHeight, z: cz + sin1 * baseRadius };
+    const pt2: Vector3 = { x: cx + cos2 * baseRadius, y: cy + baseHeight, z: cz + sin2 * baseRadius };
+    
+    addTriangle(triangles, pb1, pt1, pt2);
+    addTriangle(triangles, pb1, pt2, pb2);
+    
+    // Top face (with magnet pocket)
+    const centerT: Vector3 = { x: cx, y: cy + baseHeight, z: cz };
+    if (magnetRadius > 0) {
+      // Donut shape top with magnet pocket
+      const mo1: Vector3 = { x: cx + cos1 * magnetRadius, y: cy + baseHeight, z: cz + sin1 * magnetRadius };
+      const mo2: Vector3 = { x: cx + cos2 * magnetRadius, y: cy + baseHeight, z: cz + sin2 * magnetRadius };
+      addTriangle(triangles, pt1, mo2, mo1);
+      addTriangle(triangles, pt1, pt2, mo2);
+      
+      // Magnet pocket walls
+      const mi1: Vector3 = { x: cx + cos1 * magnetRadius, y: cy + baseHeight - magnetDepth, z: cz + sin1 * magnetRadius };
+      const mi2: Vector3 = { x: cx + cos2 * magnetRadius, y: cy + baseHeight - magnetDepth, z: cz + sin2 * magnetRadius };
+      addTriangle(triangles, mo1, mo2, mi2);
+      addTriangle(triangles, mo1, mi2, mi1);
+      
+      // Magnet pocket bottom
+      const pocketCenter: Vector3 = { x: cx, y: cy + baseHeight - magnetDepth, z: cz };
+      addTriangle(triangles, pocketCenter, mi1, mi2);
+    } else {
+      addTriangle(triangles, centerT, pt1, pt2);
+    }
+    
+    // Bottom face
+    const centerB: Vector3 = { x: cx, y: cy, z: cz };
+    addTriangle(triangles, centerB, pb2, pb1);
+  }
+}
+
+// Generate wire channel tube
+function generateWireChannel(triangles: Triangle[],
+  cx: number, cy: number, cz: number,
+  channelRadius: number, channelLength: number,
+  wallThickness: number, segments: number = 16): void {
+  
+  const innerR = channelRadius;
+  const outerR = channelRadius + wallThickness;
+  
+  for (let i = 0; i < segments; i++) {
+    const angle1 = (i / segments) * Math.PI * 2;
+    const angle2 = ((i + 1) / segments) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    // Outer wall
+    const ob1: Vector3 = { x: cx + cos1 * outerR, y: cy, z: cz + sin1 * outerR };
+    const ob2: Vector3 = { x: cx + cos2 * outerR, y: cy, z: cz + sin2 * outerR };
+    const ot1: Vector3 = { x: cx + cos1 * outerR, y: cy + channelLength, z: cz + sin1 * outerR };
+    const ot2: Vector3 = { x: cx + cos2 * outerR, y: cy + channelLength, z: cz + sin2 * outerR };
+    
+    addTriangle(triangles, ob1, ot1, ot2);
+    addTriangle(triangles, ob1, ot2, ob2);
+    
+    // Inner wall (hollow channel)
+    const ib1: Vector3 = { x: cx + cos1 * innerR, y: cy, z: cz + sin1 * innerR };
+    const ib2: Vector3 = { x: cx + cos2 * innerR, y: cy, z: cz + sin2 * innerR };
+    const it1: Vector3 = { x: cx + cos1 * innerR, y: cy + channelLength, z: cz + sin1 * innerR };
+    const it2: Vector3 = { x: cx + cos2 * innerR, y: cy + channelLength, z: cz + sin2 * innerR };
+    
+    addTriangle(triangles, ib1, it2, it1);
+    addTriangle(triangles, ib1, ib2, it2);
+    
+    // Bottom ring
+    addTriangle(triangles, ob1, ib2, ib1);
+    addTriangle(triangles, ob1, ob2, ib2);
+    
+    // Top ring
+    addTriangle(triangles, ot1, it1, it2);
+    addTriangle(triangles, ot1, it2, ot2);
+  }
+}
+
+// Complete LED holder with reflector, socket, and diffuser
+function generateCompleteLEDHolder(triangles: Triangle[], settings: LEDHolderSettings): void {
+  const led = getLEDDimensions(settings.ledType);
+  const ledR = led.diameter / 2;
+  const segments = 32;
+  
+  const reflectorDepth = settings.reflectorDepth || 12;
+  const beamAngle = settings.beamAngle || 45;
+  const hasDiffuser = settings.hasDiffuser !== false;
+  
+  // Start from base
+  const baseRadius = Math.max(10, ledR + settings.wallThickness + 5);
+  const baseHeight = 5;
+  
+  // 1. Magnetic base at bottom
+  generateMagneticBase(triangles, 0, 0, 0, baseRadius, baseHeight,
+    settings.magnetDiameter / 2, settings.magnetDepth, segments);
+  
+  // 2. Wire channel from base to reflector
+  const channelR = settings.wireChannelDiameter / 2;
+  const channelLength = settings.adjustableHeight ? (settings.maxHeight || 30) : 15;
+  generateWireChannel(triangles, 0, baseHeight, 0, channelR, channelLength, settings.wallThickness, 16);
+  
+  // 3. LED socket at top of wire channel
+  const socketY = baseHeight + channelLength;
+  generateLEDSocket(triangles, 0, socketY, 0, ledR, led.depth, settings.wallThickness, segments);
+  
+  // 4. Parabolic reflector cone (directs light forward)
+  generateParabolicReflector(triangles, 0, socketY, 0, ledR, reflectorDepth, beamAngle, settings.wallThickness, segments);
+  
+  // 5. Diffuser dome (spreads light evenly) - optional
+  if (hasDiffuser) {
+    const beamRad = (beamAngle * Math.PI) / 180;
+    const openingR = ledR + reflectorDepth * Math.tan(beamRad / 2);
+    const diffuserY = socketY + reflectorDepth;
+    generateDiffuserDome(triangles, 0, diffuserY, 0, openingR, openingR * 0.6, 1.5, segments);
+  }
+}
+
+// Canvas clip version with tilt angle
+function generateTiltedLEDHolder(triangles: Triangle[], settings: LEDHolderSettings): void {
+  const led = getLEDDimensions(settings.ledType);
+  const ledR = led.diameter / 2;
+  const segments = 32;
+  const tiltRad = (settings.tiltAngle * Math.PI) / 180;
+  
+  const reflectorDepth = settings.reflectorDepth || 12;
+  const beamAngle = settings.beamAngle || 45;
+  
+  // Base plate for mounting
+  const plateW = 24;
+  const plateH = 18;
+  const plateD = 6;
+  
+  // Generate base plate
+  const vertices = [
+    { x: -plateW/2, y: 0, z: 0 },
+    { x: plateW/2, y: 0, z: 0 },
+    { x: plateW/2, y: 0, z: plateH },
+    { x: -plateW/2, y: 0, z: plateH },
+    { x: -plateW/2, y: plateD, z: 0 },
+    { x: plateW/2, y: plateD, z: 0 },
+    { x: plateW/2, y: plateD, z: plateH },
+    { x: -plateW/2, y: plateD, z: plateH },
+  ];
+  
+  // Bottom
+  addTriangle(triangles, vertices[0], vertices[2], vertices[1]);
+  addTriangle(triangles, vertices[0], vertices[3], vertices[2]);
+  // Top
+  addTriangle(triangles, vertices[4], vertices[5], vertices[6]);
+  addTriangle(triangles, vertices[4], vertices[6], vertices[7]);
+  // Front
+  addTriangle(triangles, vertices[0], vertices[1], vertices[5]);
+  addTriangle(triangles, vertices[0], vertices[5], vertices[4]);
+  // Back
+  addTriangle(triangles, vertices[2], vertices[3], vertices[7]);
+  addTriangle(triangles, vertices[2], vertices[7], vertices[6]);
+  // Left
+  addTriangle(triangles, vertices[0], vertices[4], vertices[7]);
+  addTriangle(triangles, vertices[0], vertices[7], vertices[3]);
+  // Right
+  addTriangle(triangles, vertices[1], vertices[2], vertices[6]);
+  addTriangle(triangles, vertices[1], vertices[6], vertices[5]);
+  
+  // Magnet pocket on bottom
+  const magnetR = settings.magnetDiameter / 2;
+  for (let i = 0; i < 24; i++) {
+    const angle1 = (i / 24) * Math.PI * 2;
+    const angle2 = ((i + 1) / 24) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    const cx = 0;
+    const cz = plateH / 2;
+    
+    // Pocket walls
+    const pt1: Vector3 = { x: cx + cos1 * magnetR, y: 0, z: cz + sin1 * magnetR };
+    const pt2: Vector3 = { x: cx + cos2 * magnetR, y: 0, z: cz + sin2 * magnetR };
+    const pb1: Vector3 = { x: cx + cos1 * magnetR, y: -settings.magnetDepth, z: cz + sin1 * magnetR };
+    const pb2: Vector3 = { x: cx + cos2 * magnetR, y: -settings.magnetDepth, z: cz + sin2 * magnetR };
+    
+    addTriangle(triangles, pt1, pb1, pb2);
+    addTriangle(triangles, pt1, pb2, pt2);
+    
+    // Pocket bottom
+    const center: Vector3 = { x: cx, y: -settings.magnetDepth, z: cz };
+    addTriangle(triangles, center, pb2, pb1);
+  }
+  
+  // Now add the tilted reflector on top
+  // Transform all reflector points by tilt angle
+  const reflectorCX = 0;
+  const reflectorCY = plateD;
+  const reflectorCZ = plateH / 2;
+  
+  const beamRad = (beamAngle * Math.PI) / 180;
+  const openingRadius = ledR + reflectorDepth * Math.tan(beamRad / 2);
+  
+  // Generate tilted parabolic reflector
+  for (let i = 0; i < segments; i++) {
+    const angle1 = (i / segments) * Math.PI * 2;
+    const angle2 = ((i + 1) / segments) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    const curveSteps = 10;
+    for (let j = 0; j < curveSteps; j++) {
+      const t1 = j / curveSteps;
+      const t2 = (j + 1) / curveSteps;
+      
+      const innerBackR = ledR + 0.5;
+      const innerOpeningR = openingRadius;
+      const r1 = innerBackR + (innerOpeningR - innerBackR) * Math.pow(t1, 0.7);
+      const r2 = innerBackR + (innerOpeningR - innerBackR) * Math.pow(t2, 0.7);
+      
+      // Local coordinates along reflector axis
+      const d1 = t1 * reflectorDepth;
+      const d2 = t2 * reflectorDepth;
+      
+      // Apply tilt rotation around X axis
+      const transformPoint = (localR: number, localD: number, phi: number): Vector3 => {
+        const localX = localR * Math.cos(phi);
+        const localY = localD;
+        const localZ = localR * Math.sin(phi);
+        
+        // Rotate around X by tiltRad
+        const rotY = localY * Math.cos(tiltRad) - localZ * Math.sin(tiltRad);
+        const rotZ = localY * Math.sin(tiltRad) + localZ * Math.cos(tiltRad);
+        
+        return {
+          x: reflectorCX + localX,
+          y: reflectorCY + rotY,
+          z: reflectorCZ + rotZ
+        };
+      };
+      
+      const p1 = transformPoint(r1, d1, angle1);
+      const p2 = transformPoint(r1, d1, angle2);
+      const p3 = transformPoint(r2, d2, angle2);
+      const p4 = transformPoint(r2, d2, angle1);
+      
+      addTriangle(triangles, p1, p3, p2);
+      addTriangle(triangles, p1, p4, p3);
+      
+      // Outer surface
+      const outerR1 = r1 + settings.wallThickness;
+      const outerR2 = r2 + settings.wallThickness;
+      
+      const po1 = transformPoint(outerR1, d1, angle1);
+      const po2 = transformPoint(outerR1, d1, angle2);
+      const po3 = transformPoint(outerR2, d2, angle2);
+      const po4 = transformPoint(outerR2, d2, angle1);
+      
+      addTriangle(triangles, po1, po2, po3);
+      addTriangle(triangles, po1, po3, po4);
+    }
+  }
+  
+  // Back plate for second magnet (to clamp canvas frame)
+  const backX = 35;
+  const backVertices = [
+    { x: backX - plateW/2, y: 0, z: 0 },
+    { x: backX + plateW/2, y: 0, z: 0 },
+    { x: backX + plateW/2, y: 0, z: plateH },
+    { x: backX - plateW/2, y: 0, z: plateH },
+    { x: backX - plateW/2, y: plateD, z: 0 },
+    { x: backX + plateW/2, y: plateD, z: 0 },
+    { x: backX + plateW/2, y: plateD, z: plateH },
+    { x: backX - plateW/2, y: plateD, z: plateH },
+  ];
+  
+  addTriangle(triangles, backVertices[0], backVertices[2], backVertices[1]);
+  addTriangle(triangles, backVertices[0], backVertices[3], backVertices[2]);
+  addTriangle(triangles, backVertices[4], backVertices[5], backVertices[6]);
+  addTriangle(triangles, backVertices[4], backVertices[6], backVertices[7]);
+  addTriangle(triangles, backVertices[0], backVertices[1], backVertices[5]);
+  addTriangle(triangles, backVertices[0], backVertices[5], backVertices[4]);
+  addTriangle(triangles, backVertices[2], backVertices[3], backVertices[7]);
+  addTriangle(triangles, backVertices[2], backVertices[7], backVertices[6]);
+  addTriangle(triangles, backVertices[0], backVertices[4], backVertices[7]);
+  addTriangle(triangles, backVertices[0], backVertices[7], backVertices[3]);
+  addTriangle(triangles, backVertices[1], backVertices[2], backVertices[6]);
+  addTriangle(triangles, backVertices[1], backVertices[6], backVertices[5]);
+  
+  // Back magnet pocket (on top face)
+  for (let i = 0; i < 24; i++) {
+    const angle1 = (i / 24) * Math.PI * 2;
+    const angle2 = ((i + 1) / 24) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    const cx = backX;
+    const cz = plateH / 2;
+    
+    const pt1: Vector3 = { x: cx + cos1 * magnetR, y: plateD, z: cz + sin1 * magnetR };
+    const pt2: Vector3 = { x: cx + cos2 * magnetR, y: plateD, z: cz + sin2 * magnetR };
+    const pb1: Vector3 = { x: cx + cos1 * magnetR, y: plateD - settings.magnetDepth, z: cz + sin1 * magnetR };
+    const pb2: Vector3 = { x: cx + cos2 * magnetR, y: plateD - settings.magnetDepth, z: cz + sin2 * magnetR };
+    
+    addTriangle(triangles, pt1, pt2, pb2);
+    addTriangle(triangles, pt1, pb2, pb1);
+    
+    const center: Vector3 = { x: cx, y: plateD - settings.magnetDepth, z: cz };
+    addTriangle(triangles, center, pb1, pb2);
   }
 }
 
 export function generateLEDHolder(settings: LEDHolderSettings): Buffer {
   const triangles: Triangle[] = [];
-  const segments = 24;
 
-  const led = getLEDDimensions(settings.ledType);
-  const wall = settings.wallThickness;
-  const tiltRad = (settings.tiltAngle * Math.PI) / 180;
-
-  const socketInnerRadius = led.bodyRadius + 0.3;
-  const socketOuterRadius = socketInnerRadius + wall;
-  const socketDepth = Math.min(led.bodyHeight * 0.7, 10);
-
-  const stemRadius = settings.wireChannelDiameter / 2 + wall;
-  const wireChannelRadius = settings.wireChannelDiameter / 2;
-  const stemLength = 25;
-
-  const magnetRadius = settings.magnetDiameter / 2;
-  const magnetPocketRadius = magnetRadius + 0.2;
-  const magnetHousingRadius = magnetPocketRadius + wall;
-
-  if (settings.ledType === "ws2812b" || settings.ledType === "ws2812b_strip") {
-    const ws2812Size = settings.ledType === "ws2812b" ? 5 : 12;
-    const ledHeight = settings.ledType === "ws2812b" ? 1.6 : 3;
-
-    const cradleInner = ws2812Size / 2 + 0.3;
-    const cradleOuter = cradleInner + wall;
-    const cradleDepth = ledHeight + wall + 1;
-    const cradleHeight = ws2812Size + wall * 2;
-
-    const backThickness = wall + 2;
-    const totalHeight = cradleHeight + backThickness;
-
-    for (let i = 0; i < segments; i++) {
-      const angle1 = (i / segments) * Math.PI * 2;
-      const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-      const cos1 = Math.cos(angle1);
-      const sin1 = Math.sin(angle1);
-      const cos2 = Math.cos(angle2);
-      const sin2 = Math.sin(angle2);
-
-      const outerBottom1: Vector3 = { x: cos1 * cradleOuter, y: 0, z: sin1 * cradleOuter };
-      const outerBottom2: Vector3 = { x: cos2 * cradleOuter, y: 0, z: sin2 * cradleOuter };
-      const outerTop1: Vector3 = { x: cos1 * cradleOuter, y: totalHeight, z: sin1 * cradleOuter };
-      const outerTop2: Vector3 = { x: cos2 * cradleOuter, y: totalHeight, z: sin2 * cradleOuter };
-
-      addTriangle(triangles, outerBottom1, outerTop1, outerTop2);
-      addTriangle(triangles, outerBottom1, outerTop2, outerBottom2);
-
-      const innerBottom1: Vector3 = { x: cos1 * cradleInner, y: backThickness, z: sin1 * cradleInner };
-      const innerBottom2: Vector3 = { x: cos2 * cradleInner, y: backThickness, z: sin2 * cradleInner };
-      const innerTop1: Vector3 = { x: cos1 * cradleInner, y: totalHeight, z: sin1 * cradleInner };
-      const innerTop2: Vector3 = { x: cos2 * cradleInner, y: totalHeight, z: sin2 * cradleInner };
-
-      addTriangle(triangles, innerBottom1, innerTop2, innerTop1);
-      addTriangle(triangles, innerBottom1, innerBottom2, innerTop2);
-
-      addTriangle(triangles, outerTop1, innerTop1, innerTop2);
-      addTriangle(triangles, outerTop1, innerTop2, outerTop2);
-
-      addTriangle(triangles, outerBottom1, innerBottom2, innerBottom1);
-      addTriangle(triangles, outerBottom1, outerBottom2, innerBottom2);
-    }
-
-    const stemStartY = 0;
-    const stemEndY = -stemLength;
-
-    for (let i = 0; i < segments; i++) {
-      const angle1 = (i / segments) * Math.PI * 2;
-      const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-      const cos1 = Math.cos(angle1);
-      const sin1 = Math.sin(angle1);
-      const cos2 = Math.cos(angle2);
-      const sin2 = Math.sin(angle2);
-
-      const outerTop1: Vector3 = { x: cos1 * stemRadius, y: stemStartY, z: sin1 * stemRadius };
-      const outerTop2: Vector3 = { x: cos2 * stemRadius, y: stemStartY, z: sin2 * stemRadius };
-      const outerBottom1: Vector3 = { x: cos1 * stemRadius, y: stemEndY, z: sin1 * stemRadius };
-      const outerBottom2: Vector3 = { x: cos2 * stemRadius, y: stemEndY, z: sin2 * stemRadius };
-
-      addTriangle(triangles, outerTop1, outerBottom1, outerBottom2);
-      addTriangle(triangles, outerTop1, outerBottom2, outerTop2);
-
-      const innerTop1: Vector3 = { x: cos1 * wireChannelRadius, y: stemStartY + backThickness, z: sin1 * wireChannelRadius };
-      const innerTop2: Vector3 = { x: cos2 * wireChannelRadius, y: stemStartY + backThickness, z: sin2 * wireChannelRadius };
-      const innerBottom1: Vector3 = { x: cos1 * wireChannelRadius, y: stemEndY, z: sin1 * wireChannelRadius };
-      const innerBottom2: Vector3 = { x: cos2 * wireChannelRadius, y: stemEndY, z: sin2 * wireChannelRadius };
-
-      addTriangle(triangles, innerTop1, innerBottom2, innerBottom1);
-      addTriangle(triangles, innerTop1, innerTop2, innerBottom2);
-    }
-
-    if (settings.mountType === "magnetic") {
-      const mountY = stemEndY;
-      const mountHeight = settings.magnetDepth + wall;
-
-      for (let i = 0; i < segments; i++) {
-        const angle1 = (i / segments) * Math.PI * 2;
-        const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-        const cos1 = Math.cos(angle1);
-        const sin1 = Math.sin(angle1);
-        const cos2 = Math.cos(angle2);
-        const sin2 = Math.sin(angle2);
-
-        const outerTop1: Vector3 = { x: cos1 * magnetHousingRadius, y: mountY, z: sin1 * magnetHousingRadius };
-        const outerTop2: Vector3 = { x: cos2 * magnetHousingRadius, y: mountY, z: sin2 * magnetHousingRadius };
-        const outerBottom1: Vector3 = { x: cos1 * magnetHousingRadius, y: mountY - mountHeight, z: sin1 * magnetHousingRadius };
-        const outerBottom2: Vector3 = { x: cos2 * magnetHousingRadius, y: mountY - mountHeight, z: sin2 * magnetHousingRadius };
-
-        addTriangle(triangles, outerTop1, outerBottom1, outerBottom2);
-        addTriangle(triangles, outerTop1, outerBottom2, outerTop2);
-
-        const innerTop1: Vector3 = { x: cos1 * magnetPocketRadius, y: mountY, z: sin1 * magnetPocketRadius };
-        const innerTop2: Vector3 = { x: cos2 * magnetPocketRadius, y: mountY, z: sin2 * magnetPocketRadius };
-        const innerBottom1: Vector3 = { x: cos1 * magnetPocketRadius, y: mountY - settings.magnetDepth, z: sin1 * magnetPocketRadius };
-        const innerBottom2: Vector3 = { x: cos2 * magnetPocketRadius, y: mountY - settings.magnetDepth, z: sin2 * magnetPocketRadius };
-
-        addTriangle(triangles, innerTop1, innerBottom2, innerBottom1);
-        addTriangle(triangles, innerTop1, innerTop2, innerBottom2);
-
-        addTriangle(triangles, innerBottom1, innerBottom2, { x: 0, y: mountY - settings.magnetDepth, z: 0 });
-
-        const baseInner1: Vector3 = { x: cos1 * magnetPocketRadius, y: mountY - settings.magnetDepth, z: sin1 * magnetPocketRadius };
-        const baseInner2: Vector3 = { x: cos2 * magnetPocketRadius, y: mountY - settings.magnetDepth, z: sin2 * magnetPocketRadius };
-        const baseOuter1: Vector3 = { x: cos1 * magnetHousingRadius, y: mountY - mountHeight, z: sin1 * magnetHousingRadius };
-        const baseOuter2: Vector3 = { x: cos2 * magnetHousingRadius, y: mountY - mountHeight, z: sin2 * magnetHousingRadius };
-
-        addTriangle(triangles, baseInner1, baseOuter1, baseOuter2);
-        addTriangle(triangles, baseInner1, baseOuter2, baseInner2);
-      }
-    }
+  if (settings.adjustableHeight) {
+    generateCompleteLEDHolder(triangles, settings);
   } else {
-    const bodyStartY = 0;
-    const bodyEndY = socketDepth + wall;
-
-    for (let i = 0; i < segments; i++) {
-      const angle1 = (i / segments) * Math.PI * 2;
-      const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-      const cos1 = Math.cos(angle1);
-      const sin1 = Math.sin(angle1);
-      const cos2 = Math.cos(angle2);
-      const sin2 = Math.sin(angle2);
-
-      let outerBottom1: Vector3 = { x: cos1 * socketOuterRadius, y: bodyStartY, z: sin1 * socketOuterRadius };
-      let outerBottom2: Vector3 = { x: cos2 * socketOuterRadius, y: bodyStartY, z: sin2 * socketOuterRadius };
-      let outerTop1: Vector3 = { x: cos1 * socketOuterRadius, y: bodyEndY, z: sin1 * socketOuterRadius };
-      let outerTop2: Vector3 = { x: cos2 * socketOuterRadius, y: bodyEndY, z: sin2 * socketOuterRadius };
-
-      outerBottom1 = rotatePoint(outerBottom1, tiltRad, 'z');
-      outerBottom2 = rotatePoint(outerBottom2, tiltRad, 'z');
-      outerTop1 = rotatePoint(outerTop1, tiltRad, 'z');
-      outerTop2 = rotatePoint(outerTop2, tiltRad, 'z');
-
-      addTriangle(triangles, outerBottom1, outerTop1, outerTop2);
-      addTriangle(triangles, outerBottom1, outerTop2, outerBottom2);
-
-      let innerBottom1: Vector3 = { x: cos1 * socketInnerRadius, y: wall, z: sin1 * socketInnerRadius };
-      let innerBottom2: Vector3 = { x: cos2 * socketInnerRadius, y: wall, z: sin2 * socketInnerRadius };
-      let innerTop1: Vector3 = { x: cos1 * socketInnerRadius, y: bodyEndY, z: sin1 * socketInnerRadius };
-      let innerTop2: Vector3 = { x: cos2 * socketInnerRadius, y: bodyEndY, z: sin2 * socketInnerRadius };
-
-      innerBottom1 = rotatePoint(innerBottom1, tiltRad, 'z');
-      innerBottom2 = rotatePoint(innerBottom2, tiltRad, 'z');
-      innerTop1 = rotatePoint(innerTop1, tiltRad, 'z');
-      innerTop2 = rotatePoint(innerTop2, tiltRad, 'z');
-
-      addTriangle(triangles, innerBottom1, innerTop2, innerTop1);
-      addTriangle(triangles, innerBottom1, innerBottom2, innerTop2);
-
-      addTriangle(triangles, outerTop1, innerTop1, innerTop2);
-      addTriangle(triangles, outerTop1, innerTop2, outerTop2);
-
-      const baseCenter = rotatePoint({ x: 0, y: wall, z: 0 }, tiltRad, 'z');
-      addTriangle(triangles, outerBottom1, innerBottom2, innerBottom1);
-      addTriangle(triangles, outerBottom1, outerBottom2, innerBottom2);
-    }
-
-    const domeRadius = socketOuterRadius;
-    const domeRings = 6;
-    const domeCenter: Vector3 = rotatePoint({ x: 0, y: 0, z: 0 }, tiltRad, 'z');
-
-    for (let r = 0; r < domeRings; r++) {
-      const phi1 = (r / domeRings) * (Math.PI / 2);
-      const phi2 = ((r + 1) / domeRings) * (Math.PI / 2);
-
-      const ringRadius1 = domeRadius * Math.cos(phi1);
-      const ringRadius2 = domeRadius * Math.cos(phi2);
-      const ringY1 = -domeRadius * Math.sin(phi1);
-      const ringY2 = -domeRadius * Math.sin(phi2);
-
-      for (let i = 0; i < segments; i++) {
-        const angle1 = (i / segments) * Math.PI * 2;
-        const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-        let p1: Vector3 = { x: Math.cos(angle1) * ringRadius1, y: ringY1, z: Math.sin(angle1) * ringRadius1 };
-        let p2: Vector3 = { x: Math.cos(angle2) * ringRadius1, y: ringY1, z: Math.sin(angle2) * ringRadius1 };
-        let p3: Vector3 = { x: Math.cos(angle1) * ringRadius2, y: ringY2, z: Math.sin(angle1) * ringRadius2 };
-        let p4: Vector3 = { x: Math.cos(angle2) * ringRadius2, y: ringY2, z: Math.sin(angle2) * ringRadius2 };
-
-        p1 = rotatePoint(p1, tiltRad, 'z');
-        p2 = rotatePoint(p2, tiltRad, 'z');
-        p3 = rotatePoint(p3, tiltRad, 'z');
-        p4 = rotatePoint(p4, tiltRad, 'z');
-
-        addTriangle(triangles, p1, p3, p4);
-        addTriangle(triangles, p1, p4, p2);
-      }
-    }
-
-    const stemConnectionY = -domeRadius * Math.sin(Math.PI / 4);
-    const stemConnectionPoint = rotatePoint({ x: 0, y: stemConnectionY, z: 0 }, tiltRad, 'z');
-
-    const stemDir: Vector3 = { x: 0, y: -1, z: 0 };
-
-    for (let i = 0; i < segments; i++) {
-      const angle1 = (i / segments) * Math.PI * 2;
-      const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-      const cos1 = Math.cos(angle1);
-      const sin1 = Math.sin(angle1);
-      const cos2 = Math.cos(angle2);
-      const sin2 = Math.sin(angle2);
-
-      const topOuter1: Vector3 = translatePoint({ x: cos1 * stemRadius, y: 0, z: sin1 * stemRadius }, stemConnectionPoint);
-      const topOuter2: Vector3 = translatePoint({ x: cos2 * stemRadius, y: 0, z: sin2 * stemRadius }, stemConnectionPoint);
-      const bottomOuter1: Vector3 = translatePoint({ x: cos1 * stemRadius, y: -stemLength, z: sin1 * stemRadius }, stemConnectionPoint);
-      const bottomOuter2: Vector3 = translatePoint({ x: cos2 * stemRadius, y: -stemLength, z: sin2 * stemRadius }, stemConnectionPoint);
-
-      addTriangle(triangles, topOuter1, bottomOuter1, bottomOuter2);
-      addTriangle(triangles, topOuter1, bottomOuter2, topOuter2);
-
-      const topInner1: Vector3 = translatePoint({ x: cos1 * wireChannelRadius, y: 0, z: sin1 * wireChannelRadius }, stemConnectionPoint);
-      const topInner2: Vector3 = translatePoint({ x: cos2 * wireChannelRadius, y: 0, z: sin2 * wireChannelRadius }, stemConnectionPoint);
-      const bottomInner1: Vector3 = translatePoint({ x: cos1 * wireChannelRadius, y: -stemLength, z: sin1 * wireChannelRadius }, stemConnectionPoint);
-      const bottomInner2: Vector3 = translatePoint({ x: cos2 * wireChannelRadius, y: -stemLength, z: sin2 * wireChannelRadius }, stemConnectionPoint);
-
-      addTriangle(triangles, topInner1, bottomInner2, bottomInner1);
-      addTriangle(triangles, topInner1, topInner2, bottomInner2);
-    }
-
-    if (settings.mountType === "magnetic") {
-      const mountCenter = translatePoint({ x: 0, y: -stemLength, z: 0 }, stemConnectionPoint);
-      const mountHeight = settings.magnetDepth + wall;
-
-      for (let i = 0; i < segments; i++) {
-        const angle1 = (i / segments) * Math.PI * 2;
-        const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-        const cos1 = Math.cos(angle1);
-        const sin1 = Math.sin(angle1);
-        const cos2 = Math.cos(angle2);
-        const sin2 = Math.sin(angle2);
-
-        const outerTop1: Vector3 = translatePoint({ x: cos1 * magnetHousingRadius, y: 0, z: sin1 * magnetHousingRadius }, mountCenter);
-        const outerTop2: Vector3 = translatePoint({ x: cos2 * magnetHousingRadius, y: 0, z: sin2 * magnetHousingRadius }, mountCenter);
-        const outerBottom1: Vector3 = translatePoint({ x: cos1 * magnetHousingRadius, y: -mountHeight, z: sin1 * magnetHousingRadius }, mountCenter);
-        const outerBottom2: Vector3 = translatePoint({ x: cos2 * magnetHousingRadius, y: -mountHeight, z: sin2 * magnetHousingRadius }, mountCenter);
-
-        addTriangle(triangles, outerTop1, outerBottom1, outerBottom2);
-        addTriangle(triangles, outerTop1, outerBottom2, outerTop2);
-
-        const innerTop1: Vector3 = translatePoint({ x: cos1 * magnetPocketRadius, y: 0, z: sin1 * magnetPocketRadius }, mountCenter);
-        const innerTop2: Vector3 = translatePoint({ x: cos2 * magnetPocketRadius, y: 0, z: sin2 * magnetPocketRadius }, mountCenter);
-        const innerBottom1: Vector3 = translatePoint({ x: cos1 * magnetPocketRadius, y: -settings.magnetDepth, z: sin1 * magnetPocketRadius }, mountCenter);
-        const innerBottom2: Vector3 = translatePoint({ x: cos2 * magnetPocketRadius, y: -settings.magnetDepth, z: sin2 * magnetPocketRadius }, mountCenter);
-
-        addTriangle(triangles, innerTop1, innerBottom2, innerBottom1);
-        addTriangle(triangles, innerTop1, innerTop2, innerBottom2);
-
-        const bottomCenter = translatePoint({ x: 0, y: -settings.magnetDepth, z: 0 }, mountCenter);
-        addTriangle(triangles, innerBottom2, innerBottom1, bottomCenter);
-
-        const ringBottom: Vector3 = translatePoint({ x: 0, y: -mountHeight, z: 0 }, mountCenter);
-        const baseInner1: Vector3 = translatePoint({ x: cos1 * magnetPocketRadius, y: -settings.magnetDepth, z: sin1 * magnetPocketRadius }, mountCenter);
-        const baseInner2: Vector3 = translatePoint({ x: cos2 * magnetPocketRadius, y: -settings.magnetDepth, z: sin2 * magnetPocketRadius }, mountCenter);
-        const baseOuter1: Vector3 = translatePoint({ x: cos1 * magnetHousingRadius, y: -mountHeight, z: sin1 * magnetHousingRadius }, mountCenter);
-        const baseOuter2: Vector3 = translatePoint({ x: cos2 * magnetHousingRadius, y: -mountHeight, z: sin2 * magnetHousingRadius }, mountCenter);
-
-        addTriangle(triangles, baseInner1, baseOuter1, baseOuter2);
-        addTriangle(triangles, baseInner1, baseOuter2, baseInner2);
-      }
-    } else if (settings.mountType === "screw") {
-      const mountCenter = translatePoint({ x: 0, y: -stemLength, z: 0 }, stemConnectionPoint);
-      const plateWidth = 20;
-      const plateThickness = 3;
-
-      const hw = plateWidth / 2;
-      const ht = plateThickness;
-
-      const plateVerts = [
-        translatePoint({ x: -hw, y: 0, z: -hw }, mountCenter),
-        translatePoint({ x: hw, y: 0, z: -hw }, mountCenter),
-        translatePoint({ x: hw, y: 0, z: hw }, mountCenter),
-        translatePoint({ x: -hw, y: 0, z: hw }, mountCenter),
-        translatePoint({ x: -hw, y: -ht, z: -hw }, mountCenter),
-        translatePoint({ x: hw, y: -ht, z: -hw }, mountCenter),
-        translatePoint({ x: hw, y: -ht, z: hw }, mountCenter),
-        translatePoint({ x: -hw, y: -ht, z: hw }, mountCenter),
-      ];
-
-      addTriangle(triangles, plateVerts[0], plateVerts[1], plateVerts[2]);
-      addTriangle(triangles, plateVerts[0], plateVerts[2], plateVerts[3]);
-
-      addTriangle(triangles, plateVerts[4], plateVerts[6], plateVerts[5]);
-      addTriangle(triangles, plateVerts[4], plateVerts[7], plateVerts[6]);
-
-      addTriangle(triangles, plateVerts[0], plateVerts[4], plateVerts[5]);
-      addTriangle(triangles, plateVerts[0], plateVerts[5], plateVerts[1]);
-      addTriangle(triangles, plateVerts[1], plateVerts[5], plateVerts[6]);
-      addTriangle(triangles, plateVerts[1], plateVerts[6], plateVerts[2]);
-      addTriangle(triangles, plateVerts[2], plateVerts[6], plateVerts[7]);
-      addTriangle(triangles, plateVerts[2], plateVerts[7], plateVerts[3]);
-      addTriangle(triangles, plateVerts[3], plateVerts[7], plateVerts[4]);
-      addTriangle(triangles, plateVerts[3], plateVerts[4], plateVerts[0]);
-    } else if (settings.mountType === "adhesive") {
-      const mountCenter = translatePoint({ x: 0, y: -stemLength, z: 0 }, stemConnectionPoint);
-      const padRadius = 10;
-      const padThickness = 2;
-
-      for (let i = 0; i < segments; i++) {
-        const angle1 = (i / segments) * Math.PI * 2;
-        const angle2 = ((i + 1) / segments) * Math.PI * 2;
-
-        const cos1 = Math.cos(angle1);
-        const sin1 = Math.sin(angle1);
-        const cos2 = Math.cos(angle2);
-        const sin2 = Math.sin(angle2);
-
-        const top1 = translatePoint({ x: cos1 * padRadius, y: 0, z: sin1 * padRadius }, mountCenter);
-        const top2 = translatePoint({ x: cos2 * padRadius, y: 0, z: sin2 * padRadius }, mountCenter);
-        const bot1 = translatePoint({ x: cos1 * padRadius, y: -padThickness, z: sin1 * padRadius }, mountCenter);
-        const bot2 = translatePoint({ x: cos2 * padRadius, y: -padThickness, z: sin2 * padRadius }, mountCenter);
-
-        addTriangle(triangles, mountCenter, top1, top2);
-        addTriangle(triangles, top1, bot1, bot2);
-        addTriangle(triangles, top1, bot2, top2);
-
-        const botCenter = translatePoint({ x: 0, y: -padThickness, z: 0 }, mountCenter);
-        addTriangle(triangles, botCenter, bot2, bot1);
-      }
-    } else if (settings.mountType === "clip_on") {
-      const mountCenter = translatePoint({ x: 0, y: -stemLength, z: 0 }, stemConnectionPoint);
-      const clipGap = 4;
-      const clipDepth = 8;
-      const clipThickness = wall;
-
-      const armOffset = clipGap / 2 + clipThickness / 2;
-
-      const leftArm = [
-        translatePoint({ x: -armOffset - clipThickness / 2, y: 0, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset + clipThickness / 2, y: 0, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset + clipThickness / 2, y: 0, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset - clipThickness / 2, y: 0, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset - clipThickness / 2, y: -clipDepth, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset + clipThickness / 2, y: -clipDepth, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset + clipThickness / 2, y: -clipDepth, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset - clipThickness / 2, y: -clipDepth, z: clipThickness / 2 }, mountCenter),
-      ];
-
-      addTriangle(triangles, leftArm[0], leftArm[1], leftArm[2]);
-      addTriangle(triangles, leftArm[0], leftArm[2], leftArm[3]);
-      addTriangle(triangles, leftArm[4], leftArm[6], leftArm[5]);
-      addTriangle(triangles, leftArm[4], leftArm[7], leftArm[6]);
-      addTriangle(triangles, leftArm[0], leftArm[4], leftArm[5]);
-      addTriangle(triangles, leftArm[0], leftArm[5], leftArm[1]);
-      addTriangle(triangles, leftArm[1], leftArm[5], leftArm[6]);
-      addTriangle(triangles, leftArm[1], leftArm[6], leftArm[2]);
-      addTriangle(triangles, leftArm[2], leftArm[6], leftArm[7]);
-      addTriangle(triangles, leftArm[2], leftArm[7], leftArm[3]);
-      addTriangle(triangles, leftArm[3], leftArm[7], leftArm[4]);
-      addTriangle(triangles, leftArm[3], leftArm[4], leftArm[0]);
-
-      const rightArm = [
-        translatePoint({ x: armOffset - clipThickness / 2, y: 0, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset + clipThickness / 2, y: 0, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset + clipThickness / 2, y: 0, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset - clipThickness / 2, y: 0, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset - clipThickness / 2, y: -clipDepth, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset + clipThickness / 2, y: -clipDepth, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset + clipThickness / 2, y: -clipDepth, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset - clipThickness / 2, y: -clipDepth, z: clipThickness / 2 }, mountCenter),
-      ];
-
-      addTriangle(triangles, rightArm[0], rightArm[1], rightArm[2]);
-      addTriangle(triangles, rightArm[0], rightArm[2], rightArm[3]);
-      addTriangle(triangles, rightArm[4], rightArm[6], rightArm[5]);
-      addTriangle(triangles, rightArm[4], rightArm[7], rightArm[6]);
-      addTriangle(triangles, rightArm[0], rightArm[4], rightArm[5]);
-      addTriangle(triangles, rightArm[0], rightArm[5], rightArm[1]);
-      addTriangle(triangles, rightArm[1], rightArm[5], rightArm[6]);
-      addTriangle(triangles, rightArm[1], rightArm[6], rightArm[2]);
-      addTriangle(triangles, rightArm[2], rightArm[6], rightArm[7]);
-      addTriangle(triangles, rightArm[2], rightArm[7], rightArm[3]);
-      addTriangle(triangles, rightArm[3], rightArm[7], rightArm[4]);
-      addTriangle(triangles, rightArm[3], rightArm[4], rightArm[0]);
-
-      const crossBar = [
-        translatePoint({ x: -armOffset + clipThickness / 2, y: -clipDepth, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset - clipThickness / 2, y: -clipDepth, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset - clipThickness / 2, y: -clipDepth, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset + clipThickness / 2, y: -clipDepth, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset + clipThickness / 2, y: -clipDepth - clipThickness, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset - clipThickness / 2, y: -clipDepth - clipThickness, z: -clipThickness / 2 }, mountCenter),
-        translatePoint({ x: armOffset - clipThickness / 2, y: -clipDepth - clipThickness, z: clipThickness / 2 }, mountCenter),
-        translatePoint({ x: -armOffset + clipThickness / 2, y: -clipDepth - clipThickness, z: clipThickness / 2 }, mountCenter),
-      ];
-
-      addTriangle(triangles, crossBar[0], crossBar[1], crossBar[2]);
-      addTriangle(triangles, crossBar[0], crossBar[2], crossBar[3]);
-      addTriangle(triangles, crossBar[4], crossBar[6], crossBar[5]);
-      addTriangle(triangles, crossBar[4], crossBar[7], crossBar[6]);
-      addTriangle(triangles, crossBar[0], crossBar[4], crossBar[5]);
-      addTriangle(triangles, crossBar[0], crossBar[5], crossBar[1]);
-      addTriangle(triangles, crossBar[1], crossBar[5], crossBar[6]);
-      addTriangle(triangles, crossBar[1], crossBar[6], crossBar[2]);
-      addTriangle(triangles, crossBar[2], crossBar[6], crossBar[7]);
-      addTriangle(triangles, crossBar[2], crossBar[7], crossBar[3]);
-      addTriangle(triangles, crossBar[3], crossBar[7], crossBar[4]);
-      addTriangle(triangles, crossBar[3], crossBar[4], crossBar[0]);
-    }
+    generateTiltedLEDHolder(triangles, settings);
   }
 
   return trianglesToBinarySTL(triangles);
