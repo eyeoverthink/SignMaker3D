@@ -3,6 +3,7 @@ import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Upload, Wand2, Image as ImageIcon, X, Check } from "lucide-react";
 import type { SketchPath } from "@shared/schema";
 
@@ -15,6 +16,7 @@ export function ImageTracer() {
   const [simplify, setSimplify] = useState(2);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pathsApplied, setPathsApplied] = useState(false);
+  const [useSkeletonization, setUseSkeletonization] = useState(true);
 
   const { uploadedImageData, setUploadedImageData, setTracedPaths, tracedPaths, sketchPaths, showGrid } = useEditorStore();
 
@@ -64,48 +66,78 @@ export function ImageTracer() {
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
       
-      // Convert to grayscale array for edge detection
-      const gray = new Float32Array(width * height);
-      for (let i = 0; i < data.length; i += 4) {
-        gray[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      }
+      let contours: { x: number; y: number }[][];
       
-      // Apply Sobel edge detection for sharper edges
-      const edges = new Float32Array(width * height);
-      for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-          const idx = y * width + x;
-          // Sobel kernels
-          const gx = 
-            -gray[(y-1)*width + (x-1)] + gray[(y-1)*width + (x+1)] +
-            -2*gray[y*width + (x-1)] + 2*gray[y*width + (x+1)] +
-            -gray[(y+1)*width + (x-1)] + gray[(y+1)*width + (x+1)];
-          const gy = 
-            -gray[(y-1)*width + (x-1)] - 2*gray[(y-1)*width + x] - gray[(y-1)*width + (x+1)] +
-            gray[(y+1)*width + (x-1)] + 2*gray[(y+1)*width + x] + gray[(y+1)*width + (x+1)];
-          edges[idx] = Math.sqrt(gx * gx + gy * gy);
+      if (useSkeletonization) {
+        // MEDIAL AXIS EXTRACTION M(Ω) - Zhang-Suen Skeletonization
+        console.log('[Scott Algorithm] Extracting Medial Axis M(Ω)...');
+        
+        // Convert to binary (foreground/background)
+        const binary = new Uint8Array(width * height);
+        for (let i = 0; i < width * height; i++) {
+          binary[i] = data[i * 4] < threshold ? 1 : 0;
         }
-      }
-      
-      // Find max edge value for normalization
-      let maxEdge = 0;
-      for (let i = 0; i < edges.length; i++) {
-        if (edges[i] > maxEdge) maxEdge = edges[i];
-      }
-      
-      // Apply threshold to edges
-      const edgeThreshold = (threshold / 255) * maxEdge * 0.5;
-      for (let i = 0; i < data.length; i += 4) {
-        const edgeVal = edges[i / 4];
-        const binary = edgeVal > edgeThreshold ? 0 : 255;
-        data[i] = binary;
-        data[i + 1] = binary;
-        data[i + 2] = binary;
+        
+        // Apply Zhang-Suen thinning to extract skeleton
+        const skeleton = zhangSuenSkeleton({ width, height, data: binary });
+        
+        // Extract skeleton paths
+        contours = extractSkeletonPaths(skeleton);
+        
+        // Visualize skeleton
+        for (let i = 0; i < width * height; i++) {
+          const value = skeleton.data[i] === 1 ? 0 : 255;
+          data[i * 4] = value;
+          data[i * 4 + 1] = value;
+          data[i * 4 + 2] = value;
+        }
+        
+        console.log(`[Scott Algorithm] Extracted ${contours.length} skeleton paths (M(Ω))`);
+      } else {
+        // BOUNDARY EXTRACTION ∂Ω - Sobel Edge Detection
+        console.log('[Scott Algorithm] Extracting Boundary ∂Ω...');
+        
+        // Convert to grayscale array for edge detection
+        const gray = new Float32Array(width * height);
+        for (let i = 0; i < data.length; i += 4) {
+          gray[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        }
+        
+        // Apply Sobel edge detection for sharper edges
+        const edges = new Float32Array(width * height);
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            const idx = y * width + x;
+            const gx = 
+              -gray[(y-1)*width + (x-1)] + gray[(y-1)*width + (x+1)] +
+              -2*gray[y*width + (x-1)] + 2*gray[y*width + (x+1)] +
+              -gray[(y+1)*width + (x-1)] + gray[(y+1)*width + (x+1)];
+            const gy = 
+              -gray[(y-1)*width + (x-1)] - 2*gray[(y-1)*width + x] - gray[(y-1)*width + (x+1)] +
+              gray[(y+1)*width + (x-1)] + 2*gray[(y+1)*width + x] + gray[(y+1)*width + (x+1)];
+            edges[idx] = Math.sqrt(gx * gx + gy * gy);
+          }
+        }
+        
+        let maxEdge = 0;
+        for (let i = 0; i < edges.length; i++) {
+          if (edges[i] > maxEdge) maxEdge = edges[i];
+        }
+        
+        const edgeThreshold = (threshold / 255) * maxEdge * 0.5;
+        for (let i = 0; i < data.length; i += 4) {
+          const edgeVal = edges[i / 4];
+          const binary = edgeVal > edgeThreshold ? 0 : 255;
+          data[i] = binary;
+          data[i + 1] = binary;
+          data[i + 2] = binary;
+        }
+        
+        contours = extractContours(data, width, height, simplify);
+        console.log(`[Scott Algorithm] Extracted ${contours.length} boundary contours (∂Ω)`);
       }
 
       ctx.putImageData(imageData, 0, 0);
-
-      const contours = extractContours(data, width, height, simplify);
 
       // Draw sharp preview
       previewCtx.fillStyle = '#0f0f1a';
@@ -150,7 +182,7 @@ export function ImageTracer() {
     };
 
     img.src = uploadedImageData;
-  }, [uploadedImageData, threshold, simplify, setTracedPaths]);
+  }, [uploadedImageData, threshold, simplify, useSkeletonization, setTracedPaths]);
 
   const applyTracedPaths = useCallback(() => {
     const { tracedPaths, setSketchPaths } = useEditorStore.getState();
@@ -228,6 +260,20 @@ export function ImageTracer() {
       </div>
 
       <div className="p-4 border-t bg-card space-y-4">
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium">Medial Axis Extraction M(Ω)</Label>
+            <p className="text-xs text-muted-foreground">
+              Extract centerline skeleton instead of boundary
+            </p>
+          </div>
+          <Switch
+            checked={useSkeletonization}
+            onCheckedChange={setUseSkeletonization}
+            data-testid="switch-skeletonization"
+          />
+        </div>
+
         <div className="flex gap-6">
           <div className="flex-1 space-y-2">
             <div className="flex justify-between">
@@ -490,4 +536,158 @@ function perpendicularDistance(
   return Math.abs(
     dy * point.x - dx * point.y + lineEnd.x * lineStart.y - lineEnd.y * lineStart.x
   ) / norm;
+}
+
+// ============================================================================
+// ZHANG-SUEN SKELETONIZATION - Medial Axis Transform M(Ω)
+// ============================================================================
+
+interface BinaryImage {
+  width: number;
+  height: number;
+  data: Uint8Array;
+}
+
+function zhangSuenSkeleton(image: BinaryImage): BinaryImage {
+  const { width, height, data } = image;
+  const skeleton = new Uint8Array(data);
+  
+  let pixelsRemoved = 0;
+  let iteration = 0;
+  
+  do {
+    pixelsRemoved = 0;
+    
+    const toRemove1 = findRemovablePixels(skeleton, width, height, 1);
+    for (const idx of toRemove1) {
+      skeleton[idx] = 0;
+      pixelsRemoved++;
+    }
+    
+    const toRemove2 = findRemovablePixels(skeleton, width, height, 2);
+    for (const idx of toRemove2) {
+      skeleton[idx] = 0;
+      pixelsRemoved++;
+    }
+    
+    iteration++;
+  } while (pixelsRemoved > 0 && iteration < 100);
+  
+  return { width, height, data: skeleton };
+}
+
+function findRemovablePixels(data: Uint8Array, width: number, height: number, phase: 1 | 2): number[] {
+  const toRemove: number[] = [];
+  
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      if (data[idx] === 0) continue;
+      
+      const p2 = data[(y - 1) * width + x];
+      const p3 = data[(y - 1) * width + (x + 1)];
+      const p4 = data[y * width + (x + 1)];
+      const p5 = data[(y + 1) * width + (x + 1)];
+      const p6 = data[(y + 1) * width + x];
+      const p7 = data[(y + 1) * width + (x - 1)];
+      const p8 = data[y * width + (x - 1)];
+      const p9 = data[(y - 1) * width + (x - 1)];
+      
+      const b = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+      if (b < 2 || b > 6) continue;
+      
+      const a = transitions([p2, p3, p4, p5, p6, p7, p8, p9]);
+      if (a !== 1) continue;
+      
+      if (phase === 1) {
+        if (p2 * p4 * p6 !== 0) continue;
+        if (p4 * p6 * p8 !== 0) continue;
+      } else {
+        if (p2 * p4 * p8 !== 0) continue;
+        if (p2 * p6 * p8 !== 0) continue;
+      }
+      
+      toRemove.push(idx);
+    }
+  }
+  
+  return toRemove;
+}
+
+function transitions(neighbors: number[]): number {
+  let count = 0;
+  const n = neighbors.length;
+  
+  for (let i = 0; i < n; i++) {
+    const current = neighbors[i];
+    const next = neighbors[(i + 1) % n];
+    if (current === 0 && next === 1) count++;
+  }
+  
+  return count;
+}
+
+function extractSkeletonPaths(skeleton: BinaryImage): { x: number; y: number }[][] {
+  const { width, height, data } = skeleton;
+  const visited = new Uint8Array(width * height);
+  const paths: { x: number; y: number }[][] = [];
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      
+      if (data[idx] === 1 && visited[idx] === 0) {
+        const path = traceSkeletonPath(data, visited, width, height, x, y);
+        if (path.length >= 3) {
+          paths.push(path);
+        }
+      }
+    }
+  }
+  
+  return paths;
+}
+
+function traceSkeletonPath(
+  data: Uint8Array,
+  visited: Uint8Array,
+  width: number,
+  height: number,
+  startX: number,
+  startY: number
+): { x: number; y: number }[] {
+  const path: { x: number; y: number }[] = [];
+  const stack: [number, number][] = [[startX, startY]];
+  
+  const directions = [
+    [-1, -1], [0, -1], [1, -1],
+    [-1, 0],           [1, 0],
+    [-1, 1],  [0, 1],  [1, 1]
+  ];
+  
+  while (stack.length > 0) {
+    const [x, y] = stack.pop()!;
+    const idx = y * width + x;
+    
+    if (visited[idx] === 1) continue;
+    if (x < 0 || x >= width || y < 0 || y >= height) continue;
+    if (data[idx] === 0) continue;
+    
+    visited[idx] = 1;
+    path.push({ x, y });
+    
+    for (const [dx, dy] of directions) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const nidx = ny * width + nx;
+      
+      if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+        if (data[nidx] === 1 && visited[nidx] === 0) {
+          stack.push([nx, ny]);
+        }
+      }
+    }
+  }
+  
+  return path;
 }

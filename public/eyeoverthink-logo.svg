@@ -1,0 +1,17 @@
+<!-- eyeoverthink® Federal Trademark Logo -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="512" height="512">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="white"/>
+  
+  <!-- "eye" text (top) - handwritten style -->
+  <text x="512" y="280" font-family="'Brush Script MT', cursive" font-size="180" font-weight="bold" text-anchor="middle" fill="black">eye</text>
+  
+  <!-- Registered trademark symbol -->
+  <text x="850" y="200" font-family="Arial, sans-serif" font-size="60" font-weight="bold" text-anchor="middle" fill="black">®</text>
+  
+  <!-- Division line -->
+  <line x1="180" y1="512" x2="844" y2="512" stroke="black" stroke-width="30" stroke-linecap="round"/>
+  
+  <!-- "think" text (bottom) - handwritten style -->
+  <text x="512" y="780" font-family="'Brush Script MT', cursive" font-size="180" font-weight="bold" text-anchor="middle" fill="black">think</text>
+</svg>

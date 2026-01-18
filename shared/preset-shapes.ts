@@ -84,16 +84,16 @@ export const presetShapes: PresetShape[] = [
     name: 'Pineapple',
     category: 'icons',
     description: 'Pineapple fruit',
-    pathData: 'M0,-40 L-5,-30 L5,-30 Z M-10,-30 L-5,-20 L5,-20 L10,-30 M-15,-20 Q-20,0 -15,20 Q-10,30 0,35 Q10,30 15,20 Q20,0 15,-20 M-10,-15 L10,-5 M-10,-5 L10,5 M-10,5 L10,15 M10,-15 L-10,-5 M10,-5 L-10,5 M10,5 L-10,15',
-    viewBox: '-25 -45 50 85'
+    pathData: 'M-6,-48 L-10,-40 L-6,-36 L-2,-40 M0,-50 L4,-42 L8,-38 L12,-42 L8,-48 M-15,-35 L-15,18 Q-15,32 -8,38 Q0,42 0,42 Q8,38 15,32 L15,18 L15,-35 Z M-12,-28 L-8,-24 L-4,-28 L0,-24 L4,-28 L8,-24 L12,-28 M-12,-20 L-8,-16 L-4,-20 L0,-16 L4,-20 L8,-16 L12,-20 M-12,-12 L-8,-8 L-4,-12 L0,-8 L4,-12 L8,-8 L12,-12 M-12,-4 L-8,0 L-4,-4 L0,0 L4,-4 L8,0 L12,-4 M-12,4 L-8,8 L-4,4 L0,8 L4,4 L8,8 L12,4 M-12,12 L-8,16 L-4,12 L0,16 L4,12 L8,16 L12,12 M-12,20 L-8,24 L-4,20 L0,24 L4,20 L8,24 L12,20',
+    viewBox: '-20 -55 40 100'
   },
   {
     id: 'music-note',
     name: 'Music Note',
     category: 'icons',
     description: 'Musical note',
-    pathData: 'M10,-40 L10,20 Q10,30 0,30 Q-10,30 -10,20 Q-10,10 0,10 Q10,10 10,20 L10,-30 L30,-25 L30,-15 L10,-20',
-    viewBox: '-15 -45 50 80'
+    pathData: 'M10,-45 L10,15 M10,15 Q10,25 2,28 Q-6,25 -8,18 Q-10,10 -8,2 Q-6,-2 2,-4 Q10,-2 10,15 M10,-35 L28,-28 L28,-20 L10,-27 Z',
+    viewBox: '-15 -50 48 82'
   },
   
   // Retro Tech
@@ -102,16 +102,16 @@ export const presetShapes: PresetShape[] = [
     name: '1980s Computer',
     category: 'retro',
     description: 'Classic desktop computer with CRT monitor',
-    pathData: 'M-50,-40 L50,-40 L50,40 L-50,40 L-50,-40 M-40,-28 L40,-28 L40,28 L-40,28 L-40,-28 M-30,40 L-30,50 L30,50 L30,40',
-    viewBox: '-60 -50 120 110'
+    pathData: 'M-42,-42 Q-46,-42 -46,-38 L-46,-2 Q-46,2 -42,2 L42,2 Q46,2 46,-2 L46,-38 Q46,-42 42,-42 Z M-36,-35 L36,-35 L36,-8 L-36,-8 Z M-30,-30 L-27,-27 L-24,-30 M-28,-26 L-25,-23 L-22,-26 M-24,-22 L-21,-19 L-18,-22 M-20,2 L-20,10 L-10,14 L10,14 L20,10 L20,2 M-16,6 L-13,6 M-9,6 L-6,6 M-2,6 L1,6 M5,6 L8,6 M12,6 L15,6 M-9,9 L-6,9 M1,9 L4,9',
+    viewBox: '-50 -46 100 64'
   },
   {
     id: 'floppy-disk',
     name: 'Floppy Disk',
     category: 'retro',
     description: '3.5" floppy disk',
-    pathData: 'M-40,-45 L40,-45 L40,45 L-40,45 L-40,-45 M-32,-13 L32,-13 L32,23 L-32,23 L-32,-13 M-36,-45 L-36,-23 L36,-23 L36,-45',
-    viewBox: '-50 -55 100 110'
+    pathData: 'M-40,-50 L32,-50 L40,-42 L40,50 L-40,50 Z M-34,-50 L-34,-26 L34,-26 L34,-50 M-30,-44 L-30,-32 M32,-50 L32,-42 L40,-42 M-34,-16 L34,-16 L34,40 L-34,40 Z M-30,-10 L30,-10 L30,34 L-30,34 Z M-36,-6 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 M-34,44 L34,44 M-34,47 L34,47',
+    viewBox: '-44 -54 88 108'
   },
   {
     id: 'cd',
@@ -121,14 +121,6 @@ export const presetShapes: PresetShape[] = [
     pathData: 'M0,0 m-50,0 a50,50 0 1,0 100,0 a50,50 0 1,0 -100,0 M0,0 m-15,0 a15,15 0 1,0 30,0 a15,15 0 1,0 -30,0',
     viewBox: '-60 -60 120 120'
   },
-  {
-    id: 'brick-phone',
-    name: 'Brick Phone',
-    category: 'retro',
-    description: '1990s mobile phone',
-    pathData: 'M-30,-60 L30,-60 L30,60 L-30,60 L-30,-60 M-24,18 L24,18 L24,48 L-24,48 L-24,18 M-10,-70 L-10,-60',
-    viewBox: '-40 -75 80 145'
-  },
 
   // Space & Planets
   {
@@ -136,24 +128,24 @@ export const presetShapes: PresetShape[] = [
     name: 'Saturn',
     category: 'space',
     description: 'Planet with rings',
-    pathData: 'M0,0 m-40,0 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0 M-70,0 Q-70,-15 70,-15 Q70,0 70,0 Q70,15 -70,15 Q-70,0 -70,0 M-50,0 Q-50,-9 50,-9 Q50,0 50,0 Q50,9 -50,9 Q-50,0 -50,0',
-    viewBox: '-80 -50 160 100'
+    pathData: 'M0,0 m-35,0 a35,35 0 1,0 70,0 a35,35 0 1,0 -70,0 M-60,-8 Q-55,-18 60,-18 Q65,-8 60,2 Q-55,12 -60,2 Z M-45,-5 Q-42,-10 45,-10 Q48,-5 45,0 Q-42,5 -45,0 Z',
+    viewBox: '-70 -45 140 90'
   },
   {
     id: 'planet',
     name: 'Planet',
     category: 'space',
-    description: 'Simple planet',
-    pathData: 'M0,0 m-40,0 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0',
+    description: 'Simple planet with craters',
+    pathData: 'M0,0 m-40,0 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0 M-15,10 m-8,0 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 M10,-15 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M20,15 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0',
     viewBox: '-50 -50 100 100'
   },
   {
     id: 'jupiter',
     name: 'Jupiter',
     category: 'space',
-    description: 'Gas giant with bands',
-    pathData: 'M0,0 m-60,0 a60,60 0 1,0 120,0 a60,60 0 1,0 -120,0 M-60,20 L60,20 M-60,-20 L60,-20',
-    viewBox: '-70 -70 140 140'
+    description: 'Gas giant - cylindrical can shape',
+    pathData: 'M-25,-45 Q-30,-45 -30,-40 L-30,40 Q-30,45 -25,45 L25,45 Q30,45 30,40 L30,-40 Q30,-45 25,-45 Z M-30,-25 L30,-25 M-30,0 L30,0 M-30,25 L30,25',
+    viewBox: '-35 -50 70 100'
   },
 
   // Food & Drink
@@ -161,9 +153,9 @@ export const presetShapes: PresetShape[] = [
     id: 'soda-can',
     name: 'Soda Can',
     category: 'food',
-    description: 'Soda can with straw',
-    pathData: 'M-20,-40 L-20,35 Q-20,40 -14,40 L14,40 Q20,40 20,35 L20,-40 Z M-2,40 L-2,80 L2,80 L2,40',
-    viewBox: '-30 -50 60 140'
+    description: 'Soda can',
+    pathData: 'M-22,-45 Q-25,-45 -25,-42 L-25,38 Q-25,42 -22,42 L22,42 Q25,42 25,38 L25,-42 Q25,-45 22,-45 Z M-25,-35 L25,-35 M-25,-30 L25,-30',
+    viewBox: '-30 -50 60 95'
   },
 
   // Games & Dice
@@ -171,8 +163,8 @@ export const presetShapes: PresetShape[] = [
     id: 'dice-1',
     name: 'Dice (1)',
     category: 'games',
-    pathData: 'M-50,-50 L50,-50 L50,50 L-50,50 Z M0,0 m-8,0 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0',
-    viewBox: '-60 -60 120 120'
+    pathData: 'M-45,-45 Q-50,-45 -50,-40 L-50,40 Q-50,45 -45,45 L45,45 Q50,45 50,40 L50,-40 Q50,-45 45,-45 Z M0,0 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0',
+    viewBox: '-55 -55 110 110'
   },
   {
     id: 'dice-6',
@@ -206,8 +198,8 @@ export const presetShapes: PresetShape[] = [
     name: 'T-Rex',
     category: 'nature',
     description: 'T-Rex dinosaur silhouette',
-    pathData: 'M-30,-40 L-30,10 L-20,20 L0,30 L30,20 L40,10 L30,0 L20,-10 L10,-20 L15,-35 L25,-40 L20,-45 L5,-40 L0,-30 L-5,-20 L-10,-25 L-15,-20 L-20,0 L-25,-10 L-25,-40 Z',
-    viewBox: '-40 -50 90 90'
+    pathData: 'M-35,-25 Q-40,-35 -30,-40 Q-20,-42 -10,-35 L0,-25 L5,-35 Q15,-42 25,-38 Q30,-35 28,-28 L25,-20 Q30,-15 28,-8 L20,0 L15,10 L10,20 L5,30 L0,35 L-5,30 L-8,20 L-10,25 L-15,30 L-18,25 L-15,15 L-12,5 L-10,-5 L-15,-10 Q-20,-5 -25,0 L-28,5 L-30,0 L-28,-10 L-25,-20 Z M-8,-25 L-5,-22 L-8,-20 Z',
+    viewBox: '-45 -45 80 85'
   },
   {
     id: 'brain',
@@ -240,10 +232,19 @@ export const presetShapes: PresetShape[] = [
     name: 'Waving',
     category: 'stickFigures',
     description: 'Stick figure waving',
-    pathData: 'M0,40 m-15,0 a15,15 0 1,0 30,0 a15,15 0 1,0 -30,0 M0,25 L0,-10 M0,15 L-21,45 L-27,40 M0,15 L30,-5 M0,-10 L-21,-50 M0,-10 L21,-50',
-    viewBox: '-40 -60 80 120'
+    pathData: 'M0,-40 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 M0,-28 L0,10 M0,0 L-25,-20 L-28,-15 L-25,-10 M0,0 L25,15 M0,10 L-18,45 M0,10 L18,45',
+    viewBox: '-35 -55 70 105'
   },
 
+  {
+    id: 'stick-waipe',
+    name: 'Waipe',
+    category: 'stickFigures',
+    description: 'Stick figure with hand on hip',
+    pathData: 'M0,-40 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 M0,-28 L0,10 M0,0 L-25,8 M0,0 L20,5 L18,10 M0,10 L-18,45 M0,10 L18,45',
+    viewBox: '-35 -55 70 105'
+  },
+  
   // Emoji Faces
   {
     id: 'emoji-smile',

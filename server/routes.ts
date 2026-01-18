@@ -22,6 +22,7 @@ import {
   insertProjectSchema,
   fontOptions,
   baseTemplates,
+  defaultLetterSettings,
   defaultGeometrySettings,
   defaultWiringSettings,
   defaultMountingSettings,
@@ -67,7 +68,7 @@ const sketchPathSchema = z.object({
 });
 
 const exportRequestSchema = z.object({
-  letterSettings: letterSettingsSchema,
+  letterSettings: letterSettingsSchema.partial().optional(),
   geometrySettings: geometrySettingsSchema.partial().optional(),
   wiringSettings: wiringSettingsSchema.partial().optional(),
   mountingSettings: mountingSettingsSchema.partial().optional(),
@@ -197,14 +198,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: parsed.error.errors });
       }
 
-      const { letterSettings, format } = parsed.data;
+      const inputMode = parsed.data.inputMode || "text";
+      const letterSettings = { ...defaultLetterSettings, ...parsed.data.letterSettings } as typeof defaultLetterSettings;
       const geometrySettings = { ...defaultGeometrySettings, ...parsed.data.geometrySettings } as typeof defaultGeometrySettings;
       const wiringSettings = { ...defaultWiringSettings, ...parsed.data.wiringSettings } as typeof defaultWiringSettings;
       const mountingSettings = { ...defaultMountingSettings, ...parsed.data.mountingSettings } as typeof defaultMountingSettings;
       const tubeSettings = { ...defaultTubeSettings, ...parsed.data.tubeSettings } as typeof defaultTubeSettings;
       const twoPartSystem = { ...defaultTwoPartSystem, ...parsed.data.twoPartSystem } as typeof defaultTwoPartSystem;
       const sketchPaths = parsed.data.sketchPaths || [];
-      const inputMode = parsed.data.inputMode || "text";
+      const format = parsed.data.format || "stl";
       
       console.log(`[Export] inputMode: ${inputMode}, sketchPaths count: ${sketchPaths.length}`);
       console.log(`[Export] twoPartSystem.enabled: ${twoPartSystem.enabled}, geometrySettings.mode: ${geometrySettings.mode}, format: ${format}`);

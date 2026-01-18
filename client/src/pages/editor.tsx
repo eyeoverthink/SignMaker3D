@@ -31,9 +31,10 @@ export default function Editor() {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       <header className="h-12 border-b bg-card flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
+          <img src="/eyeoverthink-logo.png" alt="eyeoverthink®" className="h-8 w-auto" />
           <h1 className="text-lg font-bold tracking-tight">SignCraft 3D</h1>
           <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
-            Neon Sign Generator
+            by eyeoverthink®
           </span>
         </div>
         <div className="flex items-center gap-2">

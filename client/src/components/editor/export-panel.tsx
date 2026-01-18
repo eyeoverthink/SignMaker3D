@@ -69,7 +69,12 @@ export function ExportPanel() {
       });
 
       if (!response.ok) {
-        throw new Error("Export failed");
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        console.error("[Export Error]", errorData);
+        const errorMsg = typeof errorData.error === 'string' 
+          ? errorData.error 
+          : JSON.stringify(errorData.error || errorData);
+        throw new Error(errorMsg);
       }
 
       const isMultiPart = response.headers.get("X-Multi-Part-Export") === "true";
@@ -107,9 +112,10 @@ export function ExportPanel() {
         });
       }
     } catch (error) {
+      console.error("[Export Error]", error);
       toast({
         title: "Export failed",
-        description: "There was an error generating your file. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error generating your file. Please try again.",
         variant: "destructive",
       });
     } finally {
