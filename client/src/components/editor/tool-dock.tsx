@@ -1,7 +1,7 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain, Lamp } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain, Lamp, Target, Gamepad2 } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
@@ -24,6 +24,8 @@ export function ToolDock() {
     { id: "modular", icon: Hexagon, label: "Panels", description: "Modular light panels" },
     { id: "neontube", icon: Zap, label: "Neon Tubes", description: "Realistic tube casings" },
     { id: "backingplate", icon: Square, label: "Backing Plates", description: "Mounting plates with holes" },
+    { id: "scottproof", icon: Target, label: "Scott Proof", description: "Visual proof of Scott Algorithm - test with any image" },
+    { id: "mazegame", icon: Gamepad2, label: "Maze & Pac-Man", description: "Dynamic maze generator with Scott AI pathfinding + Pac-Man game" },
   ];
 
   return (
