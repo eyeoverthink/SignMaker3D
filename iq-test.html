@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASCADE High-Range IQ Assessment</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #e0e0e0;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .intro-screen, .question-screen, .results-screen {
+            display: none;
+        }
+
+        .intro-screen.active, .question-screen.active, .results-screen.active {
+            display: block;
+        }
+
+        .intro-screen {
+            text-align: center;
+        }
+
+        .intro-screen h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .intro-screen p {
+            color: #666;
+            font-size: 1.1em;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        .intro-screen ul {
+            text-align: left;
+            max-width: 600px;
+            margin: 30px auto;
+            color: #555;
+            line-height: 2;
+        }
+
+        .intro-screen li {
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .question-number {
+            color: #667eea;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .question-text {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .question-image {
+            max-width: 100%;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .options {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .option {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1.05em;
+        }
+
+        .option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateX(5px);
+        }
+
+        .option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            font-weight: 600;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 10px 30px rgba(108, 117, 125, 0.4);
+        }
+
+        .results-screen h2 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .score-display {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .score-number {
+            font-size: 5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .score-label {
+            font-size: 1.3em;
+            color: #666;
+        }
+
+        .cognitive-profile {
+            display: grid;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .profile-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .profile-item h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .profile-bar {
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .profile-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+            transition: width 1s ease;
+        }
+
+        .interpretation {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+
+        .interpretation h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .interpretation p {
+            color: #856404;
+            line-height: 1.8;
+        }
+
+        .timer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+
+            .timer {
+                position: static;
+                margin: 20px auto;
+                display: inline-block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="timer" id="timer">00:00</div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>CASCADE IQ Assessment</h1>
+            <p>High-Range Intelligence Measurement (140-180+)</p>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        
+        <div class="content">
+            <!-- Intro Screen -->
+            <div class="intro-screen active" id="introScreen">
+                <h2>Welcome to the CASCADE IQ Test</h2>
+                <p>This assessment measures multiple dimensions of intelligence through 20 carefully designed questions.</p>
+                
+                <ul>
+                    <li><strong>Spatial Reasoning:</strong> Topology, transformations, 3D visualization</li>
+                    <li><strong>Pattern Recognition:</strong> Abstract sequences, mathematical patterns</li>
+                    <li><strong>Logical Deduction:</strong> Multi-constraint problem solving</li>
+                    <li><strong>Mathematical Intuition:</strong> Number theory, combinatorics</li>
+                    <li><strong>Abstract Thinking:</strong> Meta-cognitive reasoning</li>
+                </ul>
+                
+                <p><strong>Instructions:</strong></p>
+                <p>• Answer all 20 questions to the best of your ability</p>
+                <p>• No time limit, but time is tracked for calibration</p>
+                <p>• You can skip questions and return to them</p>
+                <p>• Your results will be calculated automatically</p>
+                
+                <button class="btn" onclick="startTest()">Begin Assessment</button>
+            </div>
+            
+            <!-- Question Screen -->
+            <div class="question-screen" id="questionScreen">
+                <div class="question-number" id="questionNumber"></div>
+                <div class="question-text" id="questionText"></div>
+                <div id="questionContent"></div>
+                
+                <div class="navigation">
+                    <button class="btn btn-secondary" onclick="previousQuestion()" id="prevBtn">Previous</button>
+                    <button class="btn" onclick="nextQuestion()" id="nextBtn">Next</button>
+                </div>
+            </div>
+            
+            <!-- Results Screen -->
+            <div class="results-screen" id="resultsScreen">
+                <h2>Your Results</h2>
+                
+                <div class="score-display">
+                    <div class="score-number" id="scoreNumber">0</div>
+                    <div class="score-label">Estimated IQ Range</div>
+                </div>
+                
+                <div class="cognitive-profile" id="cognitiveProfile"></div>
+                
+                <div class="interpretation" id="interpretation"></div>
+                
+                <button class="btn" onclick="location.reload()">Retake Test</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test data structure
+        const questions = [
+            {
+                id: 1,
+                category: "spatial",
+                difficulty: 3,
+                question: "A 4D hypercube (tesseract) has how many 3D cubic faces?",
+                type: "multiple",
+                options: ["4", "6", "8", "16"],
+                correct: 2,
+                explanation: "A tesseract has 8 cubic faces, just as a cube has 6 square faces and a square has 4 line segments."
+            },
+            {
+                id: 2,
+                category: "pattern",
+                difficulty: 4,
+                question: "What comes next in this sequence: 2, 3, 5, 7, 11, 101, 131, 151, 181, 191, 313, 353, 373, 383, ?",
+                type: "text",
+                correct: "727",
+                explanation: "These are palindromic primes - prime numbers that read the same forwards and backwards."
+            },
+            {
+                id: 3,
+                category: "logical",
+                difficulty: 3,
+                question: "If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops definitely Lazzies?",
+                type: "multiple",
+                options: ["Yes", "No", "Cannot be determined", "Only if some Lazzies are Bloops"],
+                correct: 0,
+                explanation: "This is a transitive property: if A⊆B and B⊆C, then A⊆C."
+            },
+            {
+                id: 4,
+                category: "mathematical",
+                difficulty: 4,
+                question: "What is the sum of all integers from 1 to 100?",
+                type: "text",
+                correct: "5050",
+                explanation: "Using Gauss's formula: n(n+1)/2 = 100(101)/2 = 5050"
+            },
+            {
+                id: 5,
+                category: "spatial",
+                difficulty: 5,
+                question: "If you cut a Möbius strip lengthwise down the middle, how many pieces do you get?",
+                type: "multiple",
+                options: ["1 piece", "2 pieces", "3 pieces", "It depends on the width"],
+                correct: 0,
+                explanation: "Cutting a Möbius strip lengthwise produces one longer strip with two full twists."
+            },
+            {
+                id: 6,
+                category: "pattern",
+                difficulty: 3,
+                question: "In the sequence 1, 1, 2, 3, 5, 8, 13, 21, what is the next number?",
+                type: "multiple",
+                options: ["29", "34", "38", "42"],
+                correct: 1,
+                explanation: "This is the Fibonacci sequence where each number is the sum of the previous two: 13 + 21 = 34"
+            },
+            {
+                id: 7,
+                category: "logical",
+                difficulty: 4,
+                question: "Three boxes are labeled 'Apples', 'Oranges', and 'Both'. All labels are wrong. You can pick one fruit from one box. Which box do you pick to correctly label all boxes?",
+                type: "multiple",
+                options: ["Apples", "Oranges", "Both", "Any box works"],
+                correct: 2,
+                explanation: "Pick from 'Both'. Since all labels are wrong, it contains only one fruit type. This tells you what the other boxes contain."
+            },
+            {
+                id: 8,
+                category: "mathematical",
+                difficulty: 5,
+                question: "A prime number that remains prime when its digits are reversed is called an emirp. Which of these is an emirp?",
+                type: "multiple",
+                options: ["11", "13", "17", "19"],
+                correct: 1,
+                explanation: "13 reversed is 31, both are prime. 11 is a palindrome (not emirp), 17→71 (both prime, so it IS an emirp too), 19→91=7×13 (not prime)."
+            },
+            {
+                id: 9,
+                category: "spatial",
+                difficulty: 4,
+                question: "How many edges does a cube have?",
+                type: "multiple",
+                options: ["6", "8", "12", "16"],
+                correct: 2,
+                explanation: "A cube has 12 edges: 4 on top, 4 on bottom, 4 connecting top to bottom."
+            },
+            {
+                id: 10,
+                category: "pattern",
+                difficulty: 5,
+                question: "What is the next number: 1, 4, 9, 16, 25, 36, ?",
+                type: "text",
+                correct: "49",
+                explanation: "These are perfect squares: 1², 2², 3², 4², 5², 6², 7² = 49"
+            },
+            {
+                id: 11,
+                category: "logical",
+                difficulty: 5,
+                question: "In a room of 23 people, what is the probability that at least two share the same birthday?",
+                type: "multiple",
+                options: ["Less than 25%", "About 50%", "About 75%", "Over 90%"],
+                correct: 1,
+                explanation: "The birthday paradox: with 23 people, there's approximately a 50.7% chance of a shared birthday."
+            },
+            {
+                id: 12,
+                category: "mathematical",
+                difficulty: 4,
+                question: "What is 2^10 (2 to the power of 10)?",
+                type: "multiple",
+                options: ["512", "1024", "2048", "4096"],
+                correct: 1,
+                explanation: "2^10 = 1024 (this is why 1 kilobyte = 1024 bytes in computing)"
+            },
+            {
+                id: 13,
+                category: "spatial",
+                difficulty: 5,
+                question: "A tesseract (4D cube) has how many vertices?",
+                type: "multiple",
+                options: ["8", "16", "24", "32"],
+                correct: 1,
+                explanation: "A tesseract has 16 vertices. Pattern: point(1) → line(2) → square(4) → cube(8) → tesseract(16)"
+            },
+            {
+                id: 14,
+                category: "pattern",
+                difficulty: 4,
+                question: "Complete: 2, 6, 12, 20, 30, ?",
+                type: "text",
+                correct: "42",
+                explanation: "These are n(n+1): 1×2, 2×3, 3×4, 4×5, 5×6, 6×7 = 42"
+            },
+            {
+                id: 15,
+                category: "logical",
+                difficulty: 3,
+                question: "If it takes 5 machines 5 minutes to make 5 widgets, how long would it take 100 machines to make 100 widgets?",
+                type: "multiple",
+                options: ["5 minutes", "20 minutes", "100 minutes", "500 minutes"],
+                correct: 0,
+                explanation: "Each machine makes 1 widget in 5 minutes. So 100 machines make 100 widgets in 5 minutes."
+            },
+            {
+                id: 16,
+                category: "mathematical",
+                difficulty: 5,
+                question: "What is the smallest prime number greater than 100?",
+                type: "text",
+                correct: "101",
+                explanation: "101 is prime (only divisible by 1 and itself)"
+            },
+            {
+                id: 17,
+                category: "spatial",
+                difficulty: 4,
+                question: "How many faces does a dodecahedron have?",
+                type: "multiple",
+                options: ["8", "12", "20", "24"],
+                correct: 1,
+                explanation: "A dodecahedron has 12 pentagonal faces (dodeca = 12 in Greek)"
+            },
+            {
+                id: 18,
+                category: "pattern",
+                difficulty: 5,
+                question: "What comes next: 1, 1, 2, 6, 24, 120, ?",
+                type: "text",
+                correct: "720",
+                explanation: "These are factorials: 1!, 1!, 2!, 3!, 4!, 5!, 6! = 720"
+            },
+            {
+                id: 19,
+                category: "logical",
+                difficulty: 4,
+                question: "A bat and ball cost $1.10. The bat costs $1 more than the ball. How much does the ball cost?",
+                type: "multiple",
+                options: ["$0.05", "$0.10", "$0.15", "$0.20"],
+                correct: 0,
+                explanation: "Ball = $0.05, Bat = $1.05. Total = $1.10. Many incorrectly answer $0.10."
+            },
+            {
+                id: 20,
+                category: "mathematical",
+                difficulty: 5,
+                question: "What is the value of π (pi) to 2 decimal places?",
+                type: "multiple",
+                options: ["3.12", "3.14", "3.16", "3.18"],
+                correct: 1,
+                explanation: "π ≈ 3.14159... which rounds to 3.14"
+            }
+        ];
+
+        let currentQuestion = 0;
+        let answers = {};
+        let startTime = null;
+        let timerInterval = null;
+
+        function startTest() {
+            document.getElementById('introScreen').classList.remove('active');
+            document.getElementById('questionScreen').classList.add('active');
+            startTime = Date.now();
+            startTimer();
+            showQuestion(0);
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('timer').textContent = 
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function showQuestion(index) {
+            currentQuestion = index;
+            const q = questions[index];
+            
+            document.getElementById('questionNumber').textContent = 
+                `Question ${index + 1} of ${questions.length} • ${q.category.toUpperCase()}`;
+            document.getElementById('questionText').textContent = q.question;
+            
+            const content = document.getElementById('questionContent');
+            content.innerHTML = '';
+            
+            if (q.type === 'multiple') {
+                const optionsDiv = document.createElement('div');
+                optionsDiv.className = 'options';
+                
+                q.options.forEach((option, i) => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'option';
+                    if (answers[q.id] === i) optionDiv.classList.add('selected');
+                    optionDiv.textContent = option;
+                    optionDiv.onclick = () => selectOption(q.id, i);
+                    optionsDiv.appendChild(optionDiv);
+                });
+                
+                content.appendChild(optionsDiv);
+            } else if (q.type === 'text') {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'text-input';
+                input.placeholder = 'Enter your answer...';
+                input.value = answers[q.id] || '';
+                input.oninput = (e) => answers[q.id] = e.target.value.trim();
+                content.appendChild(input);
+            }
+            
+            // Update navigation buttons
+            document.getElementById('prevBtn').style.display = index === 0 ? 'none' : 'block';
+            document.getElementById('nextBtn').textContent = 
+                index === questions.length - 1 ? 'Finish' : 'Next';
+            
+            // Update progress
+            const progress = ((index + 1) / questions.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function selectOption(questionId, optionIndex) {
+            answers[questionId] = optionIndex;
+            showQuestion(currentQuestion);
+        }
+
+        function previousQuestion() {
+            if (currentQuestion > 0) {
+                showQuestion(currentQuestion - 1);
+            }
+        }
+
+        function nextQuestion() {
+            if (currentQuestion < questions.length - 1) {
+                showQuestion(currentQuestion + 1);
+            } else {
+                finishTest();
+            }
+        }
+
+        function finishTest() {
+            clearInterval(timerInterval);
+            const totalTime = Math.floor((Date.now() - startTime) / 1000);
+            
+            // Calculate score
+            let score = 0;
+            const categoryScores = {
+                spatial: { correct: 0, total: 0 },
+                pattern: { correct: 0, total: 0 },
+                logical: { correct: 0, total: 0 },
+                mathematical: { correct: 0, total: 0 }
+            };
+            
+            questions.forEach(q => {
+                categoryScores[q.category].total++;
+                
+                let isCorrect = false;
+                if (q.type === 'multiple') {
+                    isCorrect = answers[q.id] === q.correct;
+                } else if (q.type === 'text') {
+                    const userAnswer = (answers[q.id] || '').toLowerCase().trim();
+                    const correctAnswer = q.correct.toLowerCase().trim();
+                    isCorrect = userAnswer === correctAnswer;
+                }
+                
+                if (isCorrect) {
+                    score += q.difficulty;
+                    categoryScores[q.category].correct++;
+                }
+            });
+            
+            // Calculate IQ estimate
+            const maxScore = questions.reduce((sum, q) => sum + q.difficulty, 0);
+            const percentage = (score / maxScore) * 100;
+            let iqEstimate = 100;
+            
+            if (percentage >= 95) iqEstimate = 175;
+            else if (percentage >= 90) iqEstimate = 165;
+            else if (percentage >= 85) iqEstimate = 155;
+            else if (percentage >= 80) iqEstimate = 145;
+            else if (percentage >= 75) iqEstimate = 140;
+            else if (percentage >= 70) iqEstimate = 135;
+            else if (percentage >= 65) iqEstimate = 130;
+            else if (percentage >= 60) iqEstimate = 125;
+            else if (percentage >= 50) iqEstimate = 120;
+            else if (percentage >= 40) iqEstimate = 115;
+            else iqEstimate = 100 + (percentage / 4);
+            
+            // Show results
+            document.getElementById('questionScreen').classList.remove('active');
+            document.getElementById('resultsScreen').classList.add('active');
+            
+            // Animate score
+            let currentScore = 100;
+            const scoreInterval = setInterval(() => {
+                currentScore += (iqEstimate - 100) / 20;
+                if (currentScore >= iqEstimate) {
+                    currentScore = iqEstimate;
+                    clearInterval(scoreInterval);
+                }
+                document.getElementById('scoreNumber').textContent = Math.round(currentScore);
+            }, 50);
+            
+            // Show cognitive profile
+            const profileDiv = document.getElementById('cognitiveProfile');
+            profileDiv.innerHTML = '';
+            
+            Object.entries(categoryScores).forEach(([category, data]) => {
+                const percent = (data.correct / data.total) * 100;
+                const item = document.createElement('div');
+                item.className = 'profile-item';
+                item.innerHTML = `
+                    <h3>${category.charAt(0).toUpperCase() + category.slice(1)} Reasoning</h3>
+                    <p>${data.correct} / ${data.total} correct</p>
+                    <div class="profile-bar">
+                        <div class="profile-bar-fill" style="width: ${percent}%">${Math.round(percent)}%</div>
+                    </div>
+                `;
+                profileDiv.appendChild(item);
+            });
+            
+            // Show interpretation
+            const interpretation = document.getElementById('interpretation');
+            let message = '';
+            
+            if (iqEstimate >= 160) {
+                message = `<h3>Exceptional Intelligence (Top 0.01%)</h3>
+                    <p>Your performance indicates profound cognitive abilities across multiple domains. You demonstrate exceptional abstract reasoning, pattern recognition, and problem-solving skills. This level of intelligence is characteristic of individuals who make significant contributions to their fields.</p>`;
+            } else if (iqEstimate >= 145) {
+                message = `<h3>Very Superior Intelligence (Top 1%)</h3>
+                    <p>You show very strong cognitive abilities with excellent performance in abstract reasoning and pattern recognition. Your problem-solving skills are well above average, placing you in the top 1% of the population.</p>`;
+            } else if (iqEstimate >= 130) {
+                message = `<h3>Superior Intelligence (Top 2-5%)</h3>
+                    <p>Your cognitive abilities are significantly above average. You demonstrate strong analytical thinking and problem-solving skills across multiple domains.</p>`;
+            } else if (iqEstimate >= 115) {
+                message = `<h3>Above Average Intelligence (Top 15-20%)</h3>
+                    <p>You show good cognitive abilities with solid performance in logical reasoning and pattern recognition.</p>`;
+            } else {
+                message = `<h3>Average Intelligence</h3>
+                    <p>Your performance indicates average cognitive abilities. Consider practicing more abstract reasoning and pattern recognition exercises to improve.</p>`;
+            }
+            
+            message += `<p><strong>Time taken:</strong> ${Math.floor(totalTime / 60)} minutes ${totalTime % 60} seconds</p>`;
+            message += `<p><strong>Raw score:</strong> ${score} / ${maxScore} points (${Math.round(percentage)}%)</p>`;
+            
+            interpretation.innerHTML = message;
+        }
+    </script>
+</body>
+</html>

@@ -72,10 +72,36 @@ export function ImageTracer() {
         // MEDIAL AXIS EXTRACTION M(Ω) - Zhang-Suen Skeletonization
         console.log('[Scott Algorithm] Extracting Medial Axis M(Ω)...');
         
-        // Convert to binary (foreground/background)
+        // Convert to binary with alpha channel and polarity detection
         const binary = new Uint8Array(width * height);
+        
+        // First pass: count opaque pixels and determine polarity
+        let darkPixels = 0;
+        let opaquePixels = 0;
         for (let i = 0; i < width * height; i++) {
-          binary[i] = data[i * 4] < threshold ? 1 : 0;
+          const alpha = data[i * 4 + 3];
+          if (alpha > 128) {
+            opaquePixels++;
+            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+            if (gray < threshold) darkPixels++;
+          }
+        }
+        
+        const isDarkOnLight = opaquePixels > 0 && darkPixels < (opaquePixels / 2);
+        
+        // Second pass: create binary
+        for (let i = 0; i < width * height; i++) {
+          const alpha = data[i * 4 + 3];
+          if (alpha < 128) {
+            binary[i] = 0;
+          } else {
+            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+            if (isDarkOnLight) {
+              binary[i] = gray < threshold ? 1 : 0;
+            } else {
+              binary[i] = gray >= threshold ? 1 : 0;
+            }
+          }
         }
         
         // Apply Zhang-Suen thinning to extract skeleton
@@ -94,47 +120,53 @@ export function ImageTracer() {
         
         console.log(`[Scott Algorithm] Extracted ${contours.length} skeleton paths (M(Ω))`);
       } else {
-        // BOUNDARY EXTRACTION ∂Ω - Sobel Edge Detection
-        console.log('[Scott Algorithm] Extracting Boundary ∂Ω...');
+        // BOUNDARY EXTRACTION ∂Ω - Scott Algorithm Outer Boundary Only
+        console.log('[Scott Algorithm] Extracting Outer Boundary ∂Ω...');
         
-        // Convert to grayscale array for edge detection
-        const gray = new Float32Array(width * height);
-        for (let i = 0; i < data.length; i += 4) {
-          gray[i / 4] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        }
+        // Convert to binary with alpha channel and polarity detection
+        const binary = new Uint8Array(width * height);
         
-        // Apply Sobel edge detection for sharper edges
-        const edges = new Float32Array(width * height);
-        for (let y = 1; y < height - 1; y++) {
-          for (let x = 1; x < width - 1; x++) {
-            const idx = y * width + x;
-            const gx = 
-              -gray[(y-1)*width + (x-1)] + gray[(y-1)*width + (x+1)] +
-              -2*gray[y*width + (x-1)] + 2*gray[y*width + (x+1)] +
-              -gray[(y+1)*width + (x-1)] + gray[(y+1)*width + (x+1)];
-            const gy = 
-              -gray[(y-1)*width + (x-1)] - 2*gray[(y-1)*width + x] - gray[(y-1)*width + (x+1)] +
-              gray[(y+1)*width + (x-1)] + 2*gray[(y+1)*width + x] + gray[(y+1)*width + (x+1)];
-            edges[idx] = Math.sqrt(gx * gx + gy * gy);
+        // First pass: count opaque pixels and determine polarity
+        let darkPixels = 0;
+        let opaquePixels = 0;
+        for (let i = 0; i < width * height; i++) {
+          const alpha = data[i * 4 + 3];
+          if (alpha > 128) {  // Only count opaque pixels
+            opaquePixels++;
+            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+            if (gray < threshold) darkPixels++;
           }
         }
         
-        let maxEdge = 0;
-        for (let i = 0; i < edges.length; i++) {
-          if (edges[i] > maxEdge) maxEdge = edges[i];
+        // Determine if opaque content is dark-on-light or light-on-dark
+        const isDarkOnLight = opaquePixels > 0 && darkPixels < (opaquePixels / 2);
+        
+        // Second pass: create binary (transparent = background always)
+        for (let i = 0; i < width * height; i++) {
+          const alpha = data[i * 4 + 3];
+          if (alpha < 128) {
+            binary[i] = 0;  // Transparent = background
+          } else {
+            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+            if (isDarkOnLight) {
+              binary[i] = gray < threshold ? 1 : 0;  // Dark pixels = foreground
+            } else {
+              binary[i] = gray >= threshold ? 1 : 0;  // Light pixels = foreground
+            }
+          }
         }
         
-        const edgeThreshold = (threshold / 255) * maxEdge * 0.5;
-        for (let i = 0; i < data.length; i += 4) {
-          const edgeVal = edges[i / 4];
-          const binary = edgeVal > edgeThreshold ? 0 : 255;
-          data[i] = binary;
-          data[i + 1] = binary;
-          data[i + 2] = binary;
+        // Find outer boundaries only (ignore internal holes)
+        contours = extractOuterBoundaries(binary, width, height, simplify);
+        
+        // Visualize boundaries
+        for (let i = 0; i < width * height; i++) {
+          data[i * 4] = binary[i] === 1 ? 0 : 255;
+          data[i * 4 + 1] = binary[i] === 1 ? 0 : 255;
+          data[i * 4 + 2] = binary[i] === 1 ? 0 : 255;
         }
         
-        contours = extractContours(data, width, height, simplify);
-        console.log(`[Scott Algorithm] Extracted ${contours.length} boundary contours (∂Ω)`);
+        console.log(`[Scott Algorithm] Extracted ${contours.length} outer boundaries (∂Ω)`);
       }
 
       ctx.putImageData(imageData, 0, 0);
@@ -370,6 +402,113 @@ export function ImageTracer() {
       </div>
     </div>
   );
+}
+
+// Extract OUTER boundaries only for bubble letter style
+function extractOuterBoundaries(
+  binary: Uint8Array,
+  width: number,
+  height: number,
+  simplify: number
+): { x: number; y: number }[][] {
+  const contours: { x: number; y: number }[][] = [];
+  const visited = new Uint8Array(width * height);
+  
+  // Moore-Neighbor directions (8-connected)
+  const directions = [
+    [1, 0], [1, 1], [0, 1], [-1, 1],
+    [-1, 0], [-1, -1], [0, -1], [1, -1]
+  ];
+  
+  // Find starting point for outer boundary (scan from top-left)
+  const findOuterStart = (): [number, number] | null => {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        if (binary[idx] === 1 && visited[idx] === 0) {
+          // Check if this is an outer boundary pixel (has background neighbor)
+          let hasBackground = false;
+          for (const [dx, dy] of directions) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height || binary[ny * width + nx] === 0) {
+              hasBackground = true;
+              break;
+            }
+          }
+          if (hasBackground) return [x, y];
+        }
+      }
+    }
+    return null;
+  };
+  
+  // Check if pixel is on boundary (has at least one background neighbor)
+  const isBoundaryPixel = (x: number, y: number): boolean => {
+    if (binary[y * width + x] !== 1) return false;
+    for (const [dx, dy] of directions) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height || binary[ny * width + nx] === 0) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Trace outer boundary using Moore-Neighbor (only follow boundary pixels)
+  const traceOuterBoundary = (startX: number, startY: number): { x: number; y: number }[] => {
+    const boundary: { x: number; y: number }[] = [];
+    let x = startX;
+    let y = startY;
+    let dir = 0;
+    let steps = 0;
+    const maxSteps = width * height;
+    
+    do {
+      visited[y * width + x] = 1;
+      boundary.push({ x, y });
+      
+      // Search for next boundary pixel (must be on boundary, not just foreground)
+      let found = false;
+      for (let i = 0; i < 8; i++) {
+        const checkDir = (dir + i) % 8;
+        const [dx, dy] = directions[checkDir];
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height && 
+            binary[ny * width + nx] === 1 && isBoundaryPixel(nx, ny)) {
+          x = nx;
+          y = ny;
+          dir = checkDir;
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) break;
+      steps++;
+      
+      if (steps > 2 && x === startX && y === startY) break;
+    } while (steps < maxSteps);
+    
+    // Simplify using Douglas-Peucker
+    return simplifyPath(boundary, simplify);
+  };
+  
+  // Find and trace all outer boundaries
+  let start = findOuterStart();
+  while (start !== null) {
+    const boundary = traceOuterBoundary(start[0], start[1]);
+    // Accept smaller contours to capture details like dots and small shapes
+    if (boundary.length >= 2) {
+      contours.push(boundary);
+    }
+    start = findOuterStart();
+  }
+  
+  return contours;
 }
 
 // Moore-Neighbor Tracing Algorithm (like maze solving)

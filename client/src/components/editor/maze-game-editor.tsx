@@ -292,11 +292,41 @@ export function MazeGameEditor() {
   const handleExport = useCallback(async () => {
     if (!maze) return;
 
-    toast({
-      title: "Export Coming Soon",
-      description: "LED grid STL export will be available in next update",
-    });
-  }, [maze, toast]);
+    try {
+      const response = await fetch('/api/export/led-grid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gridWidth: mazeWidth,
+          gridHeight: mazeHeight,
+          ledSpacing: 12.7,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Export failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pacman_led_grid_${mazeWidth}x${mazeHeight}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Complete!",
+        description: `Downloaded LED grid files for ${mazeWidth}×${mazeHeight} maze`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  }, [maze, mazeWidth, mazeHeight, toast]);
 
   return (
     <div className="h-full flex flex-col" data-testid="maze-game-editor">

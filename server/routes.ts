@@ -1481,5 +1481,95 @@ Created with Sign-Sculptor - Eggison Bulbs Generator
     }
   });
 
+  // LED Grid export endpoint for Pac-Man physical canvas
+  app.post("/api/export/led-grid", async (req, res) => {
+    try {
+      const { gridWidth, gridHeight, ledSpacing } = req.body;
+      
+      const { LEDGridGenerator } = await import("./led-grid-generator");
+      const generator = new LEDGridGenerator({
+        gridWidth: gridWidth || 16,
+        gridHeight: gridHeight || 12,
+        ledSpacing: ledSpacing || 12.7,
+      });
+      
+      const gridSTL = generator.generateGridSTL();
+      const ledMapping = generator.generateLEDMapping();
+      const wiringDiagram = generator.generateWiringDiagram();
+      
+      // Read ESP32 firmware template
+      const firmwarePath = path.join(__dirname, "templates", "pacman-esp32-firmware.ino");
+      const firmware = fs.readFileSync(firmwarePath, "utf-8");
+      
+      // Create ZIP archive
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="pacman_led_grid_${Date.now()}.zip"`);
+      
+      archive.pipe(res);
+      
+      // Add LED grid STL
+      archive.append(gridSTL, { name: "led_grid_mounting.stl" });
+      
+      // Add ESP32 firmware
+      archive.append(firmware, { name: "pacman_demo.ino" });
+      
+      // Add LED mapping JSON
+      archive.append(JSON.stringify(ledMapping, null, 2), { name: "led_mapping.json" });
+      
+      // Add wiring diagram
+      const wiringDoc = `PAC-MAN LED GRID - WIRING DIAGRAM
+=====================================
+
+Hardware Requirements:
+- ESP32-DevKit board
+- WS2812B LED strip (${wiringDiagram.totalLEDs} LEDs)
+- 5V power supply (${wiringDiagram.powerRequirement})
+- Jumper wires (22 AWG recommended)
+
+Connections:
+${wiringDiagram.connections.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+LED Mapping:
+- Grid Size: ${gridWidth || 16} × ${gridHeight || 12}
+- Total LEDs: ${wiringDiagram.totalLEDs}
+- Data Pin: ${wiringDiagram.dataPin}
+- LED Index 0 starts at top-left corner
+- LEDs are numbered left-to-right, top-to-bottom
+
+Assembly Instructions:
+1. 3D print the LED grid mounting frame (led_grid_mounting.stl)
+2. Cut WS2812B LED strip to ${wiringDiagram.totalLEDs} LEDs
+3. Mount LED strip into grid holes (use hot glue or clips)
+4. Connect ESP32 to LED strip following wiring diagram above
+5. Upload pacman_demo.ino to ESP32 using Arduino IDE
+6. Power on and watch autonomous Scott Algorithm maze demo!
+
+Required Arduino Libraries:
+- FastLED (install via Arduino Library Manager)
+
+Scott Algorithm Features:
+- Random maze generation (Recursive Backtracker)
+- O(n) pathfinding (faster than A*)
+- Autonomous Pac-Man animation
+- Ghost AI with predictive interception
+- Continuous demo loop
+
+Created with SignCraft 3D - Scott Algorithm Demonstration System
+`;
+      
+      archive.append(wiringDoc, { name: "WIRING_INSTRUCTIONS.txt" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("LED Grid export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate LED grid files",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   return httpServer;
 }

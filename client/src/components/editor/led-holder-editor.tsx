@@ -62,6 +62,7 @@ const holderStyleOptions: { value: LEDHolderStyle; label: string }[] = [
   { value: "socket", label: "Socket" },
   { value: "clip", label: "Clip" },
   { value: "cradle", label: "Cradle" },
+  { value: "wash", label: "Wash (Canvas Glow-Clip v2)" },
 ];
 
 const mountTypeOptions: { value: LEDHolderMountType; label: string; icon: typeof Magnet }[] = [

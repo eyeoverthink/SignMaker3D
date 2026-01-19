@@ -6,7 +6,7 @@ import { z } from "zod";
 export const ledHolderLedTypes = ["3mm", "5mm", "ws2812b", "ws2812b_strip", "10mm_uv"] as const;
 export type LEDHolderLedType = typeof ledHolderLedTypes[number];
 
-export const ledHolderStyles = ["socket", "clip", "cradle"] as const;
+export const ledHolderStyles = ["socket", "clip", "cradle", "wash"] as const;
 export type LEDHolderStyle = typeof ledHolderStyles[number];
 
 export const ledHolderMountTypes = ["magnetic", "screw", "adhesive", "clip_on"] as const;
@@ -23,6 +23,15 @@ export const ledHolderSettingsSchema = z.object({
   wallThickness: z.number().min(1).max(5),
   tiltAngle: z.number().min(0).max(90),
   quantity: z.number().min(1).max(20),
+  adjustableHeight: z.boolean().optional(),
+  minHeight: z.number().min(10).max(50).optional(),
+  maxHeight: z.number().min(20).max(100).optional(),
+  reflectorDepth: z.number().min(5).max(25).default(12),
+  beamAngle: z.number().min(15).max(120).default(45),
+  hasDiffuser: z.boolean().default(true),
+  washWidth: z.number().min(20).max(50).default(30),
+  washHeight: z.number().min(5).max(20).default(10),
+  duckbillDepth: z.number().min(10).max(30).default(20),
 });
 
 export type LEDHolderSettings = z.infer<typeof ledHolderSettingsSchema>;
@@ -32,10 +41,16 @@ export const defaultLEDHolderSettings: LEDHolderSettings = {
   holderStyle: "socket",
   mountType: "magnetic",
   wireChannelDiameter: 3,
-  magnetDiameter: 6,
-  magnetDepth: 2,
+  magnetDiameter: 8.2,
+  magnetDepth: 3.2,
   screwHoleDiameter: 3,
   wallThickness: 2,
-  tiltAngle: 30,
+  tiltAngle: 45,
   quantity: 1,
+  reflectorDepth: 12,
+  beamAngle: 45,
+  hasDiffuser: true,
+  washWidth: 30,
+  washHeight: 10,
+  duckbillDepth: 20,
 };

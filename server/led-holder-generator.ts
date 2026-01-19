@@ -2,11 +2,11 @@ import { z } from "zod";
 
 export const ledHolderSettingsSchema = z.object({
   ledType: z.enum(["3mm", "5mm", "ws2812b", "ws2812b_strip", "10mm_uv"]),
-  holderStyle: z.enum(["clip", "socket", "cradle"]),
+  holderStyle: z.enum(["clip", "socket", "cradle", "wash"]), // Added "wash" for Canvas Glow-Clip v2
   mountType: z.enum(["magnetic", "screw", "adhesive", "clip_on"]),
   wireChannelDiameter: z.number().min(1).max(10).default(3),
-  magnetDiameter: z.number().min(3).max(15).default(8),
-  magnetDepth: z.number().min(1).max(5).default(3),
+  magnetDiameter: z.number().min(3).max(15).default(8.2),
+  magnetDepth: z.number().min(1).max(5).default(3.2),
   screwHoleDiameter: z.number().min(2).max(6).default(3),
   wallThickness: z.number().min(1).max(5).default(2),
   tiltAngle: z.number().min(0).max(90).default(45),
@@ -14,10 +14,14 @@ export const ledHolderSettingsSchema = z.object({
   adjustableHeight: z.boolean().optional(),
   minHeight: z.number().min(10).max(50).optional(),
   maxHeight: z.number().min(20).max(100).optional(),
-  // New optical features
+  // Optical features
   reflectorDepth: z.number().min(5).max(25).default(12),
   beamAngle: z.number().min(15).max(120).default(45),
   hasDiffuser: z.boolean().default(true),
+  // Canvas Glow-Clip v2 "wash" lighting
+  washWidth: z.number().min(20).max(50).default(30), // Wide output width
+  washHeight: z.number().min(5).max(20).default(10), // Output height
+  duckbillDepth: z.number().min(10).max(30).default(20), // Spreader depth
 });
 
 export type LEDHolderSettings = z.infer<typeof ledHolderSettingsSchema>;
@@ -245,6 +249,109 @@ function generateLEDSocket(triangles: Triangle[],
   }
 }
 
+// Generate duckbill wash light spreader (Canvas Glow-Clip v2)
+// Creates wide "wash" lighting instead of narrow "spot" beam
+function generateDuckbillWashSpreader(triangles: Triangle[],
+  cx: number, cy: number, cz: number,
+  ledRadius: number, washWidth: number, washHeight: number,
+  duckbillDepth: number, tiltAngle: number,
+  wallThickness: number, segments: number = 32): void {
+  
+  const tiltRad = (tiltAngle * Math.PI) / 180;
+  
+  // LED base circle (where light starts)
+  const ledBaseY = cy + 5;
+  const ledBaseR = 5; // 10mm diameter LED opening
+  
+  // Wide mouth oval (where light exits)
+  const mouthY = cy + duckbillDepth;
+  const mouthZ = cz + duckbillDepth * Math.sin(tiltRad); // Angled forward
+  const mouthWidthR = washWidth / 2; // 30mm wide
+  const mouthHeightR = washHeight / 2; // 10mm tall
+  
+  // Generate outer shell surface (hull between circle and oval)
+  const steps = 16;
+  for (let i = 0; i < segments; i++) {
+    const angle1 = (i / segments) * Math.PI * 2;
+    const angle2 = ((i + 1) / segments) * Math.PI * 2;
+    const cos1 = Math.cos(angle1);
+    const sin1 = Math.sin(angle1);
+    const cos2 = Math.cos(angle2);
+    const sin2 = Math.sin(angle2);
+    
+    for (let j = 0; j < steps; j++) {
+      const t1 = j / steps;
+      const t2 = (j + 1) / steps;
+      
+      // Interpolate from circle to oval
+      const getPoint = (t: number, angle: number, offset: number): Vector3 => {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        
+        // Start: circle at LED
+        const startX = cx + cos * (ledBaseR + offset);
+        const startY = ledBaseY;
+        const startZ = cz + sin * (ledBaseR + offset);
+        
+        // End: oval at mouth (stretched in X, compressed in Z)
+        const endX = cx + cos * (mouthWidthR + offset);
+        const endY = mouthY;
+        const endZ = mouthZ + sin * (mouthHeightR + offset);
+        
+        // Smooth blend
+        return {
+          x: startX + (endX - startX) * t,
+          y: startY + (endY - startY) * t,
+          z: startZ + (endZ - startZ) * t
+        };
+      };
+      
+      // Outer surface
+      const po1 = getPoint(t1, angle1, wallThickness);
+      const po2 = getPoint(t1, angle2, wallThickness);
+      const po3 = getPoint(t2, angle2, wallThickness);
+      const po4 = getPoint(t2, angle1, wallThickness);
+      
+      addTriangle(triangles, po1, po2, po3);
+      addTriangle(triangles, po1, po3, po4);
+      
+      // Inner surface (hollow light channel)
+      const pi1 = getPoint(t1, angle1, 0);
+      const pi2 = getPoint(t1, angle2, 0);
+      const pi3 = getPoint(t2, angle2, 0);
+      const pi4 = getPoint(t2, angle1, 0);
+      
+      addTriangle(triangles, pi1, pi3, pi2);
+      addTriangle(triangles, pi1, pi4, pi3);
+    }
+    
+    // Front rim (connects inner to outer at wide mouth)
+    const frontInner1 = {
+      x: cx + cos1 * mouthWidthR,
+      y: mouthY,
+      z: mouthZ + sin1 * mouthHeightR
+    };
+    const frontInner2 = {
+      x: cx + cos2 * mouthWidthR,
+      y: mouthY,
+      z: mouthZ + sin2 * mouthHeightR
+    };
+    const frontOuter1 = {
+      x: cx + cos1 * (mouthWidthR + wallThickness),
+      y: mouthY,
+      z: mouthZ + sin1 * (mouthHeightR + wallThickness)
+    };
+    const frontOuter2 = {
+      x: cx + cos2 * (mouthWidthR + wallThickness),
+      y: mouthY,
+      z: mouthZ + sin2 * (mouthHeightR + wallThickness)
+    };
+    
+    addTriangle(triangles, frontInner1, frontOuter1, frontOuter2);
+    addTriangle(triangles, frontInner1, frontOuter2, frontInner2);
+  }
+}
+
 // Generate diffuser dome that spreads light evenly
 function generateDiffuserDome(triangles: Triangle[],
   cx: number, cy: number, cz: number,
@@ -422,6 +529,7 @@ function generateCompleteLEDHolder(triangles: Triangle[], settings: LEDHolderSet
   const reflectorDepth = settings.reflectorDepth || 12;
   const beamAngle = settings.beamAngle || 45;
   const hasDiffuser = settings.hasDiffuser !== false;
+  const useWashLighting = settings.holderStyle === "wash";
   
   // Start from base
   const baseRadius = Math.max(10, ledR + settings.wallThickness + 5);
@@ -440,15 +548,25 @@ function generateCompleteLEDHolder(triangles: Triangle[], settings: LEDHolderSet
   const socketY = baseHeight + channelLength;
   generateLEDSocket(triangles, 0, socketY, 0, ledR, led.depth, settings.wallThickness, segments);
   
-  // 4. Parabolic reflector cone (directs light forward)
-  generateParabolicReflector(triangles, 0, socketY, 0, ledR, reflectorDepth, beamAngle, settings.wallThickness, segments);
-  
-  // 5. Diffuser dome (spreads light evenly) - optional
-  if (hasDiffuser) {
-    const beamRad = (beamAngle * Math.PI) / 180;
-    const openingR = ledR + reflectorDepth * Math.tan(beamRad / 2);
-    const diffuserY = socketY + reflectorDepth;
-    generateDiffuserDome(triangles, 0, diffuserY, 0, openingR, openingR * 0.6, 1.5, segments);
+  // 4a. Canvas Glow-Clip v2: Duckbill wash spreader (wide diffusion)
+  if (useWashLighting) {
+    const washWidth = settings.washWidth || 30;
+    const washHeight = settings.washHeight || 10;
+    const duckbillDepth = settings.duckbillDepth || 20;
+    generateDuckbillWashSpreader(triangles, 0, socketY, 0, ledR, washWidth, washHeight, 
+      duckbillDepth, settings.tiltAngle, settings.wallThickness, segments);
+  }
+  // 4b. Traditional parabolic reflector cone (narrow spot beam)
+  else {
+    generateParabolicReflector(triangles, 0, socketY, 0, ledR, reflectorDepth, beamAngle, settings.wallThickness, segments);
+    
+    // 5. Diffuser dome (spreads light evenly) - optional
+    if (hasDiffuser) {
+      const beamRad = (beamAngle * Math.PI) / 180;
+      const openingR = ledR + reflectorDepth * Math.tan(beamRad / 2);
+      const diffuserY = socketY + reflectorDepth;
+      generateDiffuserDome(triangles, 0, diffuserY, 0, openingR, openingR * 0.6, 1.5, segments);
+    }
   }
 }
 

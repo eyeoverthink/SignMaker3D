@@ -83,9 +83,25 @@ export function ScottProofDemo() {
       // Convert to grayscale and apply threshold
       const startTime = performance.now();
       const binary = new Uint8Array(width * height);
+      
+      // First pass: convert to grayscale
+      const grayValues = new Uint8Array(width * height);
       for (let i = 0; i < width * height; i++) {
-        const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-        binary[i] = gray < threshold ? 1 : 0;
+        grayValues[i] = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+      }
+      
+      // Detect if image is mostly light or dark
+      let darkPixels = 0;
+      for (let i = 0; i < grayValues.length; i++) {
+        if (grayValues[i] < threshold) darkPixels++;
+      }
+      const isDarkOnLight = darkPixels < grayValues.length / 2;
+      
+      // Apply threshold (invert if light-on-dark)
+      for (let i = 0; i < width * height; i++) {
+        binary[i] = isDarkOnLight 
+          ? (grayValues[i] < threshold ? 1 : 0)
+          : (grayValues[i] > threshold ? 1 : 0);
       }
 
       // Find boundary using Moore-Neighbor (Scott Algorithm Stage 1)

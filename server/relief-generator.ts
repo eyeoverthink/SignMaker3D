@@ -111,8 +111,9 @@ function heightMapToMesh(
   const triangles: Triangle[] = [];
   const scaleX = settings.baseWidth / width;
   const scaleY = settings.baseHeight / height;
+  const t = settings.baseThickness;
   
-  // Generate vertices and triangles
+  // Generate top relief surface
   for (let y = 0; y < height - 1; y++) {
     for (let x = 0; x < width - 1; x++) {
       const idx00 = y * width + x;
@@ -125,20 +126,86 @@ function heightMapToMesh(
       const v01: Vector3 = { x: x * scaleX, y: (y + 1) * scaleY, z: heightMap[idx01] };
       const v11: Vector3 = { x: (x + 1) * scaleX, y: (y + 1) * scaleY, z: heightMap[idx11] };
       
-      // Create two triangles for this quad
+      // Top surface triangles
       triangles.push({ v1: v00, v2: v10, v3: v11 });
       triangles.push({ v1: v00, v2: v11, v3: v01 });
     }
   }
   
-  // Add base plate
-  const baseTriangles = generateBasePlate(settings);
-  triangles.push(...baseTriangles);
+  // Generate bottom face (flat at -baseThickness)
+  for (let y = 0; y < height - 1; y++) {
+    for (let x = 0; x < width - 1; x++) {
+      const b00: Vector3 = { x: x * scaleX, y: y * scaleY, z: -t };
+      const b10: Vector3 = { x: (x + 1) * scaleX, y: y * scaleY, z: -t };
+      const b01: Vector3 = { x: x * scaleX, y: (y + 1) * scaleY, z: -t };
+      const b11: Vector3 = { x: (x + 1) * scaleX, y: (y + 1) * scaleY, z: -t };
+      
+      // Bottom surface triangles (reversed winding)
+      triangles.push({ v1: b00, v2: b11, v3: b10 });
+      triangles.push({ v1: b00, v2: b01, v3: b11 });
+    }
+  }
+  
+  // Generate edge walls connecting top relief to bottom
+  const w = settings.baseWidth;
+  const h = settings.baseHeight;
+  
+  // Front edge (y=0)
+  for (let x = 0; x < width - 1; x++) {
+    const idx0 = x;
+    const idx1 = x + 1;
+    const top0: Vector3 = { x: x * scaleX, y: 0, z: heightMap[idx0] };
+    const top1: Vector3 = { x: (x + 1) * scaleX, y: 0, z: heightMap[idx1] };
+    const bot0: Vector3 = { x: x * scaleX, y: 0, z: -t };
+    const bot1: Vector3 = { x: (x + 1) * scaleX, y: 0, z: -t };
+    
+    triangles.push({ v1: bot0, v2: top0, v3: top1 });
+    triangles.push({ v1: bot0, v2: top1, v3: bot1 });
+  }
+  
+  // Back edge (y=height-1)
+  for (let x = 0; x < width - 1; x++) {
+    const idx0 = (height - 1) * width + x;
+    const idx1 = (height - 1) * width + (x + 1);
+    const top0: Vector3 = { x: x * scaleX, y: h, z: heightMap[idx0] };
+    const top1: Vector3 = { x: (x + 1) * scaleX, y: h, z: heightMap[idx1] };
+    const bot0: Vector3 = { x: x * scaleX, y: h, z: -t };
+    const bot1: Vector3 = { x: (x + 1) * scaleX, y: h, z: -t };
+    
+    triangles.push({ v1: bot0, v2: top1, v3: top0 });
+    triangles.push({ v1: bot0, v2: bot1, v3: top1 });
+  }
+  
+  // Left edge (x=0)
+  for (let y = 0; y < height - 1; y++) {
+    const idx0 = y * width;
+    const idx1 = (y + 1) * width;
+    const top0: Vector3 = { x: 0, y: y * scaleY, z: heightMap[idx0] };
+    const top1: Vector3 = { x: 0, y: (y + 1) * scaleY, z: heightMap[idx1] };
+    const bot0: Vector3 = { x: 0, y: y * scaleY, z: -t };
+    const bot1: Vector3 = { x: 0, y: (y + 1) * scaleY, z: -t };
+    
+    triangles.push({ v1: bot0, v2: top1, v3: top0 });
+    triangles.push({ v1: bot0, v2: bot1, v3: top1 });
+  }
+  
+  // Right edge (x=width-1)
+  for (let y = 0; y < height - 1; y++) {
+    const idx0 = y * width + (width - 1);
+    const idx1 = (y + 1) * width + (width - 1);
+    const top0: Vector3 = { x: w, y: y * scaleY, z: heightMap[idx0] };
+    const top1: Vector3 = { x: w, y: (y + 1) * scaleY, z: heightMap[idx1] };
+    const bot0: Vector3 = { x: w, y: y * scaleY, z: -t };
+    const bot1: Vector3 = { x: w, y: (y + 1) * scaleY, z: -t };
+    
+    triangles.push({ v1: bot0, v2: top0, v3: top1 });
+    triangles.push({ v1: bot0, v2: top1, v3: bot1 });
+  }
   
   return triangles;
 }
 
-// Generate base plate
+// Generate simple flat base plate (used only for diffuser if enabled)
 function generateBasePlate(settings: ReliefSettings): Triangle[] {
   const triangles: Triangle[] = [];
   const w = settings.baseWidth;
@@ -154,7 +221,7 @@ function generateBasePlate(settings: ReliefSettings): Triangle[] {
   triangles.push({ v1, v2, v3: v3 });
   triangles.push({ v1, v2: v3, v3: v4 });
   
-  // Top face (at z=0)
+  // Top face
   const t1: Vector3 = { x: 0, y: 0, z: 0 };
   const t2: Vector3 = { x: w, y: 0, z: 0 };
   const t3: Vector3 = { x: w, y: h, z: 0 };
@@ -163,20 +230,16 @@ function generateBasePlate(settings: ReliefSettings): Triangle[] {
   triangles.push({ v1: t1, v2: t3, v3: t2 });
   triangles.push({ v1: t1, v2: t4, v3: t3 });
   
-  // Side faces
-  // Front
+  // Side walls
   triangles.push({ v1, v2: t1, v3: t2 });
   triangles.push({ v1, v2: t2, v3: v2 });
   
-  // Right
   triangles.push({ v1: v2, v2: t2, v3: t3 });
   triangles.push({ v1: v2, v2: t3, v3: v3 });
   
-  // Back
   triangles.push({ v1: v3, v2: t3, v3: t4 });
   triangles.push({ v1: v3, v2: t4, v3: v4 });
   
-  // Left
   triangles.push({ v1: v4, v2: t4, v3: t1 });
   triangles.push({ v1: v4, v2: t1, v3: v1 });
   

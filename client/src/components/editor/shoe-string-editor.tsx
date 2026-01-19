@@ -253,15 +253,46 @@ export function ShoeStringEditor() {
         // Combines multi-contour detection with intelligent path optimization
         console.log('[Scott Algorithm] Starting contour detection...');
         
-        // Convert to grayscale height map
+        // Convert to grayscale height map with alpha channel and polarity detection
         const heightMap = new Float32Array(canvas.width * canvas.height);
+        
+        // First pass: count opaque pixels and determine polarity
+        let darkPixels = 0;
+        let opaquePixels = 0;
         for (let i = 0; i < canvas.width * canvas.height; i++) {
-          const gray = imageData.data[i * 4] * 0.299 + imageData.data[i * 4 + 1] * 0.587 + imageData.data[i * 4 + 2] * 0.114;
-          heightMap[i] = invertColors ? (255 - gray) / 255 : gray / 255;
+          const alpha = imageData.data[i * 4 + 3];
+          if (alpha > 128) {
+            opaquePixels++;
+            const gray = imageData.data[i * 4] * 0.299 + imageData.data[i * 4 + 1] * 0.587 + imageData.data[i * 4 + 2] * 0.114;
+            if (gray < edgeThreshold) darkPixels++;
+          }
+        }
+        
+        const isDarkOnLight = opaquePixels > 0 && darkPixels < (opaquePixels / 2);
+        
+        // Second pass: create height map (transparent = 0 always)
+        for (let i = 0; i < canvas.width * canvas.height; i++) {
+          const alpha = imageData.data[i * 4 + 3];
+          if (alpha < 128) {
+            heightMap[i] = 0;  // Transparent = background
+          } else {
+            const gray = imageData.data[i * 4] * 0.299 + imageData.data[i * 4 + 1] * 0.587 + imageData.data[i * 4 + 2] * 0.114;
+            let value = gray / 255;
+            
+            // Apply polarity and invert settings
+            if (isDarkOnLight) {
+              value = 1 - value;  // Invert for dark-on-light
+            }
+            if (invertColors) {
+              value = 1 - value;  // User-requested inversion
+            }
+            
+            heightMap[i] = value;
+          }
         }
         
         // Trace contours using Moore-Neighbor algorithm
-        const threshold = edgeThreshold / 255;
+        const threshold = 0.5;  // Fixed threshold after normalization
         const contours = traceContoursScott(heightMap, canvas.width, canvas.height, threshold);
         console.log(`[Scott Algorithm] Found ${contours.length} contours`);
         

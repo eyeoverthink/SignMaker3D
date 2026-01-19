@@ -72,7 +72,7 @@ export const defaultReliefSettings: ReliefSettings = {
   snapFit: true,
   
   // Diffuser
-  includeDiffuser: true,
+  includeDiffuser: false,
   diffuserThickness: 2,
   diffuserOffset: 2,
 };
