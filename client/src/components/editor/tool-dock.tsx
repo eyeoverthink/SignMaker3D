@@ -1,7 +1,7 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain, Lamp, Target, Gamepad2 } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain, Lamp, Target, Gamepad2, Film, Brain, FastForward, Shield, AlertTriangle, Circle, Search } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
@@ -26,6 +26,13 @@ export function ToolDock() {
     { id: "backingplate", icon: Square, label: "Backing Plates", description: "Mounting plates with holes" },
     { id: "scottproof", icon: Target, label: "Scott Proof", description: "Visual proof of Scott Algorithm - test with any image" },
     { id: "mazegame", icon: Gamepad2, label: "Maze & Pac-Man", description: "Dynamic maze generator with Scott AI pathfinding + Pac-Man game" },
+    { id: "animatedlithophane", icon: Film, label: "Animated", description: "Multi-frame animated lithophanes with POV strobing" },
+    { id: "recognition", icon: Brain, label: "Recognition", description: "Zero-shot shape recognition - learns from 1 example" },
+    { id: "prediction", icon: FastForward, label: "4D Predict", description: "Temporal prediction - see the future of moving objects" },
+    { id: "cloaking", icon: Shield, label: "Cloaking", description: "Geometric cloaking for privacy protection" },
+    { id: "collision", icon: AlertTriangle, label: "Collision", description: "Real-time collision prediction for autonomous systems" },
+    { id: "yinyang", icon: Circle, label: "Yin-Yang", description: "Dual contrast detection for asymmetric lighting" },
+    { id: "deepfake", icon: Search, label: "Deepfake", description: "AI-generated face detection via organic variance" },
   ];
 
   return (

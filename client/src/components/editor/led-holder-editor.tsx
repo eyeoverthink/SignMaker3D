@@ -173,36 +173,69 @@ function LEDHolderPreview({ settings }: { settings: LEDHolderSettings }) {
       }
 
     } else {
-      const plateW = 24;
-      const plateH = 18;
-      const plateD = 6;
+      const plateW = 20;
+      const plateH = 25;
+      const plateD = 5;
       
       const frontPlateGeom = new THREE.BoxGeometry(plateW, plateD, plateH);
       const frontPlateMesh = new THREE.Mesh(frontPlateGeom, baseMaterial);
       frontPlateMesh.position.set(0, plateD / 2, plateH / 2);
       group.add(frontPlateMesh);
 
-      const reflectorY = plateD;
-      const reflectorGeom = new THREE.CylinderGeometry(openingRadius, led.bodyRadius + 1, reflectorDepth, 32, 1, true);
-      const reflectorMesh = new THREE.Mesh(reflectorGeom, reflectorMaterial);
-      reflectorMesh.rotation.x = -tiltRad;
-      reflectorMesh.position.set(
-        0, 
-        reflectorY + (reflectorDepth / 2) * Math.cos(tiltRad), 
-        plateH / 2 - (reflectorDepth / 2) * Math.sin(tiltRad)
-      );
-      group.add(reflectorMesh);
-
-      if (hasDiffuser) {
-        const domeGeom = new THREE.SphereGeometry(openingRadius * 0.8, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-        const domeMesh = new THREE.Mesh(domeGeom, diffuserMaterial);
-        domeMesh.rotation.x = Math.PI - tiltRad;
-        domeMesh.position.set(
-          0,
-          reflectorY + reflectorDepth * Math.cos(tiltRad),
-          plateH / 2 - reflectorDepth * Math.sin(tiltRad)
+      // Canvas Glow-Clip v2: Duckbill wash spreader
+      if (settings.holderStyle === 'wash') {
+        const washWidth = settings.washWidth || 30;
+        const washHeight = settings.washHeight || 10;
+        const duckbillDepth = settings.duckbillDepth || 20;
+        
+        // Create duckbill shape using hull-like geometry
+        const ledBaseY = plateD + 5;
+        const ledBaseZ = 12.5;
+        const mouthY = plateD + duckbillDepth;
+        const mouthZ = 3;
+        
+        // Create shape by lofting from circle to oval
+        const curve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(0, ledBaseY, ledBaseZ),
+          new THREE.Vector3(0, (ledBaseY + mouthY) / 2, (ledBaseZ + mouthZ) / 2),
+          new THREE.Vector3(0, mouthY, mouthZ)
+        ]);
+        
+        const duckbillGeom = new THREE.TubeGeometry(curve, 16, 5, 16, false);
+        const duckbillMesh = new THREE.Mesh(duckbillGeom, reflectorMaterial);
+        duckbillMesh.rotation.x = Math.PI / 4;
+        group.add(duckbillMesh);
+        
+        // Wide mouth opening (30mm x 10mm oval)
+        const mouthGeom = new THREE.BoxGeometry(washWidth, 2, washHeight);
+        const mouthMesh = new THREE.Mesh(mouthGeom, diffuserMaterial);
+        mouthMesh.rotation.x = Math.PI / 4;
+        mouthMesh.position.set(0, mouthY, mouthZ);
+        group.add(mouthMesh);
+      } else {
+        // Traditional parabolic reflector
+        const reflectorY = plateD;
+        const reflectorGeom = new THREE.CylinderGeometry(openingRadius, led.bodyRadius + 1, reflectorDepth, 32, 1, true);
+        const reflectorMesh = new THREE.Mesh(reflectorGeom, reflectorMaterial);
+        reflectorMesh.rotation.x = -tiltRad;
+        reflectorMesh.position.set(
+          0, 
+          reflectorY + (reflectorDepth / 2) * Math.cos(tiltRad), 
+          plateH / 2 - (reflectorDepth / 2) * Math.sin(tiltRad)
         );
-        group.add(domeMesh);
+        group.add(reflectorMesh);
+
+        if (hasDiffuser) {
+          const domeGeom = new THREE.SphereGeometry(openingRadius * 0.8, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+          const domeMesh = new THREE.Mesh(domeGeom, diffuserMaterial);
+          domeMesh.rotation.x = Math.PI - tiltRad;
+          domeMesh.position.set(
+            0,
+            reflectorY + reflectorDepth * Math.cos(tiltRad),
+            plateH / 2 - reflectorDepth * Math.sin(tiltRad)
+          );
+          group.add(domeMesh);
+        }
       }
 
       const magnetPocketGeom = new THREE.CylinderGeometry(magnetRadius, magnetRadius, settings.magnetDepth, 24);
@@ -226,7 +259,8 @@ function LEDHolderPreview({ settings }: { settings: LEDHolderSettings }) {
     return group;
   }, [settings.ledType, settings.mountType, settings.wallThickness, settings.wireChannelDiameter, 
       settings.magnetDiameter, settings.magnetDepth, settings.tiltAngle, settings.adjustableHeight,
-      settings.minHeight, settings.maxHeight, reflectorDepth, beamAngle, hasDiffuser,
+      settings.minHeight, settings.maxHeight, settings.holderStyle, settings.washWidth, 
+      settings.washHeight, settings.duckbillDepth, reflectorDepth, beamAngle, hasDiffuser,
       led.bodyRadius, led.bodyHeight, tiltRad, magnetRadius]);
 
   return (

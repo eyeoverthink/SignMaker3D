@@ -541,11 +541,22 @@ function generateCompleteLEDHolder(triangles: Triangle[], settings: LEDHolderSet
   
   // 2. Wire channel from base to reflector
   const channelR = settings.wireChannelDiameter / 2;
-  const channelLength = settings.adjustableHeight ? (settings.maxHeight || 30) : 15;
-  generateWireChannel(triangles, 0, baseHeight, 0, channelR, channelLength, settings.wallThickness, 16);
+  const fixedChannelLength = 15; // Fixed channel length for Canvas Glow-Clip v2 design
+  const baseExtension = settings.adjustableHeight ? ((settings.maxHeight || 30) - 15) : 0;
   
-  // 3. LED socket at top of wire channel
-  const socketY = baseHeight + channelLength;
+  // Generate extended base if adjustable height is enabled
+  if (baseExtension > 0) {
+    // Add threaded extension post to base
+    const threadRadius = channelR + settings.wallThickness;
+    generateWireChannel(triangles, 0, baseHeight, 0, threadRadius, baseExtension, settings.wallThickness, 16);
+  }
+  
+  // Wire channel starts after base extension
+  const channelStartY = baseHeight + baseExtension;
+  generateWireChannel(triangles, 0, channelStartY, 0, channelR, fixedChannelLength, settings.wallThickness, 16);
+  
+  // 3. LED socket at top of wire channel (fixed position relative to channel)
+  const socketY = channelStartY + fixedChannelLength;
   generateLEDSocket(triangles, 0, socketY, 0, ledR, led.depth, settings.wallThickness, segments);
   
   // 4a. Canvas Glow-Clip v2: Duckbill wash spreader (wide diffusion)
