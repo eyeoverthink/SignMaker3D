@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,28 +8,92 @@ import { Shield, Upload, EyeOff, Info } from "lucide-react";
 export default function CloakingDemo() {
   const { toast } = useToast();
   const [isCloaking, setIsCloaking] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [cloakedImage, setCloakedImage] = useState<string | null>(null);
+  const [effectiveness, setEffectiveness] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setUploadedImage(event.target?.result as string);
+      setCloakedImage(null);
+      setEffectiveness(null);
+    };
+    reader.readAsDataURL(file);
+  }, []);
 
   const handleCloak = async () => {
+    if (!uploadedImage || !canvasRef.current) {
+      toast({
+        title: "No Image",
+        description: "Please upload an image first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCloaking(true);
     try {
-      toast({
-        title: "Cloaking Active",
-        description: "Applying geometric counter-patterns to defeat detection...",
+      // Load image to canvas
+      const img = new Image();
+      img.src = uploadedImage;
+      await new Promise((resolve) => { img.onload = resolve; });
+
+      const canvas = canvasRef.current;
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context not available');
+
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      // Call real cloaking API
+      const response = await fetch('/api/scott/cloak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData: {
+            width: imageData.width,
+            height: imageData.height,
+            data: Array.from(imageData.data)
+          },
+          strategies: ['symmetry', 'contrast', 'noise']
+        })
       });
+
+      if (!response.ok) throw new Error('Cloaking failed');
+
+      const result = await response.json();
       
-      setTimeout(() => {
-        toast({
-          title: "Cloaking Complete",
-          description: "Detection confidence reduced by 85.8%",
-        });
-        setIsCloaking(false);
-      }, 2000);
+      // Draw cloaked image
+      const cloakedData = new ImageData(
+        new Uint8ClampedArray(result.cloakedImage.data),
+        result.cloakedImage.width,
+        result.cloakedImage.height
+      );
+      ctx.putImageData(cloakedData, 0, 0);
+      
+      const cloakedDataUrl = canvas.toDataURL();
+      setCloakedImage(cloakedDataUrl);
+      setEffectiveness(result.effectiveness);
+
+      toast({
+        title: "Cloaking Complete",
+        description: `Detection confidence reduced by ${result.effectiveness.toFixed(1)}%`,
+      });
     } catch (error) {
       toast({
         title: "Cloaking Failed",
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
+    } finally {
       setIsCloaking(false);
     }
   };
@@ -91,7 +155,18 @@ export default function CloakingDemo() {
             <CardContent className="space-y-6">
               <div>
                 <Label className="text-sm mb-2 block">Upload Image to Cloak</Label>
-                <Button variant="outline" className="w-full">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Upload className="w-4 h-4 mr-2" />
                   Choose Image
                 </Button>
@@ -99,6 +174,29 @@ export default function CloakingDemo() {
                   Upload face image to apply geometric cloaking
                 </p>
               </div>
+
+              {uploadedImage && (
+                <div className="space-y-2">
+                  <Label className="text-sm">Original Image</Label>
+                  <img src={uploadedImage} alt="Original" className="w-full rounded-lg border" />
+                </div>
+              )}
+
+              {cloakedImage && (
+                <div className="space-y-2">
+                  <Label className="text-sm">Cloaked Image</Label>
+                  <img src={cloakedImage} alt="Cloaked" className="w-full rounded-lg border" />
+                  {effectiveness !== null && (
+                    <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <p className="text-sm font-semibold text-green-600 dark:text-green-400">
+                        ✅ Detection reduced by {effectiveness.toFixed(1)}%
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <canvas ref={canvasRef} className="hidden" />
 
               <div className="space-y-3">
                 <h4 className="font-semibold text-sm">Cloaking Methods:</h4>
@@ -121,7 +219,7 @@ export default function CloakingDemo() {
               <Button 
                 className="w-full" 
                 onClick={handleCloak}
-                disabled={isCloaking}
+                disabled={isCloaking || !uploadedImage}
               >
                 <Shield className="w-4 h-4 mr-2" />
                 {isCloaking ? "Cloaking..." : "Apply Geometric Cloaking"}

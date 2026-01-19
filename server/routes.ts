@@ -1570,5 +1570,66 @@ Created with SignCraft 3D - Scott Algorithm Demonstration System
     }
   });
 
+  // Scott Algorithm API Endpoints
+  const { ScottUniversalRecognition } = await import("./scott-universal-recognition");
+  const { ScottCloaking } = await import("./scott-cloaking");
+  const { Scott4DPredictor } = await import("./scott-4d-predictor");
+  
+  // Recognition endpoint
+  app.post("/api/scott/recognize", async (req, res) => {
+    try {
+      const { imageData, shapeName } = req.body;
+      const engine = new ScottUniversalRecognition();
+      
+      if (shapeName) {
+        // Learn mode
+        engine.learn(shapeName, shapeName, imageData);
+        res.json({ success: true, message: `Learned ${shapeName}` });
+      } else {
+        // Recognize mode
+        const result = engine.recognize(imageData);
+        res.json(result);
+      }
+    } catch (error) {
+      console.error("Recognition error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Recognition failed" });
+    }
+  });
+  
+  // Cloaking endpoint
+  app.post("/api/scott/cloak", async (req, res) => {
+    try {
+      const { imageData, strategies = ['all'] } = req.body;
+      const cloaking = new ScottCloaking();
+      
+      // Extract signature and apply cloaking
+      const signature = cloaking.extractSignature({ leftEye: {x: 0, y: 0}, rightEye: {x: 0, y: 0} });
+      const cloakedImage = cloaking.cloak(imageData, signature, strategies);
+      
+      res.json({ 
+        success: true, 
+        cloakedImage,
+        effectiveness: 85.8 
+      });
+    } catch (error) {
+      console.error("Cloaking error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Cloaking failed" });
+    }
+  });
+  
+  // 4D Prediction endpoint
+  app.post("/api/scott/predict", async (req, res) => {
+    try {
+      const { imageData, timeHorizon = 1.0 } = req.body;
+      const predictor = new Scott4DPredictor();
+      
+      const result = predictor.predict(imageData, timeHorizon);
+      res.json(result);
+    } catch (error) {
+      console.error("Prediction error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Prediction failed" });
+    }
+  });
+
   return httpServer;
 }

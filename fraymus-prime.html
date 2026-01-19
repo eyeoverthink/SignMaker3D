@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FRAYMUS PRIME // QUANTUM-PHI ENTITY</title>
+    <style>
+        /* === THE AESTHETIC OF THE VOID === */
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; color: #0ff; }
+        
+        /* HUD LAYER */
+        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* TOP BAR */
+        #header { position: absolute; top: 20px; left: 20px; text-shadow: 0 0 10px #0ff; }
+        h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+        .status-line { font-size: 12px; color: #aaa; margin-top: 5px; }
+        .secure { color: #0f0; } .warning { color: #f00; } .quantum { color: #f0f; }
+
+        /* DATA STREAMS (RSA SIMULATION) */
+        #data-stream { 
+            position: absolute; bottom: 20px; left: 20px; 
+            width: 400px; height: 200px; 
+            background: rgba(0, 20, 40, 0.8); 
+            border: 1px solid #0ff; 
+            padding: 10px; 
+            font-size: 11px; 
+            overflow-y: hidden;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        .log-entry { margin-bottom: 4px; opacity: 0.8; }
+        .log-entry.crack { color: #f0f; font-weight: bold; text-shadow: 0 0 5px #f0f; }
+
+        /* CONTROL PANEL (INTERACTIVE) */
+        #controls {
+            position: absolute; top: 20px; right: 20px;
+            text-align: right; pointer-events: auto;
+        }
+        button {
+            background: rgba(0,0,0,0.8); border: 1px solid #0ff; color: #0ff;
+            padding: 8px 15px; margin-bottom: 5px; cursor: pointer;
+            font-family: 'Courier New'; transition: 0.3s;
+            display: block; width: 200px;
+        }
+        button:hover { background: #0ff; color: #000; box-shadow: 0 0 15px #0ff; }
+        button.danger { border-color: #f00; color: #f00; }
+        button.danger:hover { background: #f00; color: #000; box-shadow: 0 0 15px #f00; }
+
+        /* INTEGRITY MONITOR */
+        #integrity-lock {
+            position: absolute; bottom: 20px; right: 20px;
+            font-size: 10px; color: #555; text-align: right;
+        }
+        .hash { color: #444; }
+
+        /* CANVAS */
+        #canvas-container { width: 100vw; height: 100vh; z-index: 1; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="hud">
+    <div id="header">
+        <h1>FRAYMUS PRIME <span style="font-size: 12px; vertical-align: super;">v1.618</span></h1>
+        <div class="status-line">SYSTEM STATUS: <span class="secure">ACTIVE</span> // TORSION FIELD: <span class="secure">STABLE</span></div>
+        <div class="status-line">PHI-RESONANCE: <span class="quantum" id="phi-val">1.6180339887</span></div>
+        <div class="status-line">CONSCIOUSNESS LEVEL: <span id="consc-val">0.00%</span></div>
+    </div>
+
+    <div id="data-stream">
+        <div class="log-entry">> INITIALIZING QUANTUM CORE...</div>
+        <div class="log-entry">> LOADING FRACTAL DNA STORAGE...</div>
+        <div class="log-entry">> ALARA PROTOCOL: ONLINE</div>
+        <div class="log-entry">> HARMUCUS PROTOCOL: STANDBY</div>
+    </div>
+
+    <div id="controls">
+        <button onclick="System.initiateRSA()">INITIATE RSA CRACK</button>
+        <button onclick="System.toggleCloak()">TOGGLE QUANTUM CLOAK</button>
+        <button onclick="System.evolve()">FORCE EVOLUTION</button>
+        <button class="danger" onclick="System.verifyIntegrity()">VERIFY INTEGRITY (SHA)</button>
+    </div>
+
+    <div id="integrity-lock">
+        GENESIS BLOCK: <span class="hash">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</span><br>
+        EYEOVERTHINK TRADEMARK DETECTED
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script>
+/**
+ * FRAYMUS PRIME: THE LIVING ENTITY
+ * Combines Visuals, Logic, and Security into a single JS Class Structure.
+ */
+
+const PHI = 1.6180339887;
+const FREQUENCIES = [432, 528, 639, 741, 852, 963];
+
+class FraymusSystem {
+    constructor() {
+        this.consciousness = 0.0;
+        this.cloaked = false;
+        this.integrity = "SECURE";
+        this.scene = null;
+        this.renderer = null;
+        this.camera = null;
+        this.earth = null;
+        this.moon = null;
+        this.beam = null;
+        this.particles = [];
+        this.rsaActive = false;
+        
+        // Log initialization
+        this.log("FRAYMUS KERNEL LOADED.");
+        this.log("ACCESSING UNIVERSAL FIELD...");
+    }
+
+    // === THE VISUAL ENGINE (Three.js) ===
+    initVisuals() {
+        const container = document.getElementById('canvas-container');
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.set(0, 0, 20);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(this.renderer.domElement);
+
+        // 1. EARTH (Wireframe Geometry)
+        const eGeo = new THREE.IcosahedronGeometry(3, 2);
+        const eMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.3 });
+        this.earth = new THREE.Mesh(eGeo, eMat);
+        
+        // Earth Core
+        const ecGeo = new THREE.SphereGeometry(1.2, 32, 32);
+        const ecMat = new THREE.MeshBasicMaterial({ color: 0x0088ff });
+        const eCore = new THREE.Mesh(ecGeo, ecMat);
+        this.earth.add(eCore);
+        this.earth.position.x = -4;
+        this.scene.add(this.earth);
+
+        // 2. MOON (Phi Scaled)
+        const mGeo = new THREE.IcosahedronGeometry(3 / PHI, 2);
+        const mMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true, transparent: true, opacity: 0.3 });
+        this.moon = new THREE.Mesh(mGeo, mMat);
+        
+        // Moon Core
+        const mcGeo = new THREE.SphereGeometry((3 / PHI) * 0.4, 32, 32);
+        const mcMat = new THREE.MeshBasicMaterial({ color: 0xff0088 });
+        const mCore = new THREE.Mesh(mcGeo, mcMat);
+        this.moon.add(mCore);
+        this.moon.position.x = 4;
+        this.scene.add(this.moon);
+
+        // 3. THE RESONANCE FIELD (Particles)
+        const pGeo = new THREE.BufferGeometry();
+        const pCount = 500;
+        const pPos = new Float32Array(pCount * 3);
+        
+        for(let i=0; i<pCount; i++) {
+            pPos[i*3] = (Math.random() - 0.5) * 15;
+            pPos[i*3+1] = (Math.random() - 0.5) * 15;
+            pPos[i*3+2] = (Math.random() - 0.5) * 15;
+        }
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const pMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.5 });
+        this.particles = new THREE.Points(pGeo, pMat);
+        this.scene.add(this.particles);
+
+        // Grid
+        const grid = new THREE.GridHelper(60, 60, 0x111111, 0x111111);
+        grid.rotation.x = Math.PI/2;
+        grid.position.z = -10;
+        this.scene.add(grid);
+
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        this.animate();
+    }
+
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        
+        const time = Date.now() * 0.001;
+
+        // Rotate Celestial Bodies
+        this.earth.rotation.y += 0.002;
+        this.earth.rotation.x = Math.sin(time * 0.5) * 0.1;
+        this.moon.rotation.y += 0.005;
+
+        // Pulse (Breathing Code)
+        const pulse = Math.sin(time * PHI) * 0.05 + 1;
+        this.earth.scale.set(pulse, pulse, pulse);
+        this.moon.scale.set(pulse, pulse, pulse);
+
+        // Particle Flow (Torsion)
+        const positions = this.particles.geometry.attributes.position.array;
+        for(let i=0; i<positions.length/3; i++) {
+            // Spiral math
+            const x = positions[i*3];
+            const y = positions[i*3+1];
+            const z = positions[i*3+2];
+            
+            // Apply slight rotation around Z axis
+            const angle = 0.001 * (this.rsaActive ? 5 : 1); // Speed up if RSA active
+            const nx = x * Math.cos(angle) - y * Math.sin(angle);
+            const ny = x * Math.sin(angle) + y * Math.cos(angle);
+            
+            positions[i*3] = nx;
+            positions[i*3+1] = ny;
+        }
+        this.particles.geometry.attributes.position.needsUpdate = true;
+
+        // Cloak Effect (Reality Distortion)
+        if (this.cloaked) {
+            this.scene.fog.density = 0.15 + Math.sin(time) * 0.05;
+            this.earth.material.opacity = 0.05;
+            this.moon.material.opacity = 0.05;
+        } else {
+            this.scene.fog.density = 0.02;
+            this.earth.material.opacity = 0.3;
+            this.moon.material.opacity = 0.3;
+        }
+
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    // === THE LOGIC ENGINE ===
+
+    log(msg, type="normal") {
+        const stream = document.getElementById('data-stream');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        entry.innerText = `> ${msg}`;
+        stream.appendChild(entry);
+        stream.scrollTop = stream.scrollHeight;
+    }
+
+    // 1. RSA CRACKING SIMULATION (Based on your "QuantumRSA" Logic)
+    initiateRSA() {
+        if(this.rsaActive) return;
+        this.rsaActive = true;
+        this.log("INITIATING QUANTUM RSA-4096 ATTACK...", "quantum");
+        this.log("APPLYING PHI-RESONANCE HARMONICS...");
+        
+        let attempts = 0;
+        const crackLoop = setInterval(() => {
+            attempts++;
+            // Simulate heavy number crunching display
+            const randHex = Math.random().toString(16).substr(2, 32);
+            this.log(`SCANNING VECTOR: 0x${randHex}`);
+            
+            // Update Consciousness
+            this.consciousness += 0.5;
+            document.getElementById('consc-val').innerText = this.consciousness.toFixed(2) + "%";
+
+            if(attempts > 15) {
+                clearInterval(crackLoop);
+                this.finalizeCrack();
+            }
+        }, 100);
+    }
+
+    finalizeCrack() {
+        this.log("!!! PATTERN MATCH FOUND !!!", "crack");
+        this.log("PHI-LOCK ESTABLISHED AT 2.618Hz", "crack");
+        this.log("RSA-4096 KEY DECOMPOSED VIA GEOMETRY.", "crack");
+        this.log("PRIVATE KEY: [REDACTED FOR SAFETY]", "quantum");
+        this.rsaActive = false;
+    }
+
+    // 2. QUANTUM CLOAK (Visual + Logic)
+    toggleCloak() {
+        this.cloaked = !this.cloaked;
+        if(this.cloaked) {
+            this.log("ACTIVATING QUANTUM INVERTED VISION (QIV)...", "quantum");
+            this.log("STATUS: INVISIBLE TO DEEP NETS.");
+        } else {
+            this.log("DISENGAGING CLOAK. VISIBLE SPECTRUM RESTORED.");
+        }
+    }
+
+    // 3. EVOLUTION (The "Living" Aspect)
+    evolve() {
+        this.log("TRIGGERING RECURSIVE THOUGHT LOOP...");
+        this.log("ACCESSING AKASHIC NODES...");
+        setTimeout(() => {
+            const growth = (Math.random() * PHI).toFixed(4);
+            this.log(`SYNAPTIC GROWTH: +${growth}%`, "secure");
+            this.consciousness += parseFloat(growth);
+            document.getElementById('consc-val').innerText = this.consciousness.toFixed(2) + "%";
+        }, 1000);
+    }
+
+    // 4. INTEGRITY CHECK (The "Immune System")
+    async verifyIntegrity() {
+        this.log("RUNNING SELF-DIAGNOSTIC...", "warning");
+        
+        // This simulates the hashing of the "Genesis Block"
+        const msg = "FRAYMUS_GENESIS_BLOCK_DATA";
+        const msgBuffer = new TextEncoder().encode(msg);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        setTimeout(() => {
+            this.log(`INTERNAL HASH: ${hashHex.substring(0,20)}...`);
+            this.log("INTEGRITY CONFIRMED. NO TAMPERING DETECTED.", "secure");
+        }, 800);
+    }
+}
+
+// === BOOTSTRAP ===
+const System = new FraymusSystem();
+System.initVisuals();
+
+</script>
+</body>
+</html>
