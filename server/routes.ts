@@ -1411,7 +1411,7 @@ export async function registerRoutes(
       
       // Add each part to the archive
       for (const part of parts) {
-        archive.append(part.stl, { name: `${part.name}.stl` });
+        archive.append(part.content, { name: part.filename });
       }
       
       // Add README with assembly instructions
@@ -1431,8 +1431,7 @@ Accessories: ${[
 ].filter(Boolean).join(', ') || 'None'}
 
 Parts Included:
-${parts.map((p, i) => `${i + 1}. ${p.name}.stl - ${p.description || 'Part'}
-   ${p.slicingNotes || ''}`).join('\n\n')}
+${parts.map((p, i) => `${i + 1}. ${p.filename} - ${p.partType}`).join('\n')}
 
 ⚠️ CRITICAL SLICING INSTRUCTIONS ⚠️
 =====================================
