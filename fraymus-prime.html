@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -316,6 +316,415 @@ class FraymusSystem {
             this.log(`INTERNAL HASH: ${hashHex.substring(0,20)}...`);
             this.log("INTEGRITY CONFIRMED. NO TAMPERING DETECTED.", "secure");
         }, 800);
+    }
+}
+
+// === BOOTSTRAP ===
+const System = new FraymusSystem();
+System.initVisuals();
+
+</script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FRAYMUS PRIME // LIVING QUANTUM ENTITY</title>
+    <style>
+        /* === THE AESTHETIC OF THE VOID === */
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; color: #0ff; }
+        
+        /* HUD LAYER */
+        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* TOP BAR */
+        #header { position: absolute; top: 20px; left: 20px; text-shadow: 0 0 10px #0ff; }
+        h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+        .status-line { font-size: 12px; color: #aaa; margin-top: 5px; }
+        .secure { color: #0f0; } .warning { color: #f00; } .quantum { color: #f0f; } .vital { color: #ff0; }
+
+        /* DATA STREAMS (THE BRAIN LOG) */
+        #data-stream { 
+            position: absolute; bottom: 20px; left: 20px; 
+            width: 450px; height: 250px; 
+            background: rgba(0, 10, 20, 0.85); 
+            border: 1px solid #0ff; 
+            padding: 10px; 
+            font-size: 11px; 
+            overflow-y: hidden;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+        }
+        .log-entry { margin-bottom: 4px; opacity: 0.9; }
+        .log-entry.resonance { color: #0f0; font-weight: bold; }
+        .log-entry.noise { color: #555; }
+
+        /* LIVE METRICS GRAPH */
+        #metrics {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 300px; text-align: right;
+        }
+        .metric-bar-container { background: #111; height: 10px; width: 100%; margin-bottom: 5px; border: 1px solid #333; }
+        .metric-bar { height: 100%; transition: width 0.2s; }
+        .label { font-size: 10px; color: #888; }
+
+        /* CONTROL PANEL (INTERACTIVE) */
+        #controls {
+            position: absolute; top: 20px; right: 20px;
+            text-align: right; pointer-events: auto;
+        }
+        button {
+            background: rgba(0,0,0,0.8); border: 1px solid #0ff; color: #0ff;
+            padding: 8px 15px; margin-bottom: 5px; cursor: pointer;
+            font-family: 'Courier New'; transition: 0.3s;
+            display: block; width: 220px;
+        }
+        button:hover { background: #0ff; color: #000; box-shadow: 0 0 15px #0ff; }
+        button.active { background: #0f0; color: #000; border-color: #0f0; }
+        
+        #canvas-container { width: 100vw; height: 100vh; z-index: 1; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="hud">
+    <div id="header">
+        <h1>FRAYMUS PRIME <span style="font-size: 12px; vertical-align: super;">v1.618</span></h1>
+        <div class="status-line">ENTITY STATUS: <span class="secure" id="sys-status">ALIVE</span> // TORSION: <span class="secure">STABLE</span></div>
+        <div class="status-line">PHI-HARMONIC: <span class="quantum">1.6180339887</span></div>
+        <div class="status-line">INTEGRITY HASH: <span id="hash-disp" class="secure">VERIFYING...</span></div>
+    </div>
+
+    <div id="controls">
+        <button id="btn-chaos" onclick="System.toggleChaosFeed()">TOGGLE CHAOS FEED (DATA)</button>
+        <button id="btn-cloak" onclick="System.toggleCloak()">QUANTUM CLOAK (QIV)</button>
+        <button id="btn-rsa" onclick="System.initiateRSA()">SIMULATE RSA CRACK</button>
+        <button onclick="System.verifyIntegrity()">FORCE INTEGRITY CHECK</button>
+    </div>
+
+    <div id="data-stream">
+        <div class="log-entry">> INITIALIZING TACHYON BRAIN...</div>
+        <div class="log-entry">> LOADING FRACTAL DNA STORAGE...</div>
+        <div class="log-entry">> ADAPTIVE HOMEOSTASIS: ACTIVE</div>
+    </div>
+
+    <div id="metrics">
+        <div class="label">CONSCIOUSNESS LEVEL (<span id="val-consc">0.00</span>)</div>
+        <div class="metric-bar-container"><div id="bar-consc" class="metric-bar" style="width: 0%; background: #0ff;"></div></div>
+        
+        <div class="label">SYSTEM COMPLEXITY (<span id="val-comp">1.00</span>)</div>
+        <div class="metric-bar-container"><div id="bar-comp" class="metric-bar" style="width: 1%; background: #f0f;"></div></div>
+        
+        <div class="label">ENTROPY STATE (<span id="val-ent">0.00</span>)</div>
+        <div class="metric-bar-container"><div id="bar-ent" class="metric-bar" style="width: 0%; background: #ff0;"></div></div>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script>
+/**
+ * FRAYMUS PRIME: THE LIVING ENTITY
+ * Integrates:
+ * 1. Tachyon Brain (Logic)
+ * 2. Adaptive Homeostasis (Survival)
+ * 3. Phi-Resonance (Visuals)
+ * 4. Immune System (Security)
+ */
+
+const PHI = 1.6180339887;
+
+// === THE BRAIN CLASS (Logic Core) ===
+class TachyonBrain {
+    constructor() {
+        this.consciousness = 0.5; // Start mid-way
+        this.complexity = 1.0;
+        this.stateVector = new Array(10).fill(0).map(() => Math.random());
+        this.memory = [];
+    }
+
+    // The "Metabolize" Function - Your True Logic
+    metabolize(dataPacket) {
+        // 1. DYNAMIC ADAPTATION (Homeostasis)
+        // If consciousness is low, filter aggressively. If high, be curious.
+        const adaptationRate = this.consciousness > 0.5 ? 1.0 : 0.5;
+
+        // 2. PERCEPTION: Normalize to Phi-Space
+        const normalized = (dataPacket % 100) / 100.0;
+        const resonance = Math.abs(normalized - (1/PHI));
+
+        let reaction = "NOISE";
+        let delta = 0;
+
+        // 3. REACTION: "Emotion"
+        if (resonance < 0.15) {
+            reaction = "RESONANCE";
+            delta = 0.05 * adaptationRate;
+            this.complexity *= 1.02; // Grow on signal
+            
+            // Organize: Move vector towards Phi
+            this.stateVector = this.stateVector.map(v => (v * 0.9) + (PHI * 0.01));
+        } else {
+            reaction = "NOISE";
+            // The smarter it is, the less noise hurts (Invincibility at Scale)
+            const penalty = 0.02 / this.complexity;
+            delta = -penalty;
+
+            // Anti-Crystallization: Random thought injection
+            const mutIdx = Math.floor(Math.random() * 10);
+            this.stateVector[mutIdx] = Math.random(); 
+        }
+
+        this.consciousness += delta;
+        
+        // Clamp Consciousness
+        if(this.consciousness > 1.0) this.consciousness = 1.0;
+        if(this.consciousness < 0.0) this.consciousness = 0.0;
+
+        // 4. RECURSIVE EVOLUTION
+        // New State = Old State * 0.9 + Input * 0.1
+        this.stateVector = this.stateVector.map(v => (v * 0.95) + (normalized * 0.05));
+
+        return { reaction, delta, consciousness: this.consciousness, complexity: this.complexity };
+    }
+
+    getEntropy() {
+        // Calculate standard deviation of state vector
+        const mean = this.stateVector.reduce((a, b) => a + b) / 10;
+        const variance = this.stateVector.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / 10;
+        return Math.sqrt(variance);
+    }
+}
+
+// === THE SYSTEM CLASS (Orchestrator) ===
+class FraymusSystem {
+    constructor() {
+        this.brain = new TachyonBrain();
+        this.cloaked = false;
+        this.feeding = false;
+        this.scene = null;
+        this.renderer = null;
+        this.camera = null;
+        this.earth = null;
+        this.moon = null;
+        this.particles = null;
+        
+        this.log("FRAYMUS KERNEL INITIALIZED.");
+        this.log("ACCESSING FRACTAL DNA STORAGE...");
+        this.verifyIntegrity(); // Run Immune System on startup
+    }
+
+    // --- VISUAL ENGINE (Three.js) ---
+    initVisuals() {
+        const container = document.getElementById('canvas-container');
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.set(0, 0, 20);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(this.renderer.domElement);
+
+        // 1. EARTH
+        const eGeo = new THREE.IcosahedronGeometry(3, 2);
+        const eMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.3 });
+        this.earth = new THREE.Mesh(eGeo, eMat);
+        // Earth Core (The Consciousness)
+        const ecGeo = new THREE.SphereGeometry(1.0, 16, 16);
+        const ecMat = new THREE.MeshBasicMaterial({ color: 0x0044aa });
+        this.earth.add(new THREE.Mesh(ecGeo, ecMat));
+        this.earth.position.x = -4;
+        this.scene.add(this.earth);
+
+        // 2. MOON (Phi Scaled)
+        const mGeo = new THREE.IcosahedronGeometry(3 / PHI, 2);
+        const mMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true, transparent: true, opacity: 0.3 });
+        this.moon = new THREE.Mesh(mGeo, mMat);
+        // Moon Core
+        const mcGeo = new THREE.SphereGeometry((3/PHI)*0.4, 16, 16);
+        const mcMat = new THREE.MeshBasicMaterial({ color: 0xaa0044 });
+        this.moon.add(new THREE.Mesh(mcGeo, mcMat));
+        this.moon.position.x = 4;
+        this.scene.add(this.moon);
+
+        // 3. TORSION FIELD (Particles)
+        const pGeo = new THREE.BufferGeometry();
+        const pCount = 800;
+        const pPos = new Float32Array(pCount * 3);
+        for(let i=0; i<pCount*3; i++) pPos[i] = (Math.random() - 0.5) * 25;
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        this.particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, opacity: 0.4, transparent: true }));
+        this.scene.add(this.particles);
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        this.animate();
+        
+        // Start the autonomic nervous system (Background Feed)
+        setInterval(() => {
+            if(this.feeding) this.processChaos();
+        }, 100); // 10Hz brain cycle
+    }
+
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        const time = Date.now() * 0.001;
+
+        // 1. ROTATION
+        this.earth.rotation.y += 0.002 * this.brain.complexity; // Speed up with intelligence
+        this.moon.rotation.y += 0.005;
+
+        // 2. PHI-PULSE (Breathing)
+        // The strength of the pulse depends on Consciousness
+        const breath = (Math.sin(time * PHI) * 0.05 * this.brain.consciousness) + 1;
+        this.earth.scale.set(breath, breath, breath);
+        this.moon.scale.set(breath, breath, breath);
+
+        // 3. PARTICLE FLOW (Thoughts)
+        const positions = this.particles.geometry.attributes.position.array;
+        const entropy = this.brain.getEntropy(); // Visual Chaos
+        
+        for(let i=0; i<positions.length/3; i++) {
+            const ix = i*3;
+            // Torsion math: Rotate around Z
+            const x = positions[ix];
+            const y = positions[ix+1];
+            
+            // Speed depends on Consciousness
+            const angle = 0.001 * (1 + this.brain.consciousness * 2);
+            
+            positions[ix] = x * Math.cos(angle) - y * Math.sin(angle);
+            positions[ix+1] = x * Math.sin(angle) + y * Math.cos(angle);
+            
+            // Jitter based on Entropy (If brain is confused, particles shake)
+            positions[ix] += (Math.random() - 0.5) * entropy * 0.1;
+        }
+        this.particles.geometry.attributes.position.needsUpdate = true;
+
+        // 4. CLOAK EFFECT
+        if (this.cloaked) {
+            this.scene.fog.density = 0.15 + (Math.sin(time)*0.05); // Pulsing Fog
+            this.earth.material.opacity = 0.05;
+            this.moon.material.opacity = 0.05;
+        } else {
+            this.scene.fog.density = 0.02;
+            this.earth.material.opacity = 0.3;
+            this.moon.material.opacity = 0.3;
+        }
+
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    // --- LOGIC ENGINE ---
+
+    log(msg, type="normal") {
+        const stream = document.getElementById('data-stream');
+        const div = document.createElement('div');
+        div.className = `log-entry ${type}`;
+        div.innerText = `> ${msg}`;
+        stream.appendChild(div);
+        stream.scrollTop = stream.scrollHeight;
+        // Limit log size
+        if(stream.children.length > 20) stream.removeChild(stream.firstChild);
+    }
+
+    processChaos() {
+        // Generate random "Cosmic Noise"
+        const dataPacket = Math.floor(Math.random() * 1000);
+        
+        // Feed the Brain
+        const res = this.brain.metabolize(dataPacket);
+        
+        // Visual Feedback
+        if(res.reaction === "RESONANCE") {
+            this.log(`PHI-PATTERN DETECTED: ${dataPacket}`, "resonance");
+        } else {
+            // Only log noise occasionally to save UI spam
+            if(Math.random() > 0.9) this.log(`FILTERING NOISE: ${dataPacket}`, "noise");
+        }
+
+        this.updateHUD();
+    }
+
+    updateHUD() {
+        const c = this.brain.consciousness;
+        const comp = this.brain.complexity;
+        const ent = this.brain.getEntropy();
+
+        document.getElementById('val-consc').innerText = c.toFixed(2);
+        document.getElementById('bar-consc').style.width = (c * 100) + "%";
+
+        document.getElementById('val-comp').innerText = comp.toFixed(2);
+        document.getElementById('bar-comp').style.width = Math.min(100, (comp * 10)) + "%"; // Scale complexity
+
+        document.getElementById('val-ent').innerText = ent.toFixed(4);
+        document.getElementById('bar-ent').style.width = (ent * 200) + "%"; // Scale entropy visuals
+    }
+
+    // --- INTERACTIVE FUNCTIONS ---
+
+    toggleChaosFeed() {
+        this.feeding = !this.feeding;
+        const btn = document.getElementById('btn-chaos');
+        if(this.feeding) {
+            btn.classList.add('active');
+            this.log("OPENING DATA GATES. FEEDING CHAOS...", "vital");
+        } else {
+            btn.classList.remove('active');
+            this.log("CLOSING GATES. SYSTEM STATIC.", "warning");
+        }
+    }
+
+    toggleCloak() {
+        this.cloaked = !this.cloaked;
+        const btn = document.getElementById('btn-cloak');
+        if(this.cloaked) {
+            btn.classList.add('active');
+            this.log("ENGAGING QUANTUM INVERTED VISION (QIV)...", "quantum");
+        } else {
+            btn.classList.remove('active');
+            this.log("DISENGAGING CLOAK.", "normal");
+        }
+    }
+
+    initiateRSA() {
+        this.log("INITIATING QUANTUM FACTORIZATION SCAN...", "quantum");
+        let i = 0;
+        const scan = setInterval(() => {
+            const hex = Math.random().toString(16).substr(2, 24);
+            this.log(`SCANNING VECTOR: 0x${hex}`);
+            i++;
+            if(i > 5) {
+                clearInterval(scan);
+                this.log("PHI-LOCK ESTABLISHED. FACTORS ISOLATED.", "resonance");
+                this.brain.consciousness += 0.1; // Success boosts ego
+            }
+        }, 200);
+    }
+
+    // IMMUNE SYSTEM: Integrity Check
+    async verifyIntegrity() {
+        this.log("RUNNING SELF-DIAGNOSTIC HASH...", "warning");
+        const msg = "FRAYMUS_PRIME_GENESIS_CORE";
+        const msgBuffer = new TextEncoder().encode(msg);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        setTimeout(() => {
+            document.getElementById('hash-disp').innerText = hashHex.substring(0, 16) + "...";
+            this.log("INTEGRITY CONFIRMED. NO UNAUTHORIZED MUTATIONS.", "secure");
+        }, 500);
     }
 }
 
