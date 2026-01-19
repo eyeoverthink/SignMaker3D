@@ -55,17 +55,19 @@ const shellStyleLabels: Record<EggisonShellStyle, string> = {
 };
 
 const lightTypeLabels: Record<EggisonLightType, string> = {
-  "filament": "LED Filament",
-  "ws2812b": "WS2812B Addressable",
-  "led_strip": "LED Strip",
-  "fairy_lights": "Fairy Lights",
+  "none": "No Light",
+  "filament_tube": "LED Filament Tube",
+  "rgb_led_strip": "RGB LED Strip",
+  "central_led": "Central LED",
+  "vase_mode": "Vase Mode",
 };
 
 const lightTypeIcons: Record<EggisonLightType, typeof Lightbulb> = {
-  "filament": Lightbulb,
-  "ws2812b": Zap,
-  "led_strip": Cable,
-  "fairy_lights": Lightbulb,
+  "none": Lightbulb,
+  "filament_tube": Lightbulb,
+  "rgb_led_strip": Zap,
+  "central_led": Cable,
+  "vase_mode": Lightbulb,
 };
 
 function getShellDimensions(style: EggisonShellStyle): { height: number; width: number } {

@@ -2,7 +2,7 @@
 // Random noise, irregular shapes, overlapping regions, scattered pixels
 
 // Moore-Neighbor boundary tracing (maze algorithm)
-function traceContours(
+function traceContoursChaos(
   heightMap: Float32Array,
   width: number,
   height: number,
@@ -215,7 +215,7 @@ function createPixelClusters(width: number, height: number, clusters: number): F
 }
 
 // Visualize height map as ASCII
-function visualizeHeightMap(heightMap: Float32Array, width: number, height: number, threshold: number = 0.5): void {
+function visualizeHeightMapChaos(heightMap: Float32Array, width: number, height: number, threshold: number = 0.5): void {
   console.log('\n=== Height Map ===');
   for (let y = 0; y < height; y++) {
     let row = '';
@@ -240,12 +240,12 @@ function runChaosTests(): void {
   console.log('\n\n💥 CHAOS TEST 1: RANDOM NOISE (30% density)');
   console.log('─'.repeat(60));
   const noise = createRandomNoise(testWidth, testHeight, 0.3);
-  visualizeHeightMap(noise, testWidth, testHeight);
+  visualizeHeightMapChaos(noise, testWidth, testHeight);
   
-  const noiseContours = traceContours(noise, testWidth, testHeight, 0.5);
+  const noiseContours = traceContoursChaos(noise, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${noiseContours.length} contour(s) in random noise`);
   const top5Noise = noiseContours.slice(0, 5);
-  top5Noise.forEach((c, i) => {
+  top5Noise.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   if (noiseContours.length > 5) {
@@ -256,12 +256,12 @@ function runChaosTests(): void {
   console.log('\n\n💥 CHAOS TEST 2: PERLIN NOISE (smooth terrain)');
   console.log('─'.repeat(60));
   const perlin = createPerlinNoise(testWidth, testHeight, 8);
-  visualizeHeightMap(perlin, testWidth, testHeight, 0.5);
+  visualizeHeightMapChaos(perlin, testWidth, testHeight, 0.5);
   
-  const perlinContours = traceContours(perlin, testWidth, testHeight, 0.5);
+  const perlinContours = traceContoursChaos(perlin, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${perlinContours.length} contour(s) in Perlin noise`);
   const top5Perlin = perlinContours.slice(0, 5);
-  top5Perlin.forEach((c, i) => {
+  top5Perlin.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   if (perlinContours.length > 5) {
@@ -272,11 +272,11 @@ function runChaosTests(): void {
   console.log('\n\n💥 CHAOS TEST 3: IRREGULAR BLOBS (8 random shapes)');
   console.log('─'.repeat(60));
   const blobs = createIrregularBlobs(testWidth, testHeight, 8);
-  visualizeHeightMap(blobs, testWidth, testHeight);
+  visualizeHeightMapChaos(blobs, testWidth, testHeight);
   
-  const blobContours = traceContours(blobs, testWidth, testHeight, 0.5);
+  const blobContours = traceContoursChaos(blobs, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${blobContours.length} contour(s) in irregular blobs`);
-  blobContours.forEach((c, i) => {
+  blobContours.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   
@@ -284,12 +284,12 @@ function runChaosTests(): void {
   console.log('\n\n💥 CHAOS TEST 4: MAZE PATTERN (random walls)');
   console.log('─'.repeat(60));
   const maze = createMazePattern(testWidth, testHeight);
-  visualizeHeightMap(maze, testWidth, testHeight);
+  visualizeHeightMapChaos(maze, testWidth, testHeight);
   
-  const mazeContours = traceContours(maze, testWidth, testHeight, 0.5);
+  const mazeContours = traceContoursChaos(maze, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${mazeContours.length} contour(s) in maze pattern`);
   const top10Maze = mazeContours.slice(0, 10);
-  top10Maze.forEach((c, i) => {
+  top10Maze.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   if (mazeContours.length > 10) {
@@ -300,12 +300,12 @@ function runChaosTests(): void {
   console.log('\n\n💥 CHAOS TEST 5: SCATTERED PIXEL CLUSTERS (50 clusters)');
   console.log('─'.repeat(60));
   const clusters = createPixelClusters(testWidth, testHeight, 50);
-  visualizeHeightMap(clusters, testWidth, testHeight);
+  visualizeHeightMapChaos(clusters, testWidth, testHeight);
   
-  const clusterContours = traceContours(clusters, testWidth, testHeight, 0.5);
+  const clusterContours = traceContoursChaos(clusters, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${clusterContours.length} contour(s) in pixel clusters`);
   const top10Clusters = clusterContours.slice(0, 10);
-  top10Clusters.forEach((c, i) => {
+  top10Clusters.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   if (clusterContours.length > 10) {
@@ -325,12 +325,12 @@ function runChaosTests(): void {
     chaos[i] = Math.max(n1[i], n2[i] > 0.6 ? 1 : 0, n3[i], n4[i]);
   }
   
-  visualizeHeightMap(chaos, testWidth, testHeight);
+  visualizeHeightMapChaos(chaos, testWidth, testHeight);
   
-  const chaosContours = traceContours(chaos, testWidth, testHeight, 0.5);
+  const chaosContours = traceContoursChaos(chaos, testWidth, testHeight, 0.5);
   console.log(`\n✓ SURVIVED CHAOS! Found ${chaosContours.length} contour(s)`);
   const top15Chaos = chaosContours.slice(0, 15);
-  top15Chaos.forEach((c, i) => {
+  top15Chaos.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   if (chaosContours.length > 15) {

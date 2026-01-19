@@ -2,7 +2,7 @@
 // Creates simple shapes and traces their contours
 
 // Moore-Neighbor boundary tracing (maze algorithm)
-function traceContours(
+function traceContoursTest(
   heightMap: Float32Array,
   width: number,
   height: number,
@@ -208,9 +208,9 @@ function runTests(): void {
   const circle = createCircle(testWidth, testHeight, 20, 15, 10);
   visualizeHeightMap(circle, testWidth, testHeight);
   
-  const circleContours = traceContours(circle, testWidth, testHeight, 0.5);
+  const circleContours = traceContoursTest(circle, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${circleContours.length} contour(s)`);
-  circleContours.forEach((c, i) => {
+  circleContours.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   visualizeContours(circleContours, testWidth, testHeight);
@@ -221,9 +221,9 @@ function runTests(): void {
   const square = createSquare(testWidth, testHeight, 12, 7, 15);
   visualizeHeightMap(square, testWidth, testHeight);
   
-  const squareContours = traceContours(square, testWidth, testHeight, 0.5);
+  const squareContours = traceContoursTest(square, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${squareContours.length} contour(s)`);
-  squareContours.forEach((c, i) => {
+  squareContours.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   visualizeContours(squareContours, testWidth, testHeight);
@@ -234,9 +234,9 @@ function runTests(): void {
   const star = createStar(testWidth, testHeight, 20, 15, 12);
   visualizeHeightMap(star, testWidth, testHeight);
   
-  const starContours = traceContours(star, testWidth, testHeight, 0.5);
+  const starContours = traceContoursTest(star, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${starContours.length} contour(s)`);
-  starContours.forEach((c, i) => {
+  starContours.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   visualizeContours(starContours, testWidth, testHeight);
@@ -254,9 +254,9 @@ function runTests(): void {
   
   visualizeHeightMap(multi, testWidth, testHeight);
   
-  const multiContours = traceContours(multi, testWidth, testHeight, 0.5);
+  const multiContours = traceContoursTest(multi, testWidth, testHeight, 0.5);
   console.log(`\n✓ Found ${multiContours.length} contour(s)`);
-  multiContours.forEach((c, i) => {
+  multiContours.forEach((c: any, i: number) => {
     console.log(`  Contour ${i + 1}: ${c.length} points`);
   });
   visualizeContours(multiContours, testWidth, testHeight);

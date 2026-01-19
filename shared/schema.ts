@@ -126,7 +126,7 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes", "presets", "custom", "retro", "ledholder", "eggison", "relief", "lithophane", "animatedlithophane", "scottproof", "mazegame", "recognition", "prediction", "cloaking", "collision", "yinyang", "deepfake"] as const;
+export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes", "presets", "custom", "retro", "ledholder", "eggison", "relief", "lithophane", "scottproof", "mazegame", "animatedlithophane", "recognition", "prediction", "cloaking", "collision", "yinyang", "deepfake", "ledgrid", "customfont"] as const;
 export type InputMode = typeof inputModes[number];
 
 // Pet Tag specific types
@@ -688,6 +688,34 @@ export type {
   EggisonSettings,
   EggisonBulbsSettings,
 } from "./eggison-bulbs-types";
+
+export {
+  ledGridSizes,
+  wiringPatterns,
+  pixelSpacings,
+  ledDiffuserTypes,
+  mountingStyles,
+  ledInstallationTypes,
+  signModes,
+  wirePassThroughOptions,
+  ledGridSettingsSchema,
+  defaultLEDGridSettings,
+  getGridDimensions,
+  getPhysicalSize,
+  generateWiringMap,
+  textToPixelGrid,
+} from "./led-grid-types";
+export type {
+  LEDGridSize,
+  WiringPattern,
+  PixelSpacing,
+  LEDDiffuserType,
+  MountingStyle,
+  LEDInstallationType,
+  SignMode,
+  WirePassThrough,
+  LEDGridSettings,
+} from "./led-grid-types";
 
 export { users, insertUserSchema } from "./users";
 export type { InsertUser, User } from "./users";

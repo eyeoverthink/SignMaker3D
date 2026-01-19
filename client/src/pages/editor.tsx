@@ -23,6 +23,8 @@ import CloakingDemo from "@/components/editor/cloaking-demo";
 import CollisionDemo from "@/components/editor/collision-demo";
 import InvertedContrastDemo from "@/components/editor/inverted-contrast-demo";
 import DeepfakeDetector from "@/components/editor/deepfake-detector";
+import LEDGridEditor from "@/components/editor/led-grid-editor";
+import CustomFontAlphabet from "@/components/editor/custom-font-alphabet";
 import { ToolDock } from "@/components/editor/tool-dock";
 import { SettingsPanel } from "@/components/editor/settings-panel";
 import { ExportPanel } from "@/components/editor/export-panel";
@@ -98,6 +100,8 @@ export default function Editor() {
             {inputMode === "collision" && <CollisionDemo />}
             {inputMode === "yinyang" && <InvertedContrastDemo />}
             {inputMode === "deepfake" && <DeepfakeDetector />}
+            {inputMode === "ledgrid" && <LEDGridEditor />}
+            {inputMode === "customfont" && <CustomFontAlphabet />}
           </div>
           
           {inputMode !== "pettag" && inputMode !== "modular" && inputMode !== "neontube" && inputMode !== "backingplate" && inputMode !== "shoestring" && inputMode !== "neonshapes" && inputMode !== "presets" && inputMode !== "custom" && inputMode !== "retro" && inputMode !== "ledholder" && inputMode !== "eggison" && inputMode !== "relief" && inputMode !== "lithophane" && inputMode !== "scottproof" && inputMode !== "mazegame" && inputMode !== "animatedlithophane" && inputMode !== "recognition" && inputMode !== "prediction" && inputMode !== "cloaking" && inputMode !== "collision" && inputMode !== "yinyang" && inputMode !== "deepfake" && (

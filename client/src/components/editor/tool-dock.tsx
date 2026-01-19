@@ -1,7 +1,7 @@
 import { useEditorStore } from "@/lib/editor-store";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain, Lamp, Target, Gamepad2, Film, Brain, FastForward, Shield, AlertTriangle, Circle, Search } from "lucide-react";
+import { Type, Pencil, Image, Eye, EyeOff, Dog, Hexagon, Zap, Square, Sparkles, Heart, Lightbulb, Layers, Cable, Egg, Mountain, Lamp, Target, Gamepad2, Film, Brain, FastForward, Shield, AlertTriangle, Circle, Search, Grid3x3, Upload } from "lucide-react";
 import type { InputMode } from "@shared/schema";
 
 export function ToolDock() {
@@ -33,6 +33,8 @@ export function ToolDock() {
     { id: "collision", icon: AlertTriangle, label: "Collision", description: "Real-time collision prediction for autonomous systems" },
     { id: "yinyang", icon: Circle, label: "Yin-Yang", description: "Dual contrast detection for asymmetric lighting" },
     { id: "deepfake", icon: Search, label: "Deepfake", description: "AI-generated face detection via organic variance" },
+    { id: "ledgrid" as const, icon: Grid3x3, label: "LED Grid", description: "LED matrix signs" },
+    { id: "customfont" as const, icon: Upload, label: "Custom Font", description: "Upload any font → Generate A-Z alphabet" },
   ];
 
   return (

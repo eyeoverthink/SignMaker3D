@@ -14,25 +14,31 @@ export default function TemporalPredictionDemo() {
   const handlePredict = async () => {
     setIsPredicting(true);
     try {
-      toast({
-        title: "4D Prediction Running",
-        description: "Analyzing motion vectors and predicting future positions...",
+      // Call real prediction API
+      const response = await fetch('/api/scott/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData: null, // Will be populated when user uploads video
+          timeHorizon: timeHorizon
+        })
       });
+
+      if (!response.ok) throw new Error('Prediction failed');
+
+      const result = await response.json();
       
-      // Simulate prediction
-      setTimeout(() => {
-        toast({
-          title: "Prediction Complete",
-          description: `Predicted ${timeHorizon}s ahead with 94% accuracy`,
-        });
-        setIsPredicting(false);
-      }, 2000);
+      toast({
+        title: "Prediction Complete",
+        description: `Predicted ${timeHorizon}s ahead - ${result.vectors?.length || 0} vectors calculated`,
+      });
     } catch (error) {
       toast({
         title: "Prediction Failed",
         description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
+    } finally {
       setIsPredicting(false);
     }
   };

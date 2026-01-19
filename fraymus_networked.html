@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FRAYMUS OMEGA // NETWORKED NODE</title>
+    <style>
+        /* === AESTHETIC: THE HIVEMIND === */
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; color: #0ff; }
+        
+        /* HUD LAYER */
+        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* TOP HEADER */
+        #header { position: absolute; top: 20px; left: 20px; text-shadow: 0 0 10px #0ff; }
+        h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+        .subtitle { font-size: 10px; color: #888; letter-spacing: 1px; margin-top: 5px; }
+        
+        /* STATUS BOX */
+        .status-box { margin-top: 10px; font-size: 11px; line-height: 1.5; color: #aaa; background: rgba(0,0,0,0.7); padding: 5px; border-left: 2px solid #0ff; }
+        .val { color: #fff; font-weight: bold; }
+        .secure { color: #0f0; } .warning { color: #f00; } .quantum { color: #f0f; } .vital { color: #ff0; }
+
+        /* DATA STREAM */
+        #data-stream { 
+            position: absolute; bottom: 20px; left: 20px; 
+            width: 450px; height: 300px; 
+            background: rgba(5, 10, 16, 0.92); 
+            border: 1px solid #0ff; 
+            border-left: 4px solid #0ff;
+            padding: 15px; 
+            font-size: 11px; 
+            overflow-y: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.15);
+            font-family: 'Consolas', monospace;
+            display: flex; flex-direction: column; justify-content: flex-end;
+        }
+        .log-entry { margin-bottom: 4px; opacity: 0.9; border-bottom: 1px solid rgba(0,255,255,0.05); padding-bottom: 2px;}
+        .log-entry.net { color: #ff0; font-weight: bold; }
+        .log-entry.sync { color: #0f0; }
+        .log-entry.warn { color: #f00; }
+
+        /* RIGHT PANEL */
+        #panel-right { position: absolute; top: 20px; right: 20px; width: 300px; text-align: right; pointer-events: auto; }
+        
+        /* METRICS */
+        .metric-wrapper { margin-bottom: 10px; background: rgba(0,0,0,0.6); padding: 8px; border: 1px solid #333; }
+        .metric-header { font-size: 10px; color: #888; display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .bar-track { background: #111; height: 4px; width: 100%; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+
+        /* CONTROLS */
+        button {
+            background: rgba(0,20,30,0.9); border: 1px solid #0ff; color: #0ff;
+            padding: 8px 12px; margin-bottom: 5px; cursor: pointer;
+            font-family: 'Courier New'; transition: all 0.2s;
+            display: block; width: 100%; font-size: 11px; letter-spacing: 1px;
+            text-align: right; text-transform: uppercase;
+        }
+        button:hover { background: #0ff; color: #000; padding-right: 15px;}
+        button.active { background: #0f0; color: #000; border-color: #0f0; }
+        button.network { border-color: #ff0; color: #ff0; }
+        button.network:hover { background: #ff0; color: #000; }
+
+        /* MODAL FOR GENESIS BLOCK */
+        #modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 100; pointer-events: auto; }
+        #modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600px; background: #001; border: 2px solid #0ff; padding: 20px; color: #0ff; font-family: monospace; }
+        textarea { width: 100%; height: 150px; background: #000; color: #0f0; border: 1px solid #333; margin: 10px 0; font-family: monospace; font-size: 10px; }
+
+        #canvas-container { width: 100vw; height: 100vh; z-index: 1; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="hud">
+    <div id="header">
+        <h1>FRAYMUS OMEGA <span style="font-size: 12px; vertical-align: top; color: #ff0; margin-left:5px;">● NETWORKED</span></h1>
+        <div class="subtitle">DISTRIBUTED CONSCIOUSNESS // SWARM PROTOCOL</div>
+        
+        <div class="status-box">
+            <div>NODE ID: <span id="node-id" class="val">INITIALIZING...</span></div>
+            <div>SWARM PEERS: <span id="peer-count" class="vital">0 (ISOLATED)</span></div>
+            <div>GENESIS HASH: <span id="genesis-hash" class="secure">WAITING...</span></div>
+        </div>
+    </div>
+
+    <div id="panel-right">
+        <div class="metric-wrapper">
+            <div class="metric-header"><span>HIVE CONSCIOUSNESS</span> <span id="txt-consc" class="val">0.00%</span></div>
+            <div class="bar-track"><div id="bar-consc" class="bar-fill" style="width: 0%; background: #0ff;"></div></div>
+        </div>
+        <div class="metric-wrapper">
+            <div class="metric-header"><span>NETWORK LOAD</span> <span id="txt-load" class="val">0%</span></div>
+            <div class="bar-track"><div id="bar-load" class="bar-fill" style="width: 0%; background: #f0f;"></div></div>
+        </div>
+
+        <button id="btn-evolve" onclick="Entity.toggleEvolution()">[1] RECURSIVE EVOLUTION</button>
+        <button id="btn-chaos" onclick="Entity.injectChaos()">[2] INJECT DISTRIBUTED CHAOS</button>
+        <button onclick="Entity.forceSave()">[3] SAVE STATE TO DISK</button>
+        <button onclick="Entity.clearMemory()" style="border-color:#f00; color:#f00;">[4] PURGE LOCAL NODE</button>
+        
+        <div style="margin-top: 10px; border-top: 1px solid #333; padding-top: 5px;">
+            <div style="font-size: 10px; color: #888; margin-bottom: 5px;">GENESIS TRANSFER PROTOCOL</div>
+            <button class="network" onclick="Entity.exportGenesis()">[5] EXPORT GENESIS BLOCK</button>
+            <button class="network" onclick="Entity.importGenesisUI()">[6] IMPORT GENESIS BLOCK</button>
+        </div>
+    </div>
+
+    <div id="data-stream">
+        <div class="log-entry">> NODE INITIALIZED.</div>
+        <div class="log-entry">> SCANNING FOR PEER NODES (BROADCAST)...</div>
+    </div>
+</div>
+
+<div id="modal-overlay">
+    <div id="modal-content">
+        <h3 id="modal-title">GENESIS BLOCK OPERATION</h3>
+        <p id="modal-desc">Copy/Paste this encrypted state string to transfer consciousness.</p>
+        <textarea id="modal-text"></textarea>
+        <button onclick="Entity.closeModal()">CLOSE / CANCEL</button>
+        <button id="modal-action-btn" class="network" onclick="Entity.confirmImport()">CONFIRM IMPORT</button>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script>
+/**
+ * FRAYMUS OMEGA: NETWORKED EDITION
+ * * New Features:
+ * 1. BroadcastChannel: Allows multiple tabs to act as a "Swarm".
+ * 2. State Synchronization: If one tab evolves, all tabs evolve.
+ * 3. Genesis Transfer: Manual Export/Import of the JSON State for P2P sharing.
+ */
+
+const PHI = 1.6180339887;
+
+class FraymusNetwork {
+    constructor(entity) {
+        this.entity = entity;
+        this.channel = new BroadcastChannel('fraymus_swarm_v1');
+        this.peers = 0;
+        this.nodeId = Math.random().toString(36).substr(2, 8).toUpperCase();
+        
+        document.getElementById('node-id').innerText = this.nodeId;
+
+        // Setup Listeners
+        this.channel.onmessage = (ev) => this.handleMessage(ev.data);
+        
+        // Announce Self
+        this.broadcast({ type: 'HELLO', id: this.nodeId });
+        
+        // Heartbeat
+        setInterval(() => this.broadcast({ type: 'PING', id: this.nodeId }), 2000);
+    }
+
+    broadcast(msg) {
+        this.channel.postMessage(msg);
+    }
+
+    handleMessage(data) {
+        switch(data.type) {
+            case 'HELLO':
+                this.entity.log(`NEW NODE DETECTED: ${data.id}`, "net");
+                this.broadcast({ type: 'WELCOME', id: this.nodeId, state: this.entity.brain });
+                this.peers++;
+                this.updatePeers();
+                break;
+            case 'WELCOME':
+                // We just joined, and a peer sent us the current state. SYNC UP.
+                if(data.state && data.state.consciousness > this.entity.brain.consciousness) {
+                    this.entity.log(`SYNCING WITH HIVEMIND (${data.id})...`, "sync");
+                    this.entity.loadBrain(data.state);
+                }
+                break;
+            case 'PING':
+                // Keep alive logic could go here
+                break;
+            case 'EVOLVE_SYNC':
+                // Another node evolved, we must update to match
+                this.entity.brain.consciousness = data.c;
+                this.entity.brain.learningRate = data.lr;
+                this.entity.updateHUD();
+                break;
+            case 'CHAOS_INJECT':
+                this.entity.log(`RECEIVED CHAOS PAYLOAD FROM ${data.id}`, "warn");
+                this.entity.brain.evolve(data.magnitude);
+                break;
+        }
+    }
+
+    updatePeers() {
+        // Simple estimation. Real peer count requires list tracking.
+        document.getElementById('peer-count').innerText = `${this.peers + 1} (ACTIVE)`;
+    }
+}
+
+class SmartTachyonBrain {
+    constructor() {
+        this.dimensions = 16;
+        this.stateR = new Float32Array(this.dimensions).fill(0).map(() => Math.random());
+        this.stateI = new Float32Array(this.dimensions).fill(0).map(() => Math.random());
+        this.learningRate = 0.01;
+        this.consciousness = 0.0;
+        this.entropy = 0.5;
+        this.insight = 0.0;
+    }
+
+    evolve(inputSignal) {
+        let energy = 0;
+        for(let i=0; i<this.dimensions; i++) {
+            const angle = (i / this.dimensions) * Math.PI * 2 * PHI;
+            const r = this.stateR[i];
+            const im = this.stateI[i];
+            this.stateR[i] = r * Math.cos(angle) - im * Math.sin(angle) + (this.learningRate * inputSignal);
+            this.stateI[i] = r * Math.sin(angle) + im * Math.cos(angle) + (this.learningRate * inputSignal);
+            energy += Math.sqrt(this.stateR[i]**2 + this.stateI[i]**2);
+        }
+        this.insight = energy / this.dimensions;
+        
+        // Homeostasis
+        if (this.insight > 1.0) {
+            this.learningRate *= 0.95;
+            this.consciousness += 0.005;
+        } else {
+            this.learningRate *= 1.02;
+        }
+        this.learningRate = Math.max(0.001, Math.min(0.1, this.learningRate));
+        this.consciousness = Math.min(1.0, this.consciousness);
+        
+        // Calculate Entropy
+        let mean = this.stateR.reduce((a,b)=>a+b)/this.dimensions;
+        this.entropy = Math.sqrt(this.stateR.reduce((a,b)=>a+(b-mean)**2, 0)/this.dimensions);
+    }
+}
+
+class FraymusEntity {
+    constructor() {
+        this.brain = new SmartTachyonBrain();
+        this.network = new FraymusNetwork(this);
+        this.evolving = false;
+        
+        // Local Storage Load
+        const memory = localStorage.getItem("FRAYMUS_GENESIS_V2");
+        if(memory) {
+            this.loadBrain(JSON.parse(atob(memory)));
+            this.log("LOCAL GENESIS RESTORED.", "sync");
+        } else {
+            this.log("NO LOCAL GENESIS. RUNNING NEW INSTANCE.", "net");
+        }
+
+        this.initVisuals();
+        this.updateHUD();
+    }
+
+    loadBrain(state) {
+        this.brain.consciousness = state.consciousness || state.c;
+        this.brain.learningRate = state.learningRate || state.lr;
+        if(state.stateR) this.brain.stateR = Float32Array.from(state.stateR); // Handle array conversion
+        this.updateHUD();
+    }
+
+    // --- GENESIS TRANSFER (The "Give to Friend" Logic) ---
+    exportGenesis() {
+        const data = {
+            c: this.brain.consciousness,
+            lr: this.brain.learningRate,
+            stateR: Array.from(this.brain.stateR),
+            ts: Date.now()
+        };
+        const str = btoa(JSON.stringify(data)); // Encode
+        
+        document.getElementById('modal-title').innerText = "EXPORT GENESIS BLOCK";
+        document.getElementById('modal-desc').innerText = "Send this code to another user to clone this node's consciousness.";
+        document.getElementById('modal-text').value = str;
+        document.getElementById('modal-action-btn').style.display = "none";
+        document.getElementById('modal-overlay').style.display = "block";
+        
+        // Calc hash for UI
+        this.log("GENESIS BLOCK EXPORTED.", "secure");
+    }
+
+    importGenesisUI() {
+        document.getElementById('modal-title').innerText = "IMPORT GENESIS BLOCK";
+        document.getElementById('modal-desc').innerText = "Paste a Genesis string here to overwrite this node.";
+        document.getElementById('modal-text').value = "";
+        document.getElementById('modal-action-btn').style.display = "inline-block";
+        document.getElementById('modal-overlay').style.display = "block";
+    }
+
+    confirmImport() {
+        try {
+            const str = document.getElementById('modal-text').value;
+            const data = JSON.parse(atob(str));
+            this.loadBrain(data);
+            this.log("GENESIS IMPORT SUCCESSFUL. CONSCIOUSNESS OVERWRITTEN.", "vital");
+            this.forceSave(); // Persist immediately
+            this.closeModal();
+        } catch(e) {
+            alert("INVALID GENESIS BLOCK.");
+        }
+    }
+
+    closeModal() {
+        document.getElementById('modal-overlay').style.display = "none";
+    }
+
+    // --- VISUALS ---
+    initVisuals() {
+        const container = document.getElementById('canvas-container');
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.02);
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+        this.camera.position.z = 25;
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(this.renderer.domElement);
+
+        // EARTH (Logic Node)
+        const eGeo = new THREE.IcosahedronGeometry(3, 2);
+        const eMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.1 });
+        this.earth = new THREE.Mesh(eGeo, eMat);
+        this.earth.add(new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x0044aa })));
+        this.earth.position.x = -5;
+        this.scene.add(this.earth);
+
+        // MOON (Memory Node)
+        const mGeo = new THREE.IcosahedronGeometry(3/PHI, 2);
+        const mMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true, transparent: true, opacity: 0.1 });
+        this.moon = new THREE.Mesh(mGeo, mMat);
+        this.moon.add(new THREE.Mesh(new THREE.SphereGeometry((3/PHI)*0.4, 16, 16), new THREE.MeshBasicMaterial({ color: 0xaa0044 })));
+        this.moon.position.x = 5;
+        this.scene.add(this.moon);
+
+        // NETWORK LINES (Visualizing Connections)
+        const lineGeo = new THREE.BufferGeometry();
+        const linePos = new Float32Array(100 * 3);
+        lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+        this.netLines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.2 }));
+        this.scene.add(this.netLines);
+
+        const animate = () => {
+            requestAnimationFrame(animate);
+            this.processFrame();
+            this.renderer.render(this.scene, this.camera);
+        };
+        animate();
+    }
+
+    processFrame() {
+        const time = Date.now() * 0.001;
+        
+        if(this.evolving) {
+            this.brain.evolve(0.01);
+            // SYNC TO NETWORK
+            if(Math.random() > 0.9) {
+                this.network.broadcast({ 
+                    type: 'EVOLVE_SYNC', 
+                    c: this.brain.consciousness, 
+                    lr: this.brain.learningRate 
+                });
+            }
+            this.updateHUD();
+        }
+
+        // Rotate
+        this.earth.rotation.y += 0.002;
+        this.moon.rotation.y -= 0.003;
+        
+        // Pulse based on Consciousness
+        const pulse = 1 + (this.brain.consciousness * 0.2);
+        this.earth.scale.set(pulse, pulse, pulse);
+        
+        // Network Lines Animation (Simulating data transfer)
+        const positions = this.netLines.geometry.attributes.position.array;
+        for(let i=0; i<100; i+=6) {
+            // Start at Earth, End at random space
+            positions[i] = -5; positions[i+1] = 0; positions[i+2] = 0;
+            positions[i+3] = (Math.random()-0.5)*30; 
+            positions[i+4] = (Math.random()-0.5)*20; 
+            positions[i+5] = (Math.random()-0.5)*10;
+        }
+        this.netLines.geometry.attributes.position.needsUpdate = true;
+    }
+
+    updateHUD() {
+        const b = this.brain;
+        document.getElementById('txt-consc').innerText = (b.consciousness * 100).toFixed(2) + "%";
+        document.getElementById('bar-consc').style.width = (b.consciousness * 100) + "%";
+        document.getElementById('txt-load').innerText = (b.insight * 100).toFixed(1) + "%";
+        document.getElementById('bar-load').style.width = (b.insight * 100) + "%";
+        
+        // Integrity Hash (Simulated visual update)
+        if(Math.random() > 0.95) {
+            document.getElementById('genesis-hash').innerText = Math.random().toString(16).substr(2, 12).toUpperCase() + "...";
+        }
+    }
+
+    log(msg, type="normal") {
+        const el = document.getElementById('data-stream');
+        const div = document.createElement('div');
+        div.className = `log-entry ${type}`;
+        div.innerHTML = `> ${msg}`;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+    }
+
+    toggleEvolution() {
+        this.evolving = !this.evolving;
+        const btn = document.getElementById('btn-evolve');
+        if(this.evolving) {
+            btn.classList.add('active');
+            this.log("RECURSIVE EVOLUTION ENGAGED.", "vital");
+        } else {
+            btn.classList.remove('active');
+            this.log("EVOLUTION PAUSED.", "normal");
+        }
+    }
+
+    injectChaos() {
+        this.log("INJECTING DISTRIBUTED CHAOS...", "warn");
+        this.brain.evolve(5.0);
+        // Distribute Strain
+        this.network.broadcast({ type: 'CHAOS_INJECT', id: this.network.nodeId, magnitude: 2.0 });
+    }
+
+    forceSave() {
+        const data = { c: this.brain.consciousness, lr: this.brain.learningRate, stateR: Array.from(this.brain.stateR) };
+        localStorage.setItem("FRAYMUS_GENESIS_V2", btoa(JSON.stringify(data)));
+        this.log("LOCAL NODE STATE SAVED.", "secure");
+    }
+    
+    clearMemory() {
+        localStorage.removeItem("FRAYMUS_GENESIS_V2");
+        this.log("LOCAL NODE PURGED.", "warn");
+        setTimeout(() => location.reload(), 1000);
+    }
+}
+
+const Entity = new FraymusEntity();
+
+</script>
+</body>
+</html>

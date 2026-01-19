@@ -1631,5 +1631,427 @@ Created with SignCraft 3D - Scott Algorithm Demonstration System
     }
   });
 
+  // List available fonts for Custom Font Alphabet
+  app.get("/api/fonts/list", async (req, res) => {
+    try {
+      const { neonFontOptions } = await import("./font-loader");
+      const fonts = neonFontOptions
+        .filter(f => f.file !== null)
+        .map(f => ({
+          id: f.id,
+          name: f.name,
+          file: f.file,
+        }));
+      res.json({ fonts });
+    } catch (error) {
+      console.error("Font list error:", error);
+      res.status(500).json({ error: "Failed to load fonts" });
+    }
+  });
+
+  // Custom Font Alphabet Generator - Upload font and generate A-Z
+  app.post("/api/export/custom-font-alphabet", async (req, res) => {
+    try {
+      const { fontSource, fontId, fontSize, ledType, signHeight, wallThickness, baseThickness, lidTolerance, wireHoleHeight, wireHoleSize, enableFrictionLip } = req.body;
+      const { AlphabetFactory } = await import("./alphabet-factory");
+      const { neonFontOptions } = await import("./font-loader");
+      
+      // Get font name from library or uploaded file
+      let fontName = "Arial";
+      if (fontSource === "library" && fontId) {
+        const selectedFont = neonFontOptions.find(f => f.id === fontId);
+        if (selectedFont) {
+          fontName = selectedFont.name;
+        }
+      }
+      
+      const factory = new AlphabetFactory({
+        fontSize: parseInt(fontSize) || 100,
+        fontName: fontName || "Arial",
+        ledType: ledType || "silicone_neon_6mm",
+        signHeight: parseInt(signHeight) || 30,
+        wallThickness: parseFloat(wallThickness) || 2,
+        baseThickness: parseFloat(baseThickness) || 2,
+        lidTolerance: parseFloat(lidTolerance) || 0.15,
+        wireHoleHeight: parseInt(wireHoleHeight) || 5,
+        wireHoleSize: parseInt(wireHoleSize) || 5,
+        enableFrictionLip: enableFrictionLip !== false,
+        lipOverhang: enableFrictionLip ? 0.4 : 0,
+      });
+
+      const files: Array<{ filename: string; content: string; partType: string }> = [];
+      
+      // Generate all 26 letters
+      const letters = factory.generateAlphabet();
+      
+      for (const letter of letters) {
+        files.push(
+          { filename: `${letter.filename}_body.stl`, content: letter.bodySTL, partType: "body" },
+          { filename: `${letter.filename}_lid.stl`, content: letter.lidSTL, partType: "lid" },
+          { filename: `${letter.filename}.scad`, content: letter.scadFile, partType: "cad" }
+        );
+      }
+      
+      // Generate BOM
+      const bom = factory.generateBOM(26);
+      const bomText = `# Bill of Materials: Complete Alphabet (A-Z)\n\n` +
+        bom.map(item => `- **${item.component}** (${item.quantity}): ${item.notes}`).join('\n');
+      files.push({
+        filename: "alphabet_bom.md",
+        content: bomText,
+        partType: "documentation"
+      });
+      
+      // Generate assembly instructions
+      const instructions = `# Custom Font Alphabet Assembly\n\n` +
+        `Font: ${fontName}\n` +
+        `Size: ${fontSize}mm\n` +
+        `LED Type: ${ledType}\n\n` +
+        `Complete alphabet generated with 26 letters.\n` +
+        `Each letter includes wire pass-through holes for modular assembly.\n\n` +
+        `Print all body and lid files, then snap letters together to spell any word!`;
+      files.push({
+        filename: "assembly_instructions.md",
+        content: instructions,
+        partType: "documentation"
+      });
+
+      res.json({ files });
+    } catch (error) {
+      console.error("Custom font alphabet error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Generation failed" });
+    }
+  });
+
+  // Alphabet Factory - Batch generate A-Z letters
+  app.post("/api/export/alphabet-factory", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { AlphabetFactory } = await import("./alphabet-factory");
+      
+      const factory = new AlphabetFactory({
+        fontSize: settings.fontSize || 100,
+        fontName: settings.fontName || "Arial",
+        ledType: settings.ledInstallationType || "silicone_neon_6mm",
+        signHeight: settings.housingDepth || 30,
+        wallThickness: settings.wallThickness || 2,
+        baseThickness: settings.wallThickness || 2,
+        lidTolerance: 0.15,
+        wireHoleHeight: settings.wireHoleHeight || 5,
+        wireHoleSize: settings.wireHoleSize || 5,
+        enableFrictionLip: settings.enableFrictionLip !== undefined ? settings.enableFrictionLip : true,
+        lipOverhang: settings.lipOverhang || 0.4,
+      });
+
+      const files: Array<{ filename: string; content: string; partType: string }> = [];
+      
+      // Check if generating full alphabet or specific word
+      if (settings.mode === "alphabet") {
+        // Generate all 26 letters
+        const letters = factory.generateAlphabet();
+        
+        for (const letter of letters) {
+          files.push(
+            { filename: `${letter.filename}_body.stl`, content: letter.bodySTL, partType: "body" },
+            { filename: `${letter.filename}_lid.stl`, content: letter.lidSTL, partType: "lid" },
+            { filename: `${letter.filename}.scad`, content: letter.scadFile, partType: "cad" }
+          );
+        }
+        
+        // Generate BOM
+        const bom = factory.generateBOM(26);
+        const bomText = `# Bill of Materials: Complete Alphabet (A-Z)\n\n` +
+          bom.map(item => `- **${item.component}** (${item.quantity}): ${item.notes}`).join('\n');
+        files.push({
+          filename: "alphabet_bom.md",
+          content: bomText,
+          partType: "documentation"
+        });
+        
+      } else if (settings.mode === "word" && settings.textContent) {
+        // Generate specific letters for a word
+        const letters = factory.generateWord(settings.textContent);
+        
+        for (const letter of letters) {
+          files.push(
+            { filename: `${letter.filename}_body.stl`, content: letter.bodySTL, partType: "body" },
+            { filename: `${letter.filename}_lid.stl`, content: letter.lidSTL, partType: "lid" },
+            { filename: `${letter.filename}.scad`, content: letter.scadFile, partType: "cad" }
+          );
+        }
+        
+        // Generate assembly instructions
+        const instructions = factory.generateAssemblyInstructions(settings.textContent);
+        files.push({
+          filename: `${settings.textContent.toLowerCase()}_assembly.md`,
+          content: instructions,
+          partType: "documentation"
+        });
+        
+        // Generate BOM
+        const bom = factory.generateBOM(letters.length);
+        const bomText = `# Bill of Materials: ${settings.textContent}\n\n` +
+          bom.map(item => `- **${item.component}** (${item.quantity}): ${item.notes}`).join('\n');
+        files.push({
+          filename: `${settings.textContent.toLowerCase()}_bom.md`,
+          content: bomText,
+          partType: "documentation"
+        });
+      }
+
+      res.json({ files });
+    } catch (error) {
+      console.error("Alphabet factory error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Alphabet generation failed" });
+    }
+  });
+
+  // LED Grid Sign System Export
+  app.post("/api/export/led-grid", async (req, res) => {
+    try {
+      const settings = req.body;
+      
+      // Check if this is a custom shaped sign or a grid matrix
+      if (settings.signMode === "custom_shape") {
+        // Use Custom LED Sign Generator (OpenSCAD-based)
+        const { CustomLEDSignGenerator } = await import("./custom-led-sign-generator");
+        
+        const generator = new CustomLEDSignGenerator({
+          text: settings.textContent || "OPEN",
+          fontSize: settings.fontSize || 50,
+          fontName: "Arial",
+          ledType: settings.ledInstallationType || "silicone_neon_6mm",
+          neonWidth: settings.pixelSpacing || undefined, // Auto-calculated based on LED type
+          signHeight: settings.housingDepth || 30,
+          wallThickness: settings.wallThickness || 2,
+          baseThickness: settings.wallThickness || 2,
+          lidTolerance: 0.2,
+          lidThickness: settings.diffuserThickness || 2,
+          lipWidth: settings.lipWidth || 1.5,
+          enableFrictionLip: settings.enableFrictionLip,
+          lipOverhang: settings.lipOverhang || 0.4,
+          wirePassThrough: settings.wirePassThrough || "none",
+          wireHoleHeight: settings.wireHoleHeight || 5,
+          wireHoleSize: settings.wireHoleSize || 5,
+          enablePowerHole: settings.enablePowerHole || false,
+          powerHoleSize: settings.powerHoleSize || 5,
+          enableBackplate: true,
+          backplateOffset: 3,
+        });
+
+        const files: Array<{ filename: string; content: string; partType: string }> = [];
+        const textSlug = (settings.textContent || "OPEN").replace(/\s+/g, "_").toLowerCase();
+
+        // Generate OpenSCAD file
+        const scadCode = generator.generateOpenSCAD();
+        files.push({
+          filename: `${textSlug}_led_sign.scad`,
+          content: scadCode,
+          partType: "cad"
+        });
+
+        // Generate STL files
+        const bodySTL = generator.generateBodySTL();
+        files.push({
+          filename: `${textSlug}_body.stl`,
+          content: bodySTL,
+          partType: "body"
+        });
+
+        const lidSTL = generator.generateLidSTL();
+        files.push({
+          filename: `${textSlug}_lid.stl`,
+          content: lidSTL,
+          partType: "lid"
+        });
+
+        // Generate assembly instructions
+        const instructions = generator.generateAssemblyInstructions();
+        files.push({
+          filename: `${textSlug}_assembly_instructions.md`,
+          content: instructions,
+          partType: "documentation"
+        });
+
+        // Generate BOM
+        const bom = generator.generateBOM();
+        const bomText = `# Bill of Materials: ${settings.textContent || "OPEN"}\n\n` +
+          bom.map(item => `- **${item.component}** (${item.quantity}): ${item.notes}`).join('\n');
+        files.push({
+          filename: `${textSlug}_bom.md`,
+          content: bomText,
+          partType: "documentation"
+        });
+
+        // Generate dimensions info
+        const dims = generator.getEstimatedDimensions();
+        const dimsText = `# Estimated Dimensions\n\n` +
+          `- Width: ${dims.width.toFixed(1)}mm\n` +
+          `- Height: ${dims.height.toFixed(1)}mm\n` +
+          `- Depth: ${dims.depth.toFixed(1)}mm\n` +
+          `- Volume: ${dims.volume.toFixed(1)}cm³\n`;
+        files.push({
+          filename: `${textSlug}_dimensions.txt`,
+          content: dimsText,
+          partType: "documentation"
+        });
+
+        res.json({ files });
+        return;
+      }
+      
+      // Grid Matrix mode - use existing LED Grid Generator
+      const { LEDGridGenerator } = await import("./led-grid-generator");
+      const { textToPixelGrid, getGridDimensions } = await import("../shared/led-grid-types");
+      
+      // Create generator with user settings
+      const generator = new LEDGridGenerator({
+        gridWidth: settings.gridWidth || 8,
+        gridHeight: settings.gridHeight || 7,
+        ledSpacing: settings.pixelSpacing || 10,
+        wallThickness: settings.wallThickness || 3,
+        baseThickness: settings.wallThickness || 3,
+        ledDiameter: settings.ledDiameter || 5,
+        mountingHoles: settings.includeMountingHoles !== false,
+        wiringPattern: settings.wiringPattern || 'serpentine',
+        housingDepth: settings.housingDepth || 15,
+        includeDiffuser: settings.diffuserType !== 'none',
+        diffuserThickness: settings.diffuserThickness || 2,
+        diffuserOffset: settings.diffuserOffset || 5,
+      });
+
+      const files: Array<{ filename: string; content: string; partType: string }> = [];
+      const gridSize = `${settings.gridWidth || 8}x${settings.gridHeight || 7}`;
+
+      // Generate LED grid STL
+      const gridSTL = generator.generateGridSTL();
+      files.push({
+        filename: `led_grid_${gridSize}.stl`,
+        content: gridSTL,
+        partType: "grid"
+      });
+
+      // Generate housing box STL
+      if (settings.includeHousing !== false) {
+        const housingSTL = generator.generateHousingBoxSTL();
+        files.push({
+          filename: `housing_box_${gridSize}.stl`,
+          content: housingSTL,
+          partType: "housing"
+        });
+      }
+
+      // Generate diffuser panel STL
+      if (settings.diffuserType !== 'none') {
+        const diffuserSTL = generator.generateDiffuserSTL();
+        files.push({
+          filename: `diffuser_${gridSize}.stl`,
+          content: diffuserSTL,
+          partType: "diffuser"
+        });
+      }
+
+      // Generate wiring diagram
+      const wiringDiagram = generator.generateWiringDiagram();
+      const ledMapping = generator.generateLEDMapping();
+      const dimensions = generator.getPhysicalDimensions();
+      
+      const wiringData = {
+        gridSize,
+        ...wiringDiagram,
+        ledMapping,
+        physicalDimensions: dimensions,
+        settings: {
+          wiringPattern: settings.wiringPattern || 'serpentine',
+          ledSpacing: settings.pixelSpacing || 10,
+          totalLEDs: wiringDiagram.totalLEDs,
+        }
+      };
+
+      files.push({
+        filename: `wiring_diagram_${gridSize}.json`,
+        content: JSON.stringify(wiringData, null, 2),
+        partType: "documentation"
+      });
+
+      // Generate pixel map if text content provided
+      if (settings.textContent && settings.contentType === 'text') {
+        const dims = getGridDimensions(settings);
+        const pixelGrid = textToPixelGrid(settings.textContent, dims.width, dims.height);
+        
+        // Convert pixel grid to LED indices based on wiring pattern
+        const pixelData = ledMapping.map(led => ({
+          index: led.index,
+          gridX: led.gridX,
+          gridY: led.gridY,
+          state: pixelGrid[led.gridY]?.[led.gridX] || false
+        }));
+
+        files.push({
+          filename: `pixel_map_${gridSize}.json`,
+          content: JSON.stringify({
+            text: settings.textContent,
+            gridSize,
+            pixels: pixelData
+          }, null, 2),
+          partType: "content"
+        });
+      }
+
+      // Generate Arduino code template
+      const arduinoCode = `// LED Grid Sign - ${gridSize}
+// Generated by SignCraft 3D
+
+#include <FastLED.h>
+
+#define LED_PIN 16
+#define NUM_LEDS ${wiringDiagram.totalLEDs}
+#define GRID_WIDTH ${settings.gridWidth || 8}
+#define GRID_HEIGHT ${settings.gridHeight || 7}
+
+CRGB leds[NUM_LEDS];
+
+// Serpentine wiring pattern mapping
+int getPixelIndex(int x, int y) {
+  if (y % 2 == 0) {
+    // Even rows: left to right
+    return y * GRID_WIDTH + x;
+  } else {
+    // Odd rows: right to left
+    return y * GRID_WIDTH + (GRID_WIDTH - 1 - x);
+  }
+}
+
+void setup() {
+  FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(50);
+}
+
+void loop() {
+  // Example: Set all LEDs to red
+  fill_solid(leds, NUM_LEDS, CRGB::Red);
+  FastLED.show();
+  delay(1000);
+  
+  // Example: Clear all LEDs
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  FastLED.show();
+  delay(1000);
+}
+`;
+
+      files.push({
+        filename: `led_grid_${gridSize}.ino`,
+        content: arduinoCode,
+        partType: "code"
+      });
+
+      res.json({ files });
+    } catch (error) {
+      console.error("LED Grid export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "LED Grid export failed" });
+    }
+  });
+
   return httpServer;
 }

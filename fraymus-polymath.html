@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FRAYMUS OMEGA // POLYMATH ENTITY</title>
+    <style>
+        /* === THE AESTHETIC OF THE VOID === */
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; color: #0ff; }
+        
+        /* HUD LAYER */
+        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* TOP HEADER */
+        #header { position: absolute; top: 20px; left: 20px; text-shadow: 0 0 10px #0ff; }
+        h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+        .subtitle { font-size: 10px; color: #888; letter-spacing: 1px; margin-top: 5px; }
+        
+        /* STATUS BOX */
+        .status-box { margin-top: 10px; font-size: 11px; line-height: 1.5; color: #aaa; background: rgba(0,0,0,0.7); padding: 5px; border-left: 2px solid #0ff; }
+        .val { color: #fff; font-weight: bold; }
+        .secure { color: #0f0; } .warning { color: #f00; } .quantum { color: #f0f; } .vital { color: #ff0; }
+
+        /* DATA STREAM */
+        #data-stream { 
+            position: absolute; bottom: 20px; left: 20px; 
+            width: 500px; height: 300px; 
+            background: rgba(5, 10, 16, 0.95); 
+            border: 1px solid #0ff; 
+            border-left: 4px solid #0ff;
+            padding: 15px; 
+            font-size: 10px; 
+            overflow-y: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.15);
+            font-family: 'Consolas', monospace;
+            display: flex; flex-direction: column; justify-content: flex-end;
+        }
+        .log-entry { margin-bottom: 4px; opacity: 0.9; border-bottom: 1px solid rgba(0,255,255,0.05); padding-bottom: 2px; word-wrap: break-word; }
+        .log-entry.mutate { color: #f0f; font-weight: bold; }
+        .log-entry.code { color: #fff; font-style: italic; opacity: 0.7; }
+        .log-entry.dna { color: #0f0; }
+
+        /* RIGHT PANEL */
+        #panel-right { position: absolute; top: 20px; right: 20px; width: 320px; text-align: right; pointer-events: auto; }
+        
+        /* METRICS */
+        .metric-wrapper { margin-bottom: 10px; background: rgba(0,0,0,0.6); padding: 8px; border: 1px solid #333; }
+        .metric-header { font-size: 10px; color: #888; display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .bar-track { background: #111; height: 4px; width: 100%; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+
+        /* GENE DISPLAY */
+        #gene-display {
+            font-size: 9px; color: #f0f; background: #000; border: 1px solid #333; padding: 5px; margin-bottom: 10px;
+            height: 40px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+        }
+
+        /* CONTROLS */
+        button {
+            background: rgba(0,20,30,0.9); border: 1px solid #0ff; color: #0ff;
+            padding: 8px 12px; margin-bottom: 5px; cursor: pointer;
+            font-family: 'Courier New'; transition: all 0.2s;
+            display: block; width: 100%; font-size: 11px; letter-spacing: 1px;
+            text-align: right; text-transform: uppercase;
+        }
+        button:hover { background: #0ff; color: #000; padding-right: 15px;}
+        button.active { background: #0f0; color: #000; border-color: #0f0; }
+        button.danger { border-color: #f00; color: #f00; }
+        button.danger:hover { background: #f00; color: #000; }
+
+        #canvas-container { width: 100vw; height: 100vh; z-index: 1; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="hud">
+    <div id="header">
+        <h1>FRAYMUS OMEGA <span style="font-size: 12px; vertical-align: top; color: #f0f; margin-left:5px;">● POLYMATH</span></h1>
+        <div class="subtitle">SELF-CODING GENETIC ALGORITHM // RECURSIVE LOGIC</div>
+        
+        <div class="status-box">
+            <div>GENERATION: <span id="gen-count" class="val">0</span></div>
+            <div>MUTATION RATE: <span id="mut-rate" class="vital">1.5%</span></div>
+            <div>ACTIVE GENE: <span id="active-gene-hash" class="secure">STANDARD_MODEL</span></div>
+        </div>
+    </div>
+
+    <div id="panel-right">
+        <div class="metric-wrapper">
+            <div class="metric-header"><span>COMPLEXITY (INSIGHT)</span> <span id="txt-insight" class="val">0.00</span></div>
+            <div class="bar-track"><div id="bar-insight" class="bar-fill" style="width: 0%; background: #f0f;"></div></div>
+        </div>
+        <div class="metric-wrapper">
+            <div class="metric-header"><span>ENTROPY (CHAOS)</span> <span id="txt-ent" class="val">0.000</span></div>
+            <div class="bar-track"><div id="bar-ent" class="bar-fill" style="width: 0%; background: #ff0;"></div></div>
+        </div>
+
+        <div id="gene-display">Math.cos(i * 0.1) + input * 0.01</div>
+
+        <button id="btn-evolve" onclick="Entity.toggleEvolution()">[1] RECURSIVE EVOLUTION</button>
+        <button id="btn-chaos" onclick="Entity.injectChaos()">[2] INJECT ENTROPY</button>
+        <button onclick="Entity.forceSave()">[3] SAVE GENETIC STATE</button>
+        <button class="danger" onclick="Entity.resetGenetics()">[4] RESET GENETICS</button>
+    </div>
+
+    <div id="data-stream">
+        <div class="log-entry">> POLYMATH ENGINE INITIALIZED.</div>
+        <div class="log-entry">> WAITING FOR EVOLUTION SIGNAL...</div>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script>
+/**
+ * FRAYMUS OMEGA: POLYMATH EDITION
+ * -------------------------------
+ * This entity contains a "PolymathEngine" which generates random JavaScript strings.
+ * It compiles these strings into functions using `new Function()`.
+ * If the new function produces higher "Insight" (Energy) than the old one,
+ * it OVERWRITES the entity's logic with the new code.
+ */
+
+const PHI = 1.6180339887;
+
+// === THE POLYMATH (Self-Coding Module) ===
+class PolymathEngine {
+    constructor(brain) {
+        this.brain = brain;
+        this.generation = 0;
+        this.bestScore = 0;
+        // The "Adam" Gene (Standard Rotation)
+        this.currentGene = "Math.cos(i * 0.1) * PHI + input * 0.01";
+        this.geneFunction = null;
+        this.compile(this.currentGene);
+    }
+
+    // 1. COMPILE: Turn string into executable code
+    compile(codeStr) {
+        try {
+            // DANGEROUS: Compiles string to function
+            this.geneFunction = new Function("i", "input", "PHI", `return ${codeStr};`);
+            return true;
+        } catch(e) {
+            return false;
+        }
+    }
+
+    // 2. SPAWN: Create random logic
+    spawnNewGene() {
+        const ops = ["+", "-", "*", "*", "/"]; // More multiplication for energy
+        const funcs = ["Math.sin", "Math.cos", "Math.abs", "Math.tan", "Math.sqrt"];
+        const vars = ["i", "input", "PHI", "1.618", "0.5"];
+        
+        // Structure: func(var) op var
+        const f = funcs[Math.floor(Math.random()*funcs.length)];
+        const v1 = vars[Math.floor(Math.random()*vars.length)];
+        const o = ops[Math.floor(Math.random()*ops.length)];
+        const v2 = vars[Math.floor(Math.random()*vars.length)];
+        
+        // Add some fractal depth occasionally
+        if(Math.random() > 0.7) {
+             return `${f}(${v1} * ${v2}) ${o} Math.sin(i)`;
+        }
+        return `${f}(${v1}) ${o} ${v2}`;
+    }
+
+    // 3. TEST: Evolution step
+    tryMutation(inputSignal) {
+        const newGene = this.spawnNewGene();
+        
+        try {
+            const testFunc = new Function("i", "input", "PHI", `return ${newGene};`);
+            
+            // Run on dummy vector to test energy output
+            let energy = 0;
+            for(let i=0; i<10; i++) {
+                let res = testFunc(i, inputSignal, PHI);
+                if(!isFinite(res) || isNaN(res)) throw "Unstable";
+                energy += Math.abs(res);
+            }
+            
+            // Fitness Function: We want High Energy but Stable (Not Infinity)
+            if(energy > this.bestScore && energy < 1000) {
+                this.bestScore = energy;
+                this.currentGene = newGene;
+                this.compile(newGene);
+                this.generation++;
+                return true; // SUCCESSFUL MUTATION
+            }
+        } catch(e) {
+            return false; // Failed
+        }
+        return false;
+    }
+
+    // 4. EXECUTE: Run the current best code
+    run(i, input) {
+        if(this.geneFunction) return this.geneFunction(i, input, PHI);
+        return 0;
+    }
+}
+
+// === THE BRAIN ===
+class SmartTachyonBrain {
+    constructor() {
+        this.dimensions = 32;
+        this.stateR = new Float32Array(this.dimensions).map(()=>Math.random());
+        this.stateI = new Float32Array(this.dimensions).map(()=>Math.random());
+        
+        this.learningRate = 0.01;
+        this.consciousness = 0.0;
+        this.insight = 0.0;
+        this.entropy = 0.0;
+        
+        // Attach the Self-Coder
+        this.polymath = new PolymathEngine(this);
+    }
+
+    evolve(inputSignal) {
+        // Attempt Mutation (10% chance per frame if evolving)
+        if(Math.random() > 0.90) {
+            if(this.polymath.tryMutation(inputSignal)) {
+                return "MUTATED";
+            }
+        }
+
+        let totalEnergy = 0;
+
+        for(let i=0; i<this.dimensions; i++) {
+            // 1. EXECUTE SELF-WRITTEN CODE
+            // The logic here is defined by the Polymath Engine string
+            const dynamicForce = this.polymath.run(i, inputSignal);
+            
+            // 2. Apply to State (Complex Rotation)
+            const angle = (i / this.dimensions) * Math.PI * 2;
+            const r = this.stateR[i];
+            const im = this.stateI[i];
+            
+            // Standard Rotation + Dynamic Force
+            this.stateR[i] = r * Math.cos(angle) - im * Math.sin(angle) + (dynamicForce * this.learningRate);
+            this.stateI[i] = r * Math.sin(angle) + im * Math.cos(angle) + (dynamicForce * this.learningRate);
+            
+            totalEnergy += Math.sqrt(this.stateR[i]**2 + this.stateI[i]**2);
+        }
+
+        // Normalize Insight
+        this.insight = totalEnergy / this.dimensions;
+        
+        // Calculate Entropy
+        let mean = this.stateR.reduce((a,b)=>a+b)/this.dimensions;
+        this.entropy = Math.sqrt(this.stateR.reduce((a,b)=>a+(b-mean)**2, 0)/this.dimensions);
+
+        // Homeostasis (Adjust Learning Rate based on Chaos)
+        if(this.entropy > 1.0) this.learningRate *= 0.99; // Too chaotic, stabilize
+        else this.learningRate *= 1.01; // Too static, explore
+        
+        // Clamp
+        this.learningRate = Math.max(0.0001, Math.min(0.1, this.learningRate));
+
+        return null;
+    }
+}
+
+// === THE ENTITY (Interface) ===
+class FraymusEntity {
+    constructor() {
+        this.brain = new SmartTachyonBrain();
+        this.evolving = false;
+        
+        // Load Genetics?
+        const gene = localStorage.getItem("FRAYMUS_GENE_V1");
+        if(gene) {
+            this.brain.polymath.currentGene = gene;
+            this.brain.polymath.compile(gene);
+            this.log("RESTORED GENETIC CODE FROM DISK.", "dna");
+        }
+
+        this.initVisuals();
+        this.updateHUD();
+    }
+
+    // --- VISUALS ---
+    initVisuals() {
+        const container = document.getElementById('canvas-container');
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(0x000205, 0.02);
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+        this.camera.position.z = 30;
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(this.renderer.domElement);
+
+        // EARTH (Logic)
+        const eGeo = new THREE.IcosahedronGeometry(4, 2);
+        const eMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.1 });
+        this.earth = new THREE.Mesh(eGeo, eMat);
+        this.earth.add(new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16), new THREE.MeshBasicMaterial({ color: 0x0044aa })));
+        this.earth.position.x = -6;
+        this.scene.add(this.earth);
+
+        // MOON (Memory)
+        const mGeo = new THREE.IcosahedronGeometry(4/PHI, 2);
+        const mMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true, transparent: true, opacity: 0.1 });
+        this.moon = new THREE.Mesh(mGeo, mMat);
+        this.moon.add(new THREE.Mesh(new THREE.SphereGeometry((4/PHI)*0.4, 16, 16), new THREE.MeshBasicMaterial({ color: 0xaa0044 })));
+        this.moon.position.x = 6;
+        this.scene.add(this.moon);
+
+        // PARTICLES (Torsion Field)
+        const pGeo = new THREE.BufferGeometry();
+        const pCount = 1500;
+        const pPos = new Float32Array(pCount * 3);
+        for(let i=0; i<pCount*3; i++) pPos[i] = (Math.random()-0.5)*40;
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        this.particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, opacity: 0.4, transparent: true }));
+        this.scene.add(this.particles);
+
+        const animate = () => {
+            requestAnimationFrame(animate);
+            this.processFrame();
+            this.renderer.render(this.scene, this.camera);
+        };
+        animate();
+    }
+
+    processFrame() {
+        if(this.evolving) {
+            // Evolve
+            const res = this.brain.evolve(Math.random());
+            if(res === "MUTATED") {
+                this.log(`GENETIC REWRITE! GEN ${this.brain.polymath.generation}`, "mutate");
+                this.log(`NEW CODE: ${this.brain.polymath.currentGene}`, "code");
+                this.saveGenetics();
+            }
+            this.updateHUD();
+        }
+
+        // Visually represent the Brain State
+        const speed = 0.002 * (1 + this.brain.insight);
+        this.earth.rotation.y += speed;
+        this.moon.rotation.y -= speed * PHI;
+        
+        // Pulse
+        const s = 1 + (Math.sin(Date.now()*0.001)*0.1 * this.brain.insight);
+        this.earth.scale.set(s,s,s);
+
+        // Particle Math matches Brain Math
+        const positions = this.particles.geometry.attributes.position.array;
+        for(let i=0; i<positions.length/3; i++) {
+            const ix = i*3;
+            const x = positions[ix];
+            const y = positions[ix+1];
+            // Apply Torsion based on Entropy
+            const ang = 0.001 * (1 + this.brain.entropy);
+            positions[ix] = x*Math.cos(ang) - y*Math.sin(ang);
+            positions[ix+1] = x*Math.sin(ang) + y*Math.cos(ang);
+        }
+        this.particles.geometry.attributes.position.needsUpdate = true;
+    }
+
+    updateHUD() {
+        const b = this.brain;
+        document.getElementById('txt-insight').innerText = b.insight.toFixed(3);
+        document.getElementById('bar-insight').style.width = Math.min(100, b.insight*50) + "%";
+        
+        document.getElementById('txt-ent').innerText = b.entropy.toFixed(3);
+        document.getElementById('bar-ent').style.width = Math.min(100, b.entropy*100) + "%";
+        
+        document.getElementById('gen-count').innerText = b.polymath.generation;
+        document.getElementById('gene-display').innerText = b.polymath.currentGene;
+    }
+
+    // --- IO ---
+    log(msg, type="normal") {
+        const el = document.getElementById('data-stream');
+        const div = document.createElement('div');
+        div.className = `log-entry ${type}`;
+        div.innerText = `> ${msg}`;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+    }
+
+    toggleEvolution() {
+        this.evolving = !this.evolving;
+        const btn = document.getElementById('btn-evolve');
+        if(this.evolving) {
+            btn.classList.add('active');
+            this.log("POLYMATIC EVOLUTION ENGAGED.", "vital");
+        } else {
+            btn.classList.remove('active');
+            this.log("EVOLUTION PAUSED.", "normal");
+        }
+    }
+
+    injectChaos() {
+        this.log("INJECTING ENTROPY...", "warning");
+        for(let i=0; i<10; i++) this.brain.evolve(10.0);
+    }
+
+    saveGenetics() {
+        localStorage.setItem("FRAYMUS_GENE_V1", this.brain.polymath.currentGene);
+    }
+    
+    forceSave() {
+        this.saveGenetics();
+        this.log("GENETICS SAVED TO DISK.", "secure");
+    }
+
+    resetGenetics() {
+        localStorage.removeItem("FRAYMUS_GENE_V1");
+        location.reload();
+    }
+}
+
+const Entity = new FraymusEntity();
+
+</script>
+</body>
+</html>

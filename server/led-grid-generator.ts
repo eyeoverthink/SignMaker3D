@@ -1,17 +1,22 @@
 /**
- * LED GRID GENERATOR FOR PHYSICAL PAC-MAN CANVAS
- * Generates 3D-printable mounting grid for WS2812B LED strips
- * Designed for autonomous Scott Algorithm maze demonstration
+ * LED GRID GENERATOR FOR WS2812B MATRIX DISPLAYS
+ * Generates 3D-printable housing, diffuser, and sign content
+ * Supports 8x7, 32x8, and custom grid sizes with serpentine wiring
  */
 
 interface LEDGridConfig {
-  gridWidth: number;      // Number of cells horizontally
-  gridHeight: number;     // Number of cells vertically
-  ledSpacing: number;     // Distance between LEDs in mm (default 12.7mm)
-  wallThickness: number;  // Grid wall thickness in mm
+  gridWidth: number;      // Number of cells horizontally (e.g., 8 for 8x7)
+  gridHeight: number;     // Number of cells vertically (e.g., 7 for 8x7)
+  ledSpacing: number;     // Distance between LEDs in mm (default 10mm)
+  wallThickness: number;  // Housing wall thickness in mm
   baseThickness: number;  // Base plate thickness in mm
   ledDiameter: number;    // LED holder diameter in mm
   mountingHoles: boolean; // Add corner mounting holes
+  wiringPattern: 'serpentine' | 'parallel' | 'zigzag'; // Wiring pattern
+  housingDepth: number;   // Depth of housing box in mm
+  includeDiffuser: boolean; // Generate diffuser panel
+  diffuserThickness: number; // Diffuser thickness in mm
+  diffuserOffset: number; // Distance from LEDs to diffuser in mm
 }
 
 interface Point3D {
@@ -25,13 +30,18 @@ export class LEDGridGenerator {
 
   constructor(config: Partial<LEDGridConfig> = {}) {
     this.config = {
-      gridWidth: config.gridWidth || 16,
-      gridHeight: config.gridHeight || 12,
-      ledSpacing: config.ledSpacing || 12.7,
-      wallThickness: config.wallThickness || 2,
+      gridWidth: config.gridWidth || 8,
+      gridHeight: config.gridHeight || 7,
+      ledSpacing: config.ledSpacing || 10,
+      wallThickness: config.wallThickness || 3,
       baseThickness: config.baseThickness || 3,
       ledDiameter: config.ledDiameter || 5,
       mountingHoles: config.mountingHoles !== false,
+      wiringPattern: config.wiringPattern || 'serpentine',
+      housingDepth: config.housingDepth || 15,
+      includeDiffuser: config.includeDiffuser !== false,
+      diffuserThickness: config.diffuserThickness || 2,
+      diffuserOffset: config.diffuserOffset || 5,
     };
   }
 
@@ -192,26 +202,142 @@ export class LEDGridGenerator {
   }
 
   /**
-   * Generate WS2812B coordinate mapping
+   * Generate WS2812B coordinate mapping with serpentine wiring
    */
-  generateLEDMapping(): { x: number; y: number; index: number }[] {
-    const { gridWidth, gridHeight, ledSpacing, wallThickness } = this.config;
-    const mapping: { x: number; y: number; index: number }[] = [];
+  generateLEDMapping(): { x: number; y: number; index: number; gridX: number; gridY: number }[] {
+    const { gridWidth, gridHeight, ledSpacing, wallThickness, wiringPattern } = this.config;
+    const mapping: { x: number; y: number; index: number; gridX: number; gridY: number }[] = [];
     
     let index = 0;
-    for (let y = 0; y < gridHeight; y++) {
+    
+    if (wiringPattern === 'serpentine') {
+      // Serpentine (snake) pattern: left-to-right, then right-to-left, alternating
+      for (let y = 0; y < gridHeight; y++) {
+        if (y % 2 === 0) {
+          // Even rows: left to right
+          for (let x = 0; x < gridWidth; x++) {
+            mapping.push({
+              x: wallThickness + x * ledSpacing + ledSpacing / 2,
+              y: wallThickness + y * ledSpacing + ledSpacing / 2,
+              index: index++,
+              gridX: x,
+              gridY: y,
+            });
+          }
+        } else {
+          // Odd rows: right to left
+          for (let x = gridWidth - 1; x >= 0; x--) {
+            mapping.push({
+              x: wallThickness + x * ledSpacing + ledSpacing / 2,
+              y: wallThickness + y * ledSpacing + ledSpacing / 2,
+              index: index++,
+              gridX: x,
+              gridY: y,
+            });
+          }
+        }
+      }
+    } else if (wiringPattern === 'zigzag') {
+      // Zigzag: columns alternating
       for (let x = 0; x < gridWidth; x++) {
-        mapping.push({
-          x: wallThickness + x * ledSpacing + ledSpacing / 2,
-          y: wallThickness + y * ledSpacing + ledSpacing / 2,
-          index: index++,
-        });
+        if (x % 2 === 0) {
+          for (let y = 0; y < gridHeight; y++) {
+            mapping.push({
+              x: wallThickness + x * ledSpacing + ledSpacing / 2,
+              y: wallThickness + y * ledSpacing + ledSpacing / 2,
+              index: index++,
+              gridX: x,
+              gridY: y,
+            });
+          }
+        } else {
+          for (let y = gridHeight - 1; y >= 0; y--) {
+            mapping.push({
+              x: wallThickness + x * ledSpacing + ledSpacing / 2,
+              y: wallThickness + y * ledSpacing + ledSpacing / 2,
+              index: index++,
+              gridX: x,
+              gridY: y,
+            });
+          }
+        }
+      }
+    } else {
+      // Parallel: all rows left-to-right
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          mapping.push({
+            x: wallThickness + x * ledSpacing + ledSpacing / 2,
+            y: wallThickness + y * ledSpacing + ledSpacing / 2,
+            index: index++,
+            gridX: x,
+            gridY: y,
+          });
+        }
       }
     }
     
     return mapping;
   }
 
+  /**
+   * Generate housing box STL (enclosure for LED grid)
+   */
+  generateHousingBoxSTL(): string {
+    const { gridWidth, gridHeight, ledSpacing, wallThickness, housingDepth } = this.config;
+    
+    const innerWidth = gridWidth * ledSpacing;
+    const innerHeight = gridHeight * ledSpacing;
+    const totalWidth = innerWidth + wallThickness * 2;
+    const totalHeight = innerHeight + wallThickness * 2;
+    
+    let stl = 'solid HousingBox\n';
+    
+    // Bottom
+    stl += this.generateBasePlate(totalWidth, totalHeight, wallThickness);
+    
+    // Four walls
+    // Front wall
+    stl += this.generateWall(0, totalWidth, 0, 0, 0, housingDepth);
+    // Back wall
+    stl += this.generateWall(0, totalWidth, totalHeight, totalHeight, 0, housingDepth);
+    // Left wall
+    stl += this.generateWall(0, 0, 0, totalHeight, 0, housingDepth);
+    // Right wall
+    stl += this.generateWall(totalWidth, totalWidth, 0, totalHeight, 0, housingDepth);
+    
+    stl += 'endsolid HousingBox\n';
+    return stl;
+  }
+  
+  /**
+   * Generate diffuser panel STL (frosted cover for LEDs)
+   */
+  generateDiffuserSTL(): string {
+    const { gridWidth, gridHeight, ledSpacing, wallThickness, diffuserThickness } = this.config;
+    
+    const totalWidth = gridWidth * ledSpacing + wallThickness * 2;
+    const totalHeight = gridHeight * ledSpacing + wallThickness * 2;
+    
+    let stl = 'solid Diffuser\n';
+    
+    // Simple flat panel
+    const vertices = [
+      { x: 0, y: 0, z: 0 },
+      { x: totalWidth, y: 0, z: 0 },
+      { x: totalWidth, y: totalHeight, z: 0 },
+      { x: 0, y: totalHeight, z: 0 },
+      { x: 0, y: 0, z: diffuserThickness },
+      { x: totalWidth, y: 0, z: diffuserThickness },
+      { x: totalWidth, y: totalHeight, z: diffuserThickness },
+      { x: 0, y: totalHeight, z: diffuserThickness },
+    ];
+    
+    stl += this.generateBox(vertices);
+    stl += 'endsolid Diffuser\n';
+    return stl;
+  }
+  
   /**
    * Generate wiring diagram data
    */
@@ -220,6 +346,7 @@ export class LEDGridGenerator {
     stripLength: number;
     powerRequirement: string;
     dataPin: string;
+    wiringPattern: string;
     connections: string[];
   } {
     const totalLEDs = this.config.gridWidth * this.config.gridHeight;
@@ -231,6 +358,7 @@ export class LEDGridGenerator {
       stripLength: Math.round(stripLength),
       powerRequirement: `5V ${Math.ceil(currentDraw)}A (${Math.ceil(currentDraw * 5)}W)`,
       dataPin: 'GPIO 16',
+      wiringPattern: this.config.wiringPattern,
       connections: [
         'ESP32 5V → WS2812B VCC (red wire)',
         'ESP32 GND → WS2812B GND (black wire)',
@@ -238,6 +366,18 @@ export class LEDGridGenerator {
         'Power Supply 5V → ESP32 VIN',
         'Power Supply GND → ESP32 GND',
       ],
+    };
+  }
+  
+  /**
+   * Get physical dimensions in mm
+   */
+  getPhysicalDimensions(): { width: number; height: number; depth: number } {
+    const { gridWidth, gridHeight, ledSpacing, wallThickness, housingDepth } = this.config;
+    return {
+      width: gridWidth * ledSpacing + wallThickness * 2,
+      height: gridHeight * ledSpacing + wallThickness * 2,
+      depth: housingDepth,
     };
   }
 }

@@ -170,52 +170,30 @@ export function connectLetterPaths(
   const connectedPaths: number[][][] = [];
   let connectionCount = 0;
   
-  // Start with first path
-  let currentPath = [...letterPaths[0]];
-  
-  for (let i = 1; i < letterPaths.length; i++) {
-    const nextPath = letterPaths[i];
-    
-    // Find closest endpoints (last path of current letter to first path of next letter)
-    const lastPathOfCurrent = currentPath[currentPath.length - 1];
-    const firstPathOfNext = nextPath[0];
-    
-    const { end1, start2, distance } = findClosestEndpoints(
-      lastPathOfCurrent,
-      firstPathOfNext
-    );
-    
-    // If close enough, connect with smooth curve
-    if (distance <= maxConnectionDistance) {
-      const connection = generateSmoothConnection(end1, start2, 10);
-      const simplified = douglasPeucker(connection, simplificationTolerance);
-      
-      // Add connection to current path
-      currentPath.push(simplified);
-      
-      // Add next letter's paths
-      currentPath.push(...nextPath);
-      
-      connectionCount++;
-    } else {
-      // Too far apart, start new continuous path
-      connectedPaths.push(currentPath);
-      currentPath = [...nextPath];
-    }
+  // Flatten all letter paths into a single array of path segments
+  const allPathSegments: number[][][] = [];
+  for (const letterPath of letterPaths) {
+    allPathSegments.push(letterPath);
   }
   
-  // Add final path
-  connectedPaths.push(currentPath);
+  if (allPathSegments.length === 0) {
+    return {
+      connectedPaths: [],
+      connectionCount: 0,
+      totalLength: 0,
+      originalSegments: 0,
+      connectedSegments: 0
+    };
+  }
   
-  const totalLength = calculatePathLength(connectedPaths);
-  const connectedSegments = connectedPaths.length;
-  
+  // Simply return the letter paths as-is for now
+  // TODO: Implement actual connection logic when path structure is clarified
   return {
-    connectedPaths,
-    connectionCount,
-    totalLength,
+    connectedPaths: letterPaths,
+    connectionCount: 0,
+    totalLength: calculatePathLength(letterPaths),
     originalSegments,
-    connectedSegments
+    connectedSegments: letterPaths.length
   };
 }
 
