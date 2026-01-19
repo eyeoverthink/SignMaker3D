@@ -113,7 +113,11 @@ export function ReliefEditor() {
         }
       }
     }
-    return contours;
+    
+    // Return only the largest contour (outermost boundary)
+    if (contours.length === 0) return [];
+    const largestContour = contours.reduce((max, c) => c.length > max.length ? c : max);
+    return [largestContour];
   };
 
   // Generate preview when image or settings change
@@ -138,40 +142,13 @@ export function ReliefEditor() {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       
-      // Create height map with alpha channel and polarity detection
+      // Create height map from grayscale
       const heightMap = new Float32Array(canvas.width * canvas.height);
       
-      // First pass: count opaque pixels and determine polarity
-      let darkPixels = 0;
-      let opaquePixels = 0;
       for (let i = 0; i < canvas.width * canvas.height; i++) {
-        const alpha = data[i * 4 + 3];
-        if (alpha > 128) {
-          opaquePixels++;
-          const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-          if (gray < 128) darkPixels++;
-        }
-      }
-      
-      const isDarkOnLight = opaquePixels > 0 && darkPixels < (opaquePixels / 2);
-      
-      // Second pass: create height map (transparent = 0 always)
-      for (let i = 0; i < canvas.width * canvas.height; i++) {
-        const alpha = data[i * 4 + 3];
-        if (alpha < 128) {
-          heightMap[i] = 0;  // Transparent = background (flat)
-        } else {
-          const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-          let normalized = gray / 255;
-          
-          // Apply polarity correction
-          if (isDarkOnLight) {
-            normalized = 1 - normalized;  // Invert for dark-on-light
-          }
-          
-          // Apply user invert setting
-          heightMap[i] = settings.invertDepth ? (1 - normalized) : normalized;
-        }
+        const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+        const normalized = gray / 255;
+        heightMap[i] = settings.invertDepth ? (1 - normalized) : normalized;
       }
       
       // Draw LED channel overlays

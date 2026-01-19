@@ -50,11 +50,10 @@ async function imageToHeightMap(
       
       // Convert RGB to grayscale (luminance formula)
       const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      
-      // Normalize to 0-1 and apply depth
       const normalized = gray / 255;
-      const depth = normalized * settings.maxDepth;
       
+      // Apply depth and invert setting
+      const depth = normalized * settings.maxDepth;
       heightMap[i] = settings.invertDepth ? (settings.maxDepth - depth) : depth;
     }
     

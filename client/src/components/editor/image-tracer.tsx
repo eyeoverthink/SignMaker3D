@@ -14,9 +14,9 @@ export function ImageTracer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [threshold, setThreshold] = useState(128);
   const [simplify, setSimplify] = useState(2);
+  const [useSkeletonization, setUseSkeletonization] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pathsApplied, setPathsApplied] = useState(false);
-  const [useSkeletonization, setUseSkeletonization] = useState(true);
 
   const { uploadedImageData, setUploadedImageData, setTracedPaths, tracedPaths, sketchPaths, showGrid } = useEditorStore();
 
@@ -72,36 +72,11 @@ export function ImageTracer() {
         // MEDIAL AXIS EXTRACTION M(Ω) - Zhang-Suen Skeletonization
         console.log('[Scott Algorithm] Extracting Medial Axis M(Ω)...');
         
-        // Convert to binary with alpha channel and polarity detection
+        // Convert to binary
         const binary = new Uint8Array(width * height);
-        
-        // First pass: count opaque pixels and determine polarity
-        let darkPixels = 0;
-        let opaquePixels = 0;
         for (let i = 0; i < width * height; i++) {
-          const alpha = data[i * 4 + 3];
-          if (alpha > 128) {
-            opaquePixels++;
-            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-            if (gray < threshold) darkPixels++;
-          }
-        }
-        
-        const isDarkOnLight = opaquePixels > 0 && darkPixels < (opaquePixels / 2);
-        
-        // Second pass: create binary
-        for (let i = 0; i < width * height; i++) {
-          const alpha = data[i * 4 + 3];
-          if (alpha < 128) {
-            binary[i] = 0;
-          } else {
-            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-            if (isDarkOnLight) {
-              binary[i] = gray < threshold ? 1 : 0;
-            } else {
-              binary[i] = gray >= threshold ? 1 : 0;
-            }
-          }
+          const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+          binary[i] = gray < threshold ? 1 : 0;
         }
         
         // Apply Zhang-Suen thinning to extract skeleton
@@ -123,37 +98,11 @@ export function ImageTracer() {
         // BOUNDARY EXTRACTION ∂Ω - Scott Algorithm Outer Boundary Only
         console.log('[Scott Algorithm] Extracting Outer Boundary ∂Ω...');
         
-        // Convert to binary with alpha channel and polarity detection
+        // Convert to binary
         const binary = new Uint8Array(width * height);
-        
-        // First pass: count opaque pixels and determine polarity
-        let darkPixels = 0;
-        let opaquePixels = 0;
         for (let i = 0; i < width * height; i++) {
-          const alpha = data[i * 4 + 3];
-          if (alpha > 128) {  // Only count opaque pixels
-            opaquePixels++;
-            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-            if (gray < threshold) darkPixels++;
-          }
-        }
-        
-        // Determine if opaque content is dark-on-light or light-on-dark
-        const isDarkOnLight = opaquePixels > 0 && darkPixels < (opaquePixels / 2);
-        
-        // Second pass: create binary (transparent = background always)
-        for (let i = 0; i < width * height; i++) {
-          const alpha = data[i * 4 + 3];
-          if (alpha < 128) {
-            binary[i] = 0;  // Transparent = background
-          } else {
-            const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
-            if (isDarkOnLight) {
-              binary[i] = gray < threshold ? 1 : 0;  // Dark pixels = foreground
-            } else {
-              binary[i] = gray >= threshold ? 1 : 0;  // Light pixels = foreground
-            }
-          }
+          const gray = data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114;
+          binary[i] = gray < threshold ? 1 : 0;
         }
         
         // Find outer boundaries only (ignore internal holes)
@@ -306,36 +255,34 @@ export function ImageTracer() {
           />
         </div>
 
-        <div className="flex gap-6">
-          <div className="flex-1 space-y-2">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
             <div className="flex justify-between">
-              <Label className="text-sm">Edge Sensitivity</Label>
+              <Label className="text-sm">Threshold</Label>
               <span className="text-xs text-muted-foreground">{threshold}</span>
             </div>
             <Slider
               value={[threshold]}
               onValueChange={([v]) => setThreshold(v)}
-              min={20}
-              max={200}
+              min={0}
+              max={255}
               step={5}
               data-testid="slider-threshold"
             />
-            <p className="text-xs text-muted-foreground">Lower = more edges detected</p>
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="space-y-2">
             <div className="flex justify-between">
-              <Label className="text-sm">Detail Level</Label>
-              <span className="text-xs text-muted-foreground">{simplify}</span>
+              <Label className="text-sm">Simplify</Label>
+              <span className="text-xs text-muted-foreground">{simplify.toFixed(1)}</span>
             </div>
             <Slider
               value={[simplify]}
               onValueChange={([v]) => setSimplify(v)}
-              min={1}
-              max={5}
-              step={1}
+              min={0.5}
+              max={10}
+              step={0.5}
               data-testid="slider-simplify"
             />
-            <p className="text-xs text-muted-foreground">Lower = more detail</p>
           </div>
         </div>
 
