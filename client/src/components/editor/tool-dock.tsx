@@ -42,19 +42,23 @@ export function ToolDock() {
       <div className="text-xs font-medium text-muted-foreground mb-2">Input</div>
       
       {modes.map((mode) => (
-        <Tooltip key={mode.id}>
+        <Tooltip key={mode.id} delayDuration={300}>
           <TooltipTrigger asChild>
             <Button
               variant={inputMode === mode.id ? "default" : "ghost"}
               size="icon"
-              onClick={() => setInputMode(mode.id)}
+              onClick={() => {
+                console.log(`Switching to mode: ${mode.id}`);
+                setInputMode(mode.id);
+              }}
               data-testid={`button-mode-${mode.id}`}
-              className="w-10 h-10"
+              className="w-10 h-10 cursor-pointer"
+              style={{ pointerEvents: 'auto' }}
             >
               <mode.icon className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">
+          <TooltipContent side="right" sideOffset={5}>
             <p className="font-medium">{mode.label}</p>
             <p className="text-xs text-muted-foreground">{mode.description}</p>
           </TooltipContent>

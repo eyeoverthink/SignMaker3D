@@ -30,6 +30,11 @@ export default function CustomFontAlphabet() {
   const [wireHoleHeight, setWireHoleHeight] = useState(5);
   const [wireHoleSize, setWireHoleSize] = useState(5);
   const [enableFrictionLip, setEnableFrictionLip] = useState(true);
+  const [lidType, setLidType] = useState<"flat" | "domed">("flat");
+  const [domeHeight, setDomeHeight] = useState(10.0);
+  const [domeWallThickness, setDomeWallThickness] = useState(1.2);
+  const [domeBaseHeight, setDomeBaseHeight] = useState(2.0);
+  const [domeLayerResolution, setDomeLayerResolution] = useState(0.5);
   const [isGenerating, setIsGenerating] = useState(false);
   const [fontSource, setFontSource] = useState<"library" | "upload">("library");
 
@@ -113,6 +118,11 @@ export default function CustomFontAlphabet() {
         wireHoleHeight,
         wireHoleSize,
         enableFrictionLip,
+        lidType,
+        domeHeight,
+        domeWallThickness,
+        domeBaseHeight,
+        domeLayerResolution,
       };
 
       const response = await fetch("/api/export/custom-font-alphabet", {
@@ -362,6 +372,74 @@ export default function CustomFontAlphabet() {
                 Enable Friction Lip (for neon tubes)
               </Label>
             </div>
+
+            {/* Lid Type Selection */}
+            <div>
+              <Label>Lid Type</Label>
+              <Select value={lidType} onValueChange={(v) => setLidType(v as "flat" | "domed")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="flat">Flat Lid (Traditional 2mm)</SelectItem>
+                  <SelectItem value="domed">Domed Diffuser (Curved Shell)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dome Parameters (only show when domed is selected) */}
+            {lidType === "domed" && (
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg border-2 border-primary/20">
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-primary mb-2">🎂 Domed Diffuser Settings</p>
+                </div>
+                <div>
+                  <Label>Dome Height: {domeHeight}mm</Label>
+                  <Input
+                    type="number"
+                    min={5}
+                    max={20}
+                    step={0.5}
+                    value={domeHeight}
+                    onChange={(e) => setDomeHeight(parseFloat(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label>Wall Thickness: {domeWallThickness}mm</Label>
+                  <Input
+                    type="number"
+                    min={0.8}
+                    max={2.0}
+                    step={0.1}
+                    value={domeWallThickness}
+                    onChange={(e) => setDomeWallThickness(parseFloat(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label>Base Height: {domeBaseHeight}mm</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={5}
+                    step={0.5}
+                    value={domeBaseHeight}
+                    onChange={(e) => setDomeBaseHeight(parseFloat(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <Label>Layer Resolution: {domeLayerResolution}mm</Label>
+                  <Input
+                    type="number"
+                    min={0.2}
+                    max={1.0}
+                    step={0.1}
+                    value={domeLayerResolution}
+                    onChange={(e) => setDomeLayerResolution(parseFloat(e.target.value))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Lower = smoother curve</p>
+                </div>
+              </div>
+            )}
 
             <div className="p-4 bg-muted rounded-lg space-y-2">
               <p className="text-sm font-medium">What You'll Get:</p>

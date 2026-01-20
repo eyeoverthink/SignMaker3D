@@ -87,6 +87,12 @@ export const ledGridSettingsSchema = z.object({
   textContent: z.string().optional(),
   fontSize: z.number().min(5).max(32).optional(),
   
+  // Image content (for image mode)
+  imageData: z.string().optional(), // Base64 encoded image
+  imageProcessing: z.enum(["scott_trace", "edge_detect", "threshold", "dither"]).optional(),
+  brightnessThreshold: z.number().min(0).max(255).optional(),
+  invertImage: z.boolean().optional(),
+  
   // Mounting hardware
   includeMountingHoles: z.boolean(),
   mountingHoleDiameter: z.number().min(3).max(6),
@@ -233,7 +239,7 @@ export function generateWiringMap(settings: LEDGridSettings): Array<{ x: number;
   return map;
 }
 
-// Convert text to pixel grid (simple 5x7 font)
+// Convert text to pixel grid (simple 5x7 font with auto-scaling)
 export function textToPixelGrid(text: string, gridWidth: number, gridHeight: number): boolean[][] {
   const grid: boolean[][] = Array(gridHeight).fill(null).map(() => Array(gridWidth).fill(false));
   
@@ -279,28 +285,45 @@ export function textToPixelGrid(text: string, gridWidth: number, gridHeight: num
   };
   
   const upperText = text.toUpperCase();
+  
+  // Calculate required width (5 pixels per char + 1 pixel spacing)
+  const charWidth = 5;
+  const spacing = 1;
+  const requiredWidth = upperText.length * (charWidth + spacing) - spacing;
+  
+  // Calculate scale factor to fit text in grid
+  const scale = requiredWidth > gridWidth ? gridWidth / requiredWidth : 1;
+  const scaledCharWidth = Math.floor(charWidth * scale);
+  const scaledSpacing = Math.max(1, Math.floor(spacing * scale));
+  const scaledHeight = Math.min(7, gridHeight);
+  
   let xOffset = 0;
   
   for (const char of upperText) {
     const bitmap = font5x7[char];
     if (!bitmap) continue;
     
-    // Draw character
-    for (let col = 0; col < 5; col++) {
-      if (xOffset + col >= gridWidth) break;
+    // Draw character with scaling
+    for (let col = 0; col < charWidth; col++) {
+      const scaledCol = Math.floor(col * scale);
+      const gridX = xOffset + scaledCol;
+      
+      if (gridX >= gridWidth) break;
       
       const colData = bitmap[col];
       for (let row = 0; row < 7; row++) {
-        if (row >= gridHeight) break;
+        const scaledRow = Math.floor(row * scale);
+        
+        if (scaledRow >= gridHeight) break;
         
         const bit = (colData >> row) & 1;
         if (bit) {
-          grid[row][xOffset + col] = true;
+          grid[scaledRow][gridX] = true;
         }
       }
     }
     
-    xOffset += 6; // 5 pixels + 1 space
+    xOffset += scaledCharWidth + scaledSpacing;
     if (xOffset >= gridWidth) break;
   }
   

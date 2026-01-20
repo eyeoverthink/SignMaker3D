@@ -19,6 +19,11 @@ interface AlphabetFactoryConfig {
   wireHoleSize: number;
   enableFrictionLip: boolean;
   lipOverhang: number;
+  lidType: "flat" | "domed";
+  domeHeight: number;
+  domeWallThickness: number;
+  domeBaseHeight: number;
+  domeLayerResolution: number;
 }
 
 export interface GeneratedLetter {
@@ -45,6 +50,11 @@ export class AlphabetFactory {
       wireHoleSize: config.wireHoleSize || 5,
       enableFrictionLip: config.enableFrictionLip !== undefined ? config.enableFrictionLip : true,
       lipOverhang: config.lipOverhang || 0.4,
+      lidType: config.lidType || "flat",
+      domeHeight: config.domeHeight || 10.0,
+      domeWallThickness: config.domeWallThickness || 1.2,
+      domeBaseHeight: config.domeBaseHeight || 2.0,
+      domeLayerResolution: config.domeLayerResolution || 0.5,
     };
   }
 
@@ -87,6 +97,11 @@ export class AlphabetFactory {
       enablePowerHole: false, // No power hole for individual letters
       enableBackplate: false, // Individual letters don't need backplate
       backplateOffset: 0,
+      lidType: this.config.lidType,
+      domeHeight: this.config.domeHeight,
+      domeWallThickness: this.config.domeWallThickness,
+      domeBaseHeight: this.config.domeBaseHeight,
+      domeLayerResolution: this.config.domeLayerResolution,
     });
 
     return {

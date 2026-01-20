@@ -393,12 +393,13 @@ export function ScottProofDemo() {
                 <div className="grid grid-cols-2 gap-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-sm">Original Image</CardTitle>
+                      <CardTitle className="text-sm">Original Test Image</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex justify-center">
                       <canvas
                         ref={canvasRef}
-                        className="w-full border rounded"
+                        className="border rounded max-w-full h-auto"
+                        style={{ imageRendering: 'crisp-edges' }}
                       />
                     </CardContent>
                   </Card>
@@ -412,10 +413,11 @@ export function ScottProofDemo() {
                         )}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex justify-center">
                       <canvas
                         ref={previewRef}
-                        className="w-full border rounded bg-[#0f0f1a]"
+                        className="border rounded bg-[#0f0f1a] max-w-full h-auto"
+                        style={{ imageRendering: 'crisp-edges' }}
                       />
                     </CardContent>
                   </Card>

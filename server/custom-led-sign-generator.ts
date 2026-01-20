@@ -105,6 +105,11 @@ interface CustomLEDSignConfig {
   lidTolerance: number;   // Gap between lid and body (0.2mm)
   lidThickness: number;   // Thickness of diffuser lid (2mm)
   lipWidth: number;       // Width of shelf lid sits on (1.5mm default)
+  lidType: "flat" | "domed";  // Flat lid or curved dome
+  domeHeight: number;     // Total height of dome (10mm)
+  domeWallThickness: number;  // Shell wall thickness (1.2mm)
+  domeBaseHeight: number;     // Straight vertical base (2mm)
+  domeLayerResolution: number; // Layer height for smoothness (0.5mm)
   
   // Advanced features
   enableFrictionLip: boolean;  // Narrower top for neon retention
@@ -139,6 +144,11 @@ export class CustomLEDSignGenerator {
       lidTolerance: config.lidTolerance || 0.2,
       lidThickness: config.lidThickness || 2,
       lipWidth: config.lipWidth || 1.5,
+      lidType: config.lidType || "flat",
+      domeHeight: config.domeHeight || 10.0,
+      domeWallThickness: config.domeWallThickness || 1.2,
+      domeBaseHeight: config.domeBaseHeight || 2.0,
+      domeLayerResolution: config.domeLayerResolution || 0.5,
       enableFrictionLip: config.enableFrictionLip !== undefined ? config.enableFrictionLip : this.needsFrictionLip(ledType),
       lipOverhang: config.lipOverhang || 0.4,
       wirePassThrough: config.wirePassThrough || "none",
@@ -814,8 +824,19 @@ Estimated Power (depends on LED count and brightness):
 
   /**
    * Generate lid/diffuser STL
+   * Routes to flat or domed based on config
    */
   generateLidSTL(): string {
+    if (this.config.lidType === "domed") {
+      return this.generateDomedDiffuserSTL();
+    }
+    return this.generateFlatLidSTL();
+  }
+
+  /**
+   * Generate flat lid STL (traditional design)
+   */
+  private generateFlatLidSTL(): string {
     const c = this.config;
     const textPath = this.getTextPath();
     const baseContours = this.pathToContours(textPath);
@@ -833,5 +854,107 @@ Estimated Power (depends on LED count and brightness):
     triangles.push(...this.extrudeContours(lidContours, c.lidThickness, 0));
     
     return this.trianglesToSTL(triangles, "CustomLEDSign_Lid");
+  }
+
+  /**
+   * Generate domed diffuser STL (curved hollow shell)
+   * Based on MakeMesh Python implementation
+   */
+  generateDomedDiffuserSTL(): string {
+    const c = this.config;
+    const textPath = this.getTextPath();
+    const baseContours = this.pathToContours(textPath);
+    
+    const triangles: Triangle[] = [];
+    
+    // Dome configuration from config
+    const totalHeight = c.domeHeight;
+    const wallThickness = c.domeWallThickness;
+    const baseHeight = c.domeBaseHeight;
+    const layerResolution = c.domeLayerResolution;
+    const domeHeight = totalHeight - baseHeight;
+    
+    // Outer shape (visible surface)
+    const outerOffset = (c.neonWidth / 2) + c.lipWidth - c.lidTolerance;
+    
+    for (const contour of baseContours) {
+      const outerContour = this.offsetContour(contour, outerOffset);
+      const innerContour = this.offsetContour(contour, outerOffset - wallThickness);
+      
+      // Generate layered dome
+      const domeLayers = this.generateDomeLayers(
+        outerContour,
+        innerContour,
+        totalHeight,
+        baseHeight,
+        domeHeight,
+        layerResolution,
+        wallThickness
+      );
+      
+      triangles.push(...domeLayers);
+    }
+    
+    return this.trianglesToSTL(triangles, "CustomLEDSign_DomedDiffuser");
+  }
+
+  /**
+   * Generate layered dome structure
+   * Creates hollow shell with curved top using stacked layers
+   */
+  private generateDomeLayers(
+    outerContour: number[][],
+    innerContour: number[][],
+    totalHeight: number,
+    baseHeight: number,
+    domeHeight: number,
+    layerResolution: number,
+    wallThickness: number
+  ): Triangle[] {
+    const triangles: Triangle[] = [];
+    const steps = Math.floor(domeHeight / layerResolution);
+    let currentZ = 0;
+    
+    // Step A: Vertical base (straight walls)
+    const baseRim = this.createRimContour(outerContour, innerContour);
+    triangles.push(...this.extrudeContours([baseRim], baseHeight, 0));
+    currentZ += baseHeight;
+    
+    // Step B: Domed layers (curved top)
+    for (let i = 0; i < steps; i++) {
+      const progress = i / steps;
+      
+      // Parabolic curve for dome shape
+      const shrinkAmount = Math.pow(progress, 2) * (totalHeight * 0.4);
+      
+      // Shrink both outer and inner contours
+      const layerOuter = this.offsetContour(outerContour, -shrinkAmount);
+      const layerInner = this.offsetContour(innerContour, -shrinkAmount);
+      
+      // Create rim for this layer
+      const layerRim = this.createRimContour(layerOuter, layerInner);
+      
+      // Extrude thin slice
+      triangles.push(...this.extrudeContours([layerRim], layerResolution, currentZ));
+      currentZ += layerResolution;
+    }
+    
+    return triangles;
+  }
+
+  /**
+   * Create rim contour (outer - inner) for hollow shell
+   */
+  private createRimContour(outer: number[][], inner: number[][]): number[][] {
+    // Combine outer and inner contours to create a ring
+    // Outer goes clockwise, inner goes counter-clockwise (reversed)
+    const rim: number[][] = [...outer];
+    
+    // Add inner contour in reverse to create hole
+    for (let i = inner.length - 1; i >= 0; i--) {
+      rim.push(inner[i]);
+    }
+    
+    return rim;
   }
 }
