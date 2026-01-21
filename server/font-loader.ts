@@ -1,6 +1,7 @@
 import * as opentype from 'opentype.js';
 import * as path from 'path';
 import * as fs from 'fs';
+import { simplifyPathArrayFormat } from '../shared/phi-enhanced-geometry';
 
 interface StrokePath {
   points: number[][];
@@ -193,29 +194,11 @@ function calculateSignedArea(points: number[][]): number {
   return area / 2;
 }
 
-function simplifyPath(points: number[][], tolerance: number): number[][] {
+function simplifyPath(points: number[][], tolerance: number, usePhiEnhancement: boolean = true): number[][] {
   if (points.length <= 2) return points;
   
-  let maxDist = 0;
-  let maxIndex = 0;
-  const start = points[0];
-  const end = points[points.length - 1];
-  
-  for (let i = 1; i < points.length - 1; i++) {
-    const dist = pointToLineDistance(points[i], start, end);
-    if (dist > maxDist) {
-      maxDist = dist;
-      maxIndex = i;
-    }
-  }
-  
-  if (maxDist > tolerance) {
-    const left = simplifyPath(points.slice(0, maxIndex + 1), tolerance);
-    const right = simplifyPath(points.slice(maxIndex), tolerance);
-    return [...left.slice(0, -1), ...right];
-  }
-  
-  return [start, end];
+  // Use phi-enhanced simplification for better natural curve preservation
+  return simplifyPathArrayFormat(points, tolerance, usePhiEnhancement);
 }
 
 function pointToLineDistance(point: number[], lineStart: number[], lineEnd: number[]): number {

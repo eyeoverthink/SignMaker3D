@@ -6,6 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Upload, Wand2, Image as ImageIcon, X, Check } from "lucide-react";
 import type { SketchPath } from "@shared/schema";
+import { 
+  simplifyPathPhi, 
+  simplifyPathStandard,
+  calculateFibonacciThreshold,
+  arrayToObjectPoints,
+  objectToArrayPoints 
+} from "@shared/phi-enhanced-geometry";
 
 export function ImageTracer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,6 +22,7 @@ export function ImageTracer() {
   const [threshold, setThreshold] = useState(128);
   const [simplify, setSimplify] = useState(2);
   const [useSkeletonization, setUseSkeletonization] = useState(true);
+  const [usePhiEnhancement, setUsePhiEnhancement] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pathsApplied, setPathsApplied] = useState(false);
 
@@ -106,7 +114,7 @@ export function ImageTracer() {
         }
         
         // Find outer boundaries only (ignore internal holes)
-        contours = extractOuterBoundaries(binary, width, height, simplify);
+        contours = extractOuterBoundaries(binary, width, height, simplify, usePhiEnhancement);
         
         // Visualize boundaries
         for (let i = 0; i < width * height; i++) {
@@ -163,7 +171,7 @@ export function ImageTracer() {
     };
 
     img.src = uploadedImageData;
-  }, [uploadedImageData, threshold, simplify, useSkeletonization, setTracedPaths]);
+  }, [uploadedImageData, threshold, simplify, useSkeletonization, usePhiEnhancement, setTracedPaths]);
 
   const applyTracedPaths = useCallback(() => {
     const { tracedPaths, setSketchPaths } = useEditorStore.getState();
@@ -252,6 +260,22 @@ export function ImageTracer() {
             checked={useSkeletonization}
             onCheckedChange={setUseSkeletonization}
             data-testid="switch-skeletonization"
+          />
+        </div>
+
+        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg border border-amber-500/20">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <span className="text-amber-500">φ</span> Phi-Enhanced Tracing
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Use golden ratio mathematics for natural curves
+            </p>
+          </div>
+          <Switch
+            checked={usePhiEnhancement}
+            onCheckedChange={setUsePhiEnhancement}
+            data-testid="switch-phi-enhancement"
           />
         </div>
 
@@ -356,7 +380,8 @@ function extractOuterBoundaries(
   binary: Uint8Array,
   width: number,
   height: number,
-  simplify: number
+  simplify: number,
+  usePhiEnhancement: boolean = false
 ): { x: number; y: number }[][] {
   const contours: { x: number; y: number }[][] = [];
   const visited = new Uint8Array(width * height);
@@ -440,8 +465,8 @@ function extractOuterBoundaries(
       if (steps > 2 && x === startX && y === startY) break;
     } while (steps < maxSteps);
     
-    // Simplify using Douglas-Peucker
-    return simplifyPath(boundary, simplify);
+    // Simplify using Douglas-Peucker (phi-enhancement handled by parent scope)
+    return boundary; // Return unsimplified, will be simplified later with phi option
   };
   
   // Find and trace all outer boundaries
@@ -450,7 +475,9 @@ function extractOuterBoundaries(
     const boundary = traceOuterBoundary(start[0], start[1]);
     // Accept smaller contours to capture details like dots and small shapes
     if (boundary.length >= 2) {
-      contours.push(boundary);
+      // Simplify with phi-enhancement option
+      const simplified = simplifyPath(boundary, simplify, usePhiEnhancement);
+      contours.push(simplified);
     }
     start = findOuterStart();
   }
@@ -562,8 +589,8 @@ function extractContours(
     
     // Only keep contours with enough points
     if (contour.length >= 4) {
-      // Simplify using Douglas-Peucker if needed
-      const simplified = simplifyPath(contour, simplify * 0.5);
+      // Simplify using Douglas-Peucker if needed (phi-enhancement not used here as this is legacy code path)
+      const simplified = simplifyPath(contour, simplify * 0.5, false);
       if (simplified.length >= 3) {
         contours.push(simplified);
       }
@@ -575,32 +602,18 @@ function extractContours(
   return contours;
 }
 
-// Douglas-Peucker path simplification algorithm
-function simplifyPath(points: { x: number; y: number }[], tolerance: number): { x: number; y: number }[] {
+// Path simplification wrapper - uses phi-enhanced or standard based on settings
+function simplifyPath(
+  points: { x: number; y: number }[], 
+  tolerance: number,
+  usePhiEnhancement: boolean = false
+): { x: number; y: number }[] {
   if (points.length <= 2) return points;
   
-  // Find point with maximum distance from line between first and last
-  let maxDist = 0;
-  let maxIndex = 0;
-  const first = points[0];
-  const last = points[points.length - 1];
-  
-  for (let i = 1; i < points.length - 1; i++) {
-    const dist = perpendicularDistance(points[i], first, last);
-    if (dist > maxDist) {
-      maxDist = dist;
-      maxIndex = i;
-    }
-  }
-  
-  // If max distance is greater than tolerance, recursively simplify
-  if (maxDist > tolerance) {
-    const left = simplifyPath(points.slice(0, maxIndex + 1), tolerance);
-    const right = simplifyPath(points.slice(maxIndex), tolerance);
-    return [...left.slice(0, -1), ...right];
-  } else {
-    return [first, last];
-  }
+  // Use phi-enhanced or standard simplification
+  return usePhiEnhancement 
+    ? simplifyPathPhi(points, tolerance, true)
+    : simplifyPathStandard(points, tolerance);
 }
 
 // Calculate perpendicular distance from point to line
