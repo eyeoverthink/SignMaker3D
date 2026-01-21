@@ -103,6 +103,93 @@ export async function registerRoutes(
     fs.createReadStream(filePath).pipe(res);
   });
 
+  // Get available fonts from FONTS folder for custom alphabet generation
+  app.get("/api/fonts/available", (_req, res) => {
+    try {
+      const fontsDir = path.join(process.cwd(), "FONTS");
+      const availableFonts: any[] = [];
+
+      // Commercial fonts (safe for commercial use)
+      const commercialFonts = [
+        "Inter", "Lora", "Merriweather", "Montserrat", "OpenSans", "Outfit",
+        "Oxanium", "PlayfairDisplay", "Poppins", "Roboto", "SpaceGrotesk", "ArchitectsDaughter"
+      ];
+
+      // Scan FONTS directory for .ttf and .otf files
+      if (fs.existsSync(fontsDir)) {
+        const files = fs.readdirSync(fontsDir);
+        
+        files.forEach(file => {
+          if (file.endsWith('.ttf') || file.endsWith('.otf')) {
+            const fontName = file.replace(/\.(ttf|otf)$/i, '');
+            const cleanName = fontName
+              .replace(/[-_]/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+            
+            // Determine category
+            let category = "Personal Use Only";
+            const normalizedName = fontName.toLowerCase().replace(/[-_\s]/g, '');
+            
+            if (commercialFonts.some(cf => normalizedName.includes(cf.toLowerCase().replace(/[-_\s]/g, '')))) {
+              category = "Commercial Use";
+            }
+
+            availableFonts.push({
+              id: fontName,
+              name: cleanName,
+              filename: file,
+              path: path.join(fontsDir, file),
+              category: category
+            });
+          }
+        });
+      }
+
+      // Sort: Commercial fonts first, then alphabetically
+      availableFonts.sort((a, b) => {
+        if (a.category !== b.category) {
+          return a.category === "Commercial Use" ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      res.json(availableFonts);
+    } catch (error) {
+      console.error("Error scanning fonts:", error);
+      res.status(500).json({ error: "Failed to load fonts" });
+    }
+  });
+
+  // Serve custom font files for preview
+  app.get("/api/fonts/custom/:filename", (req, res) => {
+    try {
+      const filename = decodeURIComponent(req.params.filename);
+      const fontsDir = path.join(process.cwd(), "FONTS");
+      const fontPath = path.join(fontsDir, filename);
+
+      // Security check: ensure file is within FONTS directory
+      if (!fontPath.startsWith(fontsDir)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!fs.existsSync(fontPath)) {
+        return res.status(404).json({ error: "Font file not found" });
+      }
+
+      // Set appropriate content type
+      const ext = path.extname(filename).toLowerCase();
+      const contentType = ext === '.otf' ? 'font/otf' : 'font/ttf';
+      
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=31536000"); // Cache for 1 year
+      fs.createReadStream(fontPath).pipe(res);
+    } catch (error) {
+      console.error("Error serving font file:", error);
+      res.status(500).json({ error: "Failed to serve font file" });
+    }
+  });
+
   app.get("/api/templates", (_req, res) => {
     res.json(baseTemplates);
   });
@@ -1349,12 +1436,136 @@ export async function registerRoutes(
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename="relief_${validatedSettings.reliefStyle}_${Date.now()}.zip"`);
       res.send(zipBuffer);
-      
-      console.log('[Relief Export] Successfully sent relief model');
     } catch (error) {
       console.error("Relief export error:", error);
       res.status(500).json({ 
         error: "Failed to generate relief STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Phrase Sign export endpoint - Welded letters with borders
+  app.post("/api/export/phrase-sign", async (req, res) => {
+    try {
+      const settings = req.body;
+      
+      if (!settings.fontId || !settings.text) {
+        return res.status(400).json({ error: "Font and text required" });
+      }
+
+      // Get font path from fontId
+      const fontsDir = path.join(process.cwd(), "FONTS");
+      const fontFiles = fs.readdirSync(fontsDir);
+      const fontFile = fontFiles.find(f => f.replace(/\.(ttf|otf)$/i, '') === settings.fontId);
+      
+      if (!fontFile) {
+        return res.status(404).json({ error: "Font not found" });
+      }
+
+      const fontPath = path.join(fontsDir, fontFile);
+      
+      console.log(`[Phrase Sign] Generating "${settings.text}" with ${settings.weldingMode} welding`);
+      
+      const { generatePhraseSign } = await import("./phrase-sign-generator");
+      const result = await generatePhraseSign({
+        ...settings,
+        fontPath,
+      });
+
+      // Create ZIP archive
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      // Add STL files
+      zip.file(`${settings.text.replace(/\s+/g, '_')}_Body.${settings.exportFormat}`, result.bodySTL);
+      zip.file(`${settings.text.replace(/\s+/g, '_')}_Lid.${settings.exportFormat}`, result.lidSTL);
+      
+      if (result.borderSTL) {
+        zip.file(`${settings.text.replace(/\s+/g, '_')}_Border.${settings.exportFormat}`, result.borderSTL);
+      }
+
+      // Add assembly instructions
+      zip.file("ASSEMBLY_INSTRUCTIONS.md", result.assemblyInstructions);
+
+      // Add OpenSCAD if requested
+      if (settings.includeOpenSCAD && result.openscad) {
+        zip.file(`${settings.text.replace(/\s+/g, '_')}.scad`, result.openscad);
+      }
+
+      const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="phrase_sign_${settings.text.replace(/\s+/g, '_')}_${Date.now()}.zip"`);
+      res.send(zipBuffer);
+      
+      console.log('[Phrase Sign] Successfully sent phrase sign');
+    } catch (error) {
+      console.error("Phrase sign export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate phrase sign",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Shadow Box export endpoint - Backlit layered art frames
+  app.post("/api/export/shadow-box", async (req, res) => {
+    try {
+      const settings = req.body;
+      
+      if (!settings.layers || settings.layers.length === 0) {
+        return res.status(400).json({ error: "At least one layer required" });
+      }
+
+      console.log(`[Shadow Box] Generating ${settings.width}x${settings.height}mm frame with ${settings.layers.length} layers`);
+      
+      const { generateShadowBox } = await import("./shadow-box-generator");
+      const result = await generateShadowBox(settings);
+
+      // Create ZIP archive
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      // Add frame STL
+      zip.file(`ShadowBox_Frame_${settings.width}x${settings.height}.${settings.exportFormat}`, result.frameSTL);
+
+      // Add layer STLs
+      result.layerSTLs.forEach((layerSTL, index) => {
+        zip.file(`ShadowBox_Layer${index + 1}.${settings.exportFormat}`, layerSTL);
+      });
+
+      // Add diffuser
+      zip.file(`ShadowBox_Diffuser.${settings.exportFormat}`, result.diffuserSTL);
+
+      // Add optional components
+      if (result.backPanelSTL) {
+        zip.file(`ShadowBox_BackPanel.${settings.exportFormat}`, result.backPanelSTL);
+      }
+
+      if (result.standBaseSTL) {
+        zip.file(`ShadowBox_StandBase.${settings.exportFormat}`, result.standBaseSTL);
+      }
+
+      // Add assembly instructions
+      zip.file("ASSEMBLY_INSTRUCTIONS.md", result.assemblyInstructions);
+
+      // Add OpenSCAD if requested
+      if (settings.includeOpenSCAD && result.openscad) {
+        zip.file(`ShadowBox_${settings.width}x${settings.height}.scad`, result.openscad);
+      }
+
+      const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="shadow_box_${settings.width}x${settings.height}_${Date.now()}.zip"`);
+      res.send(zipBuffer);
+      
+      console.log('[Shadow Box] Successfully sent shadow box');
+    } catch (error) {
+      console.error("Shadow box export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate shadow box",
         details: error instanceof Error ? error.message : String(error)
       });
     }
@@ -1385,6 +1596,28 @@ export async function registerRoutes(
       console.error("Lithophane export error:", error);
       res.status(500).json({ 
         error: "Failed to generate lithophane STL",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Light Panel export endpoint
+  app.post("/api/export/light-panel", async (req, res) => {
+    try {
+      const { generateLightPanelSTL } = await import("./light-panel-generator");
+      const settings = req.body;
+      
+      const stl = generateLightPanelSTL(settings);
+      
+      const filename = `FRAYMUS_${settings.pattern}_Panel_${Date.now()}.stl`;
+      
+      res.setHeader("Content-Type", "application/sla");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(stl);
+    } catch (error) {
+      console.error("Light panel generation error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate light panel",
         details: error instanceof Error ? error.message : String(error)
       });
     }

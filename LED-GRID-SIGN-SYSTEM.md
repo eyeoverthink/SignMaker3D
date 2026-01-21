@@ -196,11 +196,11 @@ Grid: Automatically positioned and scaled
 
 **Example: Letter 'A' (5×7 pixels)**
 ```
-  █ █ █ █ █ █
+  █ █ █ 
 █       █
 █       █
 █       █
-█ █ █ █ █ █ █
+█ █ █ █ █ 
 █       █
 █       █
 ```
@@ -371,11 +371,11 @@ POST /api/export/led-grid
 ```
 Grid Layout (8 columns × 7 rows):
 
-█ █ █   █ █ █   █       █       ███
+█   █   █ █ █   █       █        ██
 █   █   █       █       █       █  █
 █ █ █   █ █     █       █       █  █
 █   █   █       █       █       █  █
-█   █   █ █ █   █ █ █   █ █ █   ███
+█   █   █ █ █   █ █ █   █ █ █    ██
 
 LED Indices (Serpentine):
 0  1  2  3  4  5  6  7

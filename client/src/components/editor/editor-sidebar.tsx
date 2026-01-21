@@ -1,7 +1,19 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Type, Layers, Cable, CircleDot, Settings2, Download, Cylinder, Pencil } from "lucide-react";
+import {
+  Type,
+  Layers,
+  Cable,
+  CircleDot,
+  Settings2,
+  Download,
+  Cylinder,
+  Pencil,
+  Sparkles,
+  FileText,
+  Wand2,
+} from "lucide-react";
 import { TextControls } from "./text-controls";
 import { GeometryControls } from "./geometry-controls";
 import { WiringControls } from "./wiring-controls";
@@ -10,6 +22,10 @@ import { ViewControls } from "./view-controls";
 import { ExportPanel } from "./export-panel";
 import { TubeControls } from "./tube-controls";
 import { SketchControls } from "./sketch-controls";
+import { LightPanelControls } from "./light-panel-controls";
+import { CustomFontAlphabetControls } from "./custom-font-alphabet-controls";
+import { PhraseDesigner } from "./phrase-designer";
+import { ShadowBoxDesigner } from "./shadow-box-designer";
 import { useEditorStore } from "@/lib/editor-store";
 
 export function EditorSidebar() {
@@ -26,7 +42,7 @@ export function EditorSidebar() {
       </div>
 
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-8' : 'grid-cols-6'}`}>
+        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-12' : 'grid-cols-10'}`}>
           <TabsTrigger
             value="text"
             className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
@@ -75,6 +91,38 @@ export function EditorSidebar() {
             <Download className="h-3.5 w-3.5" />
             <span className="text-[9px]">Export</span>
           </TabsTrigger>
+          <TabsTrigger
+            value="lightpanel"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-lightpanel"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Panel</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="customfont"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-customfont"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Font</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="phrase"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-phrase"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Phrase</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="shadowbox"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-shadowbox"
+          >
+            <Box className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Shadow</span>
+          </TabsTrigger>
           {isOutlineMode && (
             <>
               <TabsTrigger
@@ -121,6 +169,22 @@ export function EditorSidebar() {
 
             <TabsContent value="export" className="mt-0">
               <ExportPanel />
+            </TabsContent>
+
+            <TabsContent value="lightpanel" className="mt-0">
+              <LightPanelControls />
+            </TabsContent>
+
+            <TabsContent value="customfont" className="mt-0">
+              <CustomFontAlphabetControls />
+            </TabsContent>
+
+            <TabsContent value="phrase" className="mt-0">
+              <PhraseDesigner />
+            </TabsContent>
+
+            <TabsContent value="shadowbox" className="mt-0">
+              <ShadowBoxDesigner />
             </TabsContent>
 
             {isOutlineMode && (
