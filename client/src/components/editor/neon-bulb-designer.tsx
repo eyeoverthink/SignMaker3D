@@ -24,8 +24,14 @@ import { Lightbulb, Download, Zap } from "lucide-react";
 
 const FILAMENT_TYPES = ["text", "shape", "custom"] as const;
 const FILAMENT_SHAPES = ["heart", "star", "wine_glass", "cursive_h", "lightning", "infinity"] as const;
-const ENVELOPE_TYPES = ["standard_a19", "globe_g25", "edison_st64", "bottle_adapter"] as const;
-const BASE_TYPES = ["e26", "e27"] as const;
+const ENVELOPE_TYPES = ["standard_a19", "globe_g25", "edison_st64", "bottle_adapter", "fairy_light"] as const;
+const BASE_TYPES = ["e26", "e27", "fairy_light"] as const;
+const SHAPE_PRESETS = [
+  { name: "Round (Default)", shape: 1.7 },
+  { name: "Diamond", shape: 0.7 },
+  { name: "Balanced", shape: 1.0 },
+  { name: "Flame", shape: 0.9 },
+] as const;
 const BATTERY_TYPES = ["cr2032_stack", "touch_motherboard"] as const;
 const SWITCH_TYPES = ["twist_base", "coin_slot", "touch_sensor", "none"] as const;
 const SUPPORT_STYLES = ["center_post", "wire_clips", "mounting_posts", "suspended"] as const;
@@ -43,10 +49,15 @@ interface NeonBulbSettings {
   envelopeHeight: number;
   wallThickness: number;
   diffuserStyle: typeof DIFFUSER_STYLES[number];
+  bulbShape: number;
+  facetCount: number;
+  tipDiameter: number;
   
   baseType: typeof BASE_TYPES[number];
+  baseDiameter: number;
   baseHeight: number;
   includeBatteryCompartment: boolean;
+  includeInternalRidge: boolean;
   batteryType: typeof BATTERY_TYPES[number];
   batteryCount: number;
   
@@ -74,12 +85,17 @@ const defaultSettings: NeonBulbSettings = {
   envelopeType: "standard_a19",
   envelopeDiameter: 60,
   envelopeHeight: 110,
-  wallThickness: 1.5,
+  wallThickness: 0.4,
   diffuserStyle: "clear",
+  bulbShape: 1.7,
+  facetCount: 100,
+  tipDiameter: 5,
   
   baseType: "e26",
+  baseDiameter: 26.05,
   baseHeight: 30,
   includeBatteryCompartment: true,
+  includeInternalRidge: true,
   batteryType: "cr2032_stack",
   batteryCount: 3,
   
@@ -262,6 +278,7 @@ export default function NeonBulbDesigner() {
                 <SelectItem value="globe_g25">Globe G25</SelectItem>
                 <SelectItem value="edison_st64">Edison ST64</SelectItem>
                 <SelectItem value="bottle_adapter">Bottle Adapter</SelectItem>
+                <SelectItem value="fairy_light">Fairy Light Cap</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -283,6 +300,63 @@ export default function NeonBulbDesigner() {
                 <SelectItem value="tinted">Tinted</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label>Shape Preset</Label>
+            <Select
+              value={SHAPE_PRESETS.find(p => p.shape === settings.bulbShape)?.name || "Custom"}
+              onValueChange={(value) => {
+                const preset = SHAPE_PRESETS.find(p => p.name === value);
+                if (preset) updateSettings({ bulbShape: preset.shape });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Round (Default)">Round (Default)</SelectItem>
+                <SelectItem value="Diamond">Diamond</SelectItem>
+                <SelectItem value="Balanced">Balanced</SelectItem>
+                <SelectItem value="Flame">Flame</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Bulb Shape: {settings.bulbShape.toFixed(1)} ({settings.bulbShape < 1.0 ? 'Diamond' : settings.bulbShape > 1.5 ? 'Round' : 'Balanced'})</Label>
+            <Slider
+              value={[settings.bulbShape * 10]}
+              onValueChange={([v]) => updateSettings({ bulbShape: v / 10 })}
+              min={7}
+              max={17}
+              step={1}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Label>Facets: {settings.facetCount} ({settings.facetCount <= 6 ? 'Hexagonal' : settings.facetCount <= 32 ? 'Faceted' : 'Smooth'})</Label>
+            <Slider
+              value={[settings.facetCount]}
+              onValueChange={([v]) => updateSettings({ facetCount: v })}
+              min={6}
+              max={100}
+              step={1}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Label>Wall Thickness: {settings.wallThickness}mm ({settings.wallThickness === 0.4 ? 'Fast Print' : 'Strong'})</Label>
+            <Slider
+              value={[settings.wallThickness * 10]}
+              onValueChange={([v]) => updateSettings({ wallThickness: v / 10 })}
+              min={4}
+              max={20}
+              step={2}
+              className="mt-2"
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -312,8 +386,17 @@ export default function NeonBulbDesigner() {
               <SelectContent>
                 <SelectItem value="e26">E26 (US Standard)</SelectItem>
                 <SelectItem value="e27">E27 (EU Standard)</SelectItem>
+                <SelectItem value="fairy_light">Fairy Light (9.8mm)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label>Internal Snap-Fit Ridge</Label>
+            <Switch
+              checked={settings.includeInternalRidge}
+              onCheckedChange={(v) => updateSettings({ includeInternalRidge: v })}
+            />
           </div>
 
           <div className="flex items-center justify-between">

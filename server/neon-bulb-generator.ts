@@ -34,16 +34,21 @@ export interface NeonBulbSettings {
   filamentWidth: number; // mm
   
   // Bulb Envelope
-  envelopeType: "standard_a19" | "globe_g25" | "edison_st64" | "bottle_adapter" | "custom";
-  envelopeDiameter: number; // mm
+  envelopeType: "standard_a19" | "globe_g25" | "edison_st64" | "bottle_adapter" | "fairy_light" | "custom";
+  envelopeDiameter: number; // mm (lampsize in OpenSCAD)
   envelopeHeight: number; // mm
-  wallThickness: number; // mm
+  wallThickness: number; // mm (0.4mm = single nozzle width for fast printing)
   diffuserStyle: "clear" | "frosted" | "tinted";
+  bulbShape: number; // 0.7-1.7 (0.7=diamond, 1.0=balanced, 1.7=round base)
+  facetCount: number; // 6=hexagonal, 32=smooth, 100=round
+  tipDiameter: number; // mm (diameter of bulb tip)
   
   // Screw Base
-  baseType: "e26" | "e27"; // US vs EU standard
-  baseHeight: number; // mm
+  baseType: "e26" | "e27" | "fairy_light"; // US vs EU standard, or fairy light string
+  baseDiameter: number; // mm (outside diameter, 9.8mm for fairy lights)
+  baseHeight: number; // mm (baselip in OpenSCAD)
   includeBatteryCompartment: boolean;
+  includeInternalRidge: boolean; // Snap-fit retention ridge
   batteryType: "cr2032_stack" | "aa_holder" | "touch_motherboard";
   batteryCount: number; // for CR2032 stacks
   
@@ -78,12 +83,17 @@ export const defaultNeonBulbSettings: NeonBulbSettings = {
   envelopeType: "standard_a19",
   envelopeDiameter: 60,
   envelopeHeight: 110,
-  wallThickness: 1.5,
+  wallThickness: 0.4, // Single nozzle width for fast printing
   diffuserStyle: "clear",
+  bulbShape: 1.7, // Round base (0.7=diamond, 1.7=round)
+  facetCount: 100, // Smooth sphere
+  tipDiameter: 5, // Small tip
   
   baseType: "e26",
+  baseDiameter: 26.05, // E26 standard
   baseHeight: 30,
   includeBatteryCompartment: true,
+  includeInternalRidge: true, // Snap-fit retention
   batteryType: "cr2032_stack",
   batteryCount: 3,
   

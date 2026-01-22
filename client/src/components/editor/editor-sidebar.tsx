@@ -15,6 +15,9 @@ import {
   Wand2,
   Box,
   Zap,
+  Lightbulb,
+  Film,
+  Image,
 } from "lucide-react";
 import { TextControls } from "./text-controls";
 import { GeometryControls } from "./geometry-controls";
@@ -29,6 +32,10 @@ import { CustomFontAlphabetControls } from "./custom-font-alphabet-controls";
 import { PhraseDesigner } from "./phrase-designer";
 import { AdvancedLightBoxDesigner } from "./advanced-light-box-designer";
 import { NeonStandDesigner } from "./neon-stand-designer";
+import NeonBulbDesigner from "./neon-bulb-designer";
+import HolographicPanelDesigner from "./holographic-panel-designer";
+import AnimationSequenceDesigner from "./animation-sequence-designer";
+import SilhouetteLightBoxDesigner from "./silhouette-lightbox-designer";
 import { useEditorStore } from "@/lib/editor-store";
 
 export function EditorSidebar() {
@@ -45,7 +52,7 @@ export function EditorSidebar() {
       </div>
 
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-13' : 'grid-cols-11'}`}>
+        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-17' : 'grid-cols-15'}`}>
           <TabsTrigger
             value="text"
             className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
@@ -134,6 +141,38 @@ export function EditorSidebar() {
             <Zap className="h-3.5 w-3.5" />
             <span className="text-[9px]">Stand</span>
           </TabsTrigger>
+          <TabsTrigger
+            value="neonbulb"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-neonbulb"
+          >
+            <Lightbulb className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Bulb</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="holographic"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-holographic"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Holo</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="animation"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-animation"
+          >
+            <Film className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Anim</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="silhouette"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-silhouette"
+          >
+            <Image className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Silh</span>
+          </TabsTrigger>
           {isOutlineMode && (
             <>
               <TabsTrigger
@@ -200,6 +239,22 @@ export function EditorSidebar() {
 
             <TabsContent value="neonstand" className="mt-0">
               <NeonStandDesigner />
+            </TabsContent>
+
+            <TabsContent value="neonbulb" className="mt-0">
+              <NeonBulbDesigner />
+            </TabsContent>
+
+            <TabsContent value="holographic" className="mt-0">
+              <HolographicPanelDesigner />
+            </TabsContent>
+
+            <TabsContent value="animation" className="mt-0">
+              <AnimationSequenceDesigner />
+            </TabsContent>
+
+            <TabsContent value="silhouette" className="mt-0">
+              <SilhouetteLightBoxDesigner />
             </TabsContent>
 
             {isOutlineMode && (
