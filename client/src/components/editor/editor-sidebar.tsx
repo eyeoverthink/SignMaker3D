@@ -90,11 +90,12 @@ export function EditorSidebar() {
         <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-10' : 'grid-cols-10'}`} style={{gridTemplateColumns: 'repeat(auto-fit, minmax(50px, 1fr))'}}>
           <TabsTrigger
             value="text"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-text"
           >
             <Type className="h-3.5 w-3.5" />
             <span className="text-[9px]">Text</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="geometry"
@@ -130,83 +131,93 @@ export function EditorSidebar() {
           </TabsTrigger>
           <TabsTrigger
             value="export"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-export"
           >
             <Download className="h-3.5 w-3.5" />
             <span className="text-[9px]">Export</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="lightpanel"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-lightpanel"
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span className="text-[9px]">Panel</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="customfont"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-customfont"
           >
             <FileText className="h-3.5 w-3.5" />
             <span className="text-[9px]">Font</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="phrase"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-phrase"
           >
             <Wand2 className="h-3.5 w-3.5" />
             <span className="text-[9px]">Phrase</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="shadowbox"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-shadowbox"
           >
             <Box className="h-3.5 w-3.5" />
             <span className="text-[9px]">Shadow</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="neonstand"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-neonstand"
           >
             <Zap className="h-3.5 w-3.5" />
             <span className="text-[9px]">Stand</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="neonbulb"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-neonbulb"
           >
             <Lightbulb className="h-3.5 w-3.5" />
             <span className="text-[9px]">Bulb</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="holographic"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-holographic"
           >
             <Layers className="h-3.5 w-3.5" />
             <span className="text-[9px]">Holo</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="animation"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-animation"
           >
             <Film className="h-3.5 w-3.5" />
             <span className="text-[9px]">Anim</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="silhouette"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-silhouette"
           >
             <Image className="h-3.5 w-3.5" />
             <span className="text-[9px]">Silh</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="deepfake"
@@ -234,19 +245,21 @@ export function EditorSidebar() {
           </TabsTrigger>
           <TabsTrigger
             value="relief"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-relief"
           >
             <Mountain className="h-3.5 w-3.5" />
             <span className="text-[9px]">Relief</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="cloak"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-cloak"
           >
             <Eye className="h-3.5 w-3.5" />
             <span className="text-[9px]">Cloak</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="recognize"
@@ -274,101 +287,113 @@ export function EditorSidebar() {
           </TabsTrigger>
           <TabsTrigger
             value="ledgrid"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-ledgrid"
           >
             <Grid3x3 className="h-3.5 w-3.5" />
             <span className="text-[9px]">Grid</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="litho"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-litho"
           >
             <ImageIcon className="h-3.5 w-3.5" />
             <span className="text-[9px]">Litho</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="animlitho"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-animlitho"
           >
             <Film className="h-3.5 w-3.5" />
             <span className="text-[9px]">ALith</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="eggison"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-eggison"
           >
             <Egg className="h-3.5 w-3.5" />
             <span className="text-[9px]">Egg</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="customshapes"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-customshapes"
           >
             <Shapes className="h-3.5 w-3.5" />
             <span className="text-[9px]">Shapes</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="retroneon"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-retroneon"
           >
             <Sparkle className="h-3.5 w-3.5" />
             <span className="text-[9px]">Retro</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="neonshapes"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-neonshapes"
           >
             <Star className="h-3.5 w-3.5" />
             <span className="text-[9px]">NShap</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="pettag"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-pettag"
           >
             <Tag className="h-3.5 w-3.5" />
             <span className="text-[9px]">Tag</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="maze"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-maze"
           >
             <Gamepad2 className="h-3.5 w-3.5" />
             <span className="text-[9px]">Maze</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="yingyang"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-yingyang"
           >
             <CircleDot className="h-3.5 w-3.5" />
             <span className="text-[9px]">YinYg</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" title="BRAND NEW: Complete backend created!"></span>
           </TabsTrigger>
           <TabsTrigger
             value="embossedtile"
-            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
             data-testid="tab-embossedtile"
           >
             <Lightbulb className="h-3.5 w-3.5" />
             <span className="text-[9px]">Tile</span>
+            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
           </TabsTrigger>
           {isOutlineMode && (
             <>
               <TabsTrigger
                 value="tube"
-                className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+                className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
                 data-testid="tab-tube"
               >
                 <Cylinder className="h-3.5 w-3.5" />
                 <span className="text-[9px]">Tube</span>
+                <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
               </TabsTrigger>
               <TabsTrigger
                 value="sketch"
