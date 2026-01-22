@@ -10,6 +10,37 @@ import * as THREE from "three";
 import opentype from "opentype.js";
 import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
 import { zhangSuenSkeleton, toBinary, extractSkeletonPaths } from "./zhang-suen-skeletonization";
+import { 
+  generateCircuitHousingBottom, 
+  generateCircuitHousingTop,
+  generateComponentPlacementGuide,
+  generateCircuitHousingBOM,
+  defaultCircuitHousingSettings,
+  type CircuitHousingSettings
+} from "./circuit-housing-generator";
+import {
+  generateCR2032Holder,
+  generateCR2032Instructions,
+  generateCR2032BOM,
+  defaultCR2032Settings,
+  type CR2032HolderSettings
+} from "./cr2032-holder-generator";
+import {
+  generateMicrocontrollerHousingBottom,
+  generateMicrocontrollerHousingTop,
+  generateWS2812BWiringDiagram,
+  generateMicrocontrollerAssemblyInstructions,
+  generateMicrocontrollerBOM,
+  defaultMicrocontrollerSettings,
+  type MicrocontrollerHousingSettings
+} from "./microcontroller-housing-generator";
+import {
+  generateFastLEDCode,
+  generateCharacterMap,
+  generateArduinoInstallInstructions,
+  defaultFastLEDSettings,
+  type FastLEDCodeSettings
+} from "./fastled-code-generator";
 
 interface Point2D {
   x: number;
@@ -272,6 +303,66 @@ function generateShapePath(shapeType: string, width: number, height: number, seg
       points.push({ x: -hw * 0.3, y: -hh * 0.4 });
       break;
     }
+    case "cactus": {
+      for (let i = 0; i <= segments * 0.5; i++) {
+        const t = (i / (segments * 0.5));
+        const x = hw * 0.25 * Math.sin(t * Math.PI * 0.3);
+        const y = -hh + t * hh * 1.6;
+        points.push({ x, y });
+      }
+      const leftArmStart = points.length - Math.floor(segments * 0.15);
+      const leftArmY = points[leftArmStart]?.y || 0;
+      for (let i = 0; i <= segments * 0.15; i++) {
+        const t = (i / (segments * 0.15));
+        const x = -hw * 0.25 - hw * 0.35 * t;
+        const y = leftArmY + hh * 0.15 * Math.sin(t * Math.PI);
+        points.push({ x, y });
+      }
+      points.push(points[leftArmStart]);
+      const rightArmStart = points.length - Math.floor(segments * 0.1);
+      const rightArmY = points[Math.min(rightArmStart, points.length - 1)]?.y || hh * 0.1;
+      for (let i = 0; i <= segments * 0.15; i++) {
+        const t = (i / (segments * 0.15));
+        const x = hw * 0.25 + hw * 0.35 * t;
+        const y = rightArmY + hh * 0.2 * Math.sin(t * Math.PI);
+        points.push({ x, y });
+      }
+      break;
+    }
+    case "pineapple": {
+      for (let i = 0; i <= segments * 0.6; i++) {
+        const t = (i / (segments * 0.6)) * Math.PI * 2;
+        const x = hw * 0.55 * Math.cos(t);
+        const y = hh * 0.4 * Math.sin(t) - hh * 0.25;
+        points.push({ x, y });
+      }
+      const crownSpikes = 5;
+      for (let spike = 0; spike < crownSpikes; spike++) {
+        const baseAngle = (spike / crownSpikes) * Math.PI - Math.PI * 0.5;
+        const tipAngle = baseAngle;
+        points.push({ x: hw * 0.3 * Math.cos(baseAngle + Math.PI / 2), y: hh * 0.15 });
+        points.push({ x: hw * 0.45 * Math.sin(tipAngle), y: hh * 0.85 });
+        points.push({ x: hw * 0.3 * Math.cos(baseAngle + Math.PI / 2), y: hh * 0.15 });
+      }
+      break;
+    }
+    case "planet": {
+      const planetRadius = Math.min(hw, hh) * 0.5;
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        points.push({ 
+          x: Math.cos(angle) * planetRadius, 
+          y: Math.sin(angle) * planetRadius 
+        });
+      }
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const x = Math.cos(angle) * hw * 0.85;
+        const y = Math.sin(angle) * hh * 0.25;
+        points.push({ x, y });
+      }
+      break;
+    }
     default:
       const radius = Math.min(hw, hh);
       for (let i = 0; i <= segments; i++) {
@@ -289,7 +380,7 @@ interface NeonStandSettings {
   text: string;
   fontPath?: string;
   
-  shapeType: "heart" | "star" | "circle" | "infinity" | "moon" | "diamond" | "lightning" | "crown" | "peace" | "rainbow" | "leaf" | "mickey" | "brackets" | "pacman" | "rocket" | "lips" | "gingerbread" | "dinosaur" | "lightbulb";
+  shapeType: "heart" | "star" | "circle" | "infinity" | "moon" | "diamond" | "lightning" | "crown" | "peace" | "rainbow" | "leaf" | "mickey" | "brackets" | "pacman" | "rocket" | "lips" | "gingerbread" | "dinosaur" | "lightbulb" | "cactus" | "pineapple" | "planet";
   shapeWidth: number;
   shapeHeight: number;
   
@@ -323,8 +414,10 @@ interface NeonStandSettings {
   includeDimmer: boolean;
   
   includeControllerMount: boolean;
-  controllerType: "esp32" | "arduino_nano" | "attiny" | "none";
-  ledStripType: "standard" | "addressable_ws2812b" | "el_wire";
+  controllerType: "xiao_samd21" | "arduino_nano" | "esp32" | "none";
+  ledStripType: "standard_5v" | "ws2812b_addressable" | "el_wire";
+  includeEncoder: boolean;
+  ledsPerCharacter: number;
   
   exportFormat: "stl" | "3mf";
   includeOpenSCAD: boolean;
@@ -342,8 +435,16 @@ export async function generateNeonStand(settings: NeonStandSettings): Promise<{
   wireGuideSTL?: string;
   batteryHousingSTL?: string;
   controllerMountSTL?: string;
+  circuitHousingBottomSTL?: string;
+  circuitHousingTopSTL?: string;
+  cr2032HolderSTL?: string;
+  microcontrollerHousingBottomSTL?: string;
+  microcontrollerHousingTopSTL?: string;
   assemblyInstructions: string;
   wiringDiagram?: string;
+  componentPlacementGuide?: string;
+  fastledCode?: string;
+  arduinoInstructions?: string;
   bom: string;
   openscad?: string;
 }> {
@@ -388,6 +489,32 @@ export async function generateNeonStand(settings: NeonStandSettings): Promise<{
     controllerMountMesh = generateControllerMount(settings);
   }
   
+  // Generate 555 Timer Circuit Housing
+  let circuitHousingBottom: THREE.Group | null = null;
+  let circuitHousingTop: THREE.Group | null = null;
+  if (settings.powerType === "usb_5v" || settings.powerType === "battery_3v" || settings.powerType === "battery_9v") {
+    const circuitSettings: CircuitHousingSettings = {
+      ...defaultCircuitHousingSettings,
+      wireExitPosition: settings.wireEntryPosition === "side" ? "side" : "back",
+      applyTorsionReinforcement: true, // Always use Scott torsion reinforcement
+    };
+    circuitHousingBottom = generateCircuitHousingBottom(circuitSettings);
+    circuitHousingTop = generateCircuitHousingTop(circuitSettings);
+  }
+  
+  // Generate CR2032 Holder (if selected)
+  let cr2032Holder: THREE.Group | null = null;
+  if (settings.powerType === "cr2032") {
+    const cr2032Settings: CR2032HolderSettings = {
+      ...defaultCR2032Settings,
+      numBatteries: 2, // 6V total
+      holderStyle: "snap",
+      includeSwitch: settings.switchPosition !== "none",
+      mountingStyle: "base_integrated",
+    };
+    cr2032Holder = generateCR2032Holder(cr2032Settings);
+  }
+  
   // Export to STL
   const exporter = new STLExporter();
   const tubeBodySTL = exporter.parse(tubeMeshes.body, { binary: false });
@@ -397,10 +524,14 @@ export async function generateNeonStand(settings: NeonStandSettings): Promise<{
   const wireGuideSTL = wireGuideMesh ? exporter.parse(wireGuideMesh, { binary: false }) : undefined;
   const batteryHousingSTL = batteryHousingMesh ? exporter.parse(batteryHousingMesh, { binary: false }) : undefined;
   const controllerMountSTL = controllerMountMesh ? exporter.parse(controllerMountMesh, { binary: false }) : undefined;
+  const circuitHousingBottomSTL = circuitHousingBottom ? exporter.parse(circuitHousingBottom, { binary: false }) : undefined;
+  const circuitHousingTopSTL = circuitHousingTop ? exporter.parse(circuitHousingTop, { binary: false }) : undefined;
+  const cr2032HolderSTL = cr2032Holder ? exporter.parse(cr2032Holder, { binary: false }) : undefined;
   
   // Generate documentation
   const assemblyInstructions = generateAssemblyInstructions(settings, bounds);
   const wiringDiagram = settings.includeWiringDiagram ? generateWiringDiagram(settings) : undefined;
+  const componentPlacementGuide = circuitHousingBottom ? generateComponentPlacementGuide(defaultCircuitHousingSettings) : undefined;
   const bom = generateBOM(settings, bounds);
   const openscad = settings.includeOpenSCAD ? generateOpenSCAD(settings) : undefined;
   
@@ -412,8 +543,12 @@ export async function generateNeonStand(settings: NeonStandSettings): Promise<{
     wireGuideSTL,
     batteryHousingSTL,
     controllerMountSTL,
+    circuitHousingBottomSTL,
+    circuitHousingTopSTL,
+    cr2032HolderSTL,
     assemblyInstructions,
     wiringDiagram,
+    componentPlacementGuide,
     bom,
     openscad,
   };
@@ -767,7 +902,7 @@ function generateWiringDiagram(settings: NeonStandSettings): string {
 LED Strip (${settings.ledStripType})
 ├─ Red (+)    → Power (+)
 └─ Black (-)  → Ground (-)
-${settings.ledStripType === "addressable_ws2812b" ? "└─ Data       → Controller Data Pin" : ""}
+${settings.ledStripType === "ws2812b_addressable" ? "└─ Data       → Controller Data Pin" : ""}
 \`\`\`
 
 ### Power Source:

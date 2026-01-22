@@ -74,13 +74,16 @@ const DESIGN_MODES = ["text", "shape"] as const;
 const SHAPE_TYPES = [
   "heart", "star", "circle", "infinity", "moon", "diamond", "lightning",
   "crown", "peace", "rainbow", "leaf", "mickey", "brackets", "pacman", 
-  "rocket", "lips", "gingerbread", "dinosaur", "lightbulb"
+  "rocket", "lips", "gingerbread", "dinosaur", "lightbulb",
+  "cactus", "pineapple", "planet"
 ] as const;
 const TUBE_DIAMETERS = [6, 8, 10, 12, 14] as const;
 const BASE_STYLES = ["minimal", "weighted", "wide", "circular", "custom"] as const;
 const ASSEMBLY_TYPES = ["snap_fit", "magnetic", "screw_mount", "groove_slide"] as const;
+const LED_TYPES = ["standard_5v", "ws2812b_addressable", "el_wire"] as const;
 const POWER_TYPES = ["usb_5v", "battery_3v", "battery_9v", "dc_12v", "cr2032"] as const;
 const SWITCH_POSITIONS = ["base_side", "base_back", "inline_wire", "none"] as const;
+const CONTROLLER_TYPES = ["xiao_samd21", "arduino_nano", "esp32"] as const;
 
 interface Point2D {
   x: number;
@@ -136,8 +139,10 @@ interface NeonStandSettings {
   
   // Advanced
   includeControllerMount: boolean;
-  controllerType: "esp32" | "arduino_nano" | "attiny" | "none";
-  ledStripType: "standard" | "addressable_ws2812b" | "el_wire";
+  controllerType: typeof CONTROLLER_TYPES[number] | "none";
+  ledStripType: typeof LED_TYPES[number];
+  includeEncoder: boolean;
+  ledsPerCharacter: number;
   
   // Export
   exportFormat: "stl" | "3mf";
@@ -186,7 +191,9 @@ const defaultSettings: NeonStandSettings = {
   
   includeControllerMount: false,
   controllerType: "none",
-  ledStripType: "standard",
+  ledStripType: "standard_5v",
+  includeEncoder: false,
+  ledsPerCharacter: 2,
   
   exportFormat: "stl",
   includeOpenSCAD: true,
@@ -447,6 +454,76 @@ function generateShapePath(shapeType: string, width: number, height: number, seg
       points.push({ x: -hw * 0.4, y: -hh * 0.8 });
       points.push({ x: -hw * 0.3, y: -hh * 0.6 });
       points.push({ x: -hw * 0.3, y: -hh * 0.4 });
+      break;
+    }
+    case "cactus": {
+      // Main body (vertical trunk)
+      for (let i = 0; i <= segments * 0.5; i++) {
+        const t = (i / (segments * 0.5));
+        const x = hw * 0.25 * Math.sin(t * Math.PI * 0.3);
+        const y = -hh + t * hh * 1.6;
+        points.push({ x, y });
+      }
+      // Left arm
+      const leftArmStart = points.length - Math.floor(segments * 0.15);
+      const leftArmY = points[leftArmStart]?.y || 0;
+      for (let i = 0; i <= segments * 0.15; i++) {
+        const t = (i / (segments * 0.15));
+        const x = -hw * 0.25 - hw * 0.35 * t;
+        const y = leftArmY + hh * 0.15 * Math.sin(t * Math.PI);
+        points.push({ x, y });
+      }
+      // Return to trunk
+      points.push(points[leftArmStart]);
+      // Right arm
+      const rightArmStart = points.length - Math.floor(segments * 0.1);
+      const rightArmY = points[Math.min(rightArmStart, points.length - 1)]?.y || hh * 0.1;
+      for (let i = 0; i <= segments * 0.15; i++) {
+        const t = (i / (segments * 0.15));
+        const x = hw * 0.25 + hw * 0.35 * t;
+        const y = rightArmY + hh * 0.2 * Math.sin(t * Math.PI);
+        points.push({ x, y });
+      }
+      break;
+    }
+    case "pineapple": {
+      // Body (oval)
+      for (let i = 0; i <= segments * 0.6; i++) {
+        const t = (i / (segments * 0.6)) * Math.PI * 2;
+        const x = hw * 0.55 * Math.cos(t);
+        const y = hh * 0.4 * Math.sin(t) - hh * 0.25;
+        points.push({ x, y });
+      }
+      // Crown leaves (5 spikes radiating from top)
+      const crownSpikes = 5;
+      for (let spike = 0; spike < crownSpikes; spike++) {
+        const baseAngle = (spike / crownSpikes) * Math.PI - Math.PI * 0.5;
+        const tipAngle = baseAngle;
+        // From body top to spike tip
+        points.push({ x: hw * 0.3 * Math.cos(baseAngle + Math.PI / 2), y: hh * 0.15 });
+        points.push({ x: hw * 0.45 * Math.sin(tipAngle), y: hh * 0.85 });
+        // Back to body
+        points.push({ x: hw * 0.3 * Math.cos(baseAngle + Math.PI / 2), y: hh * 0.15 });
+      }
+      break;
+    }
+    case "planet": {
+      // Main sphere
+      const planetRadius = Math.min(hw, hh) * 0.5;
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        points.push({ 
+          x: Math.cos(angle) * planetRadius, 
+          y: Math.sin(angle) * planetRadius 
+        });
+      }
+      // Ring (elliptical orbit)
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const x = Math.cos(angle) * hw * 0.85;
+        const y = Math.sin(angle) * hh * 0.25;
+        points.push({ x, y });
+      }
       break;
     }
     default:
@@ -1365,14 +1442,14 @@ export function NeonStandDesigner() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard">Standard LED Strip</SelectItem>
-                      <SelectItem value="addressable_ws2812b">Addressable WS2812B</SelectItem>
+                      <SelectItem value="standard_5v">Standard 5V LED Strip</SelectItem>
+                      <SelectItem value="ws2812b_addressable">WS2812B Addressable RGB</SelectItem>
                       <SelectItem value="el_wire">EL Wire</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {settings.ledStripType === "addressable_ws2812b" && (
+                {settings.ledStripType === "ws2812b_addressable" && (
                   <div className="flex items-center justify-between">
                     <Label htmlFor="controller-mount" className="text-sm font-medium">
                       Include Controller Mount
