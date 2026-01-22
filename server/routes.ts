@@ -1571,6 +1571,94 @@ export async function registerRoutes(
     }
   });
 
+  // Neon Stand export endpoint - Portable neon signs with base stands
+  app.post("/api/export/neon-stand", async (req, res) => {
+    try {
+      const settings = req.body;
+      
+      if (!settings.text || !settings.fontId) {
+        return res.status(400).json({ error: "Text and font required" });
+      }
+
+      // Get font path from fontId
+      const fontsDir = path.join(process.cwd(), "FONTS");
+      const fontFiles = fs.readdirSync(fontsDir);
+      const fontFile = fontFiles.find(f => f.replace(/\.(ttf|otf)$/i, '') === settings.fontId);
+
+      if (!fontFile) {
+        return res.status(404).json({ error: "Font not found" });
+      }
+
+      const fontPath = path.join(fontsDir, fontFile);
+
+      console.log(`[Neon Stand] Generating "${settings.text}" stand sign`);
+      
+      const { generateNeonStand } = await import("./neon-stand-generator");
+      const result = await generateNeonStand({
+        ...settings,
+        fontPath,
+      });
+
+      // Create ZIP archive
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      // Add tube STLs
+      zip.file(`NeonStand_Tube_Body.${settings.exportFormat}`, result.tubeBodySTL);
+      
+      if (result.tubeLidSTL) {
+        zip.file(`NeonStand_Tube_Lid.${settings.exportFormat}`, result.tubeLidSTL);
+      }
+      
+      if (result.tubeBody2STL) {
+        zip.file(`NeonStand_Tube_Body2.${settings.exportFormat}`, result.tubeBody2STL);
+      }
+
+      // Add base
+      zip.file(`NeonStand_Base.${settings.exportFormat}`, result.baseSTL);
+
+      // Add optional components
+      if (result.wireGuideSTL) {
+        zip.file(`NeonStand_WireGuide.${settings.exportFormat}`, result.wireGuideSTL);
+      }
+
+      if (result.batteryHousingSTL) {
+        zip.file(`NeonStand_BatteryHousing.${settings.exportFormat}`, result.batteryHousingSTL);
+      }
+
+      if (result.controllerMountSTL) {
+        zip.file(`NeonStand_ControllerMount.${settings.exportFormat}`, result.controllerMountSTL);
+      }
+
+      // Add documentation
+      zip.file("ASSEMBLY_INSTRUCTIONS.md", result.assemblyInstructions);
+      zip.file("BOM.txt", result.bom);
+
+      if (result.wiringDiagram) {
+        zip.file("WIRING_DIAGRAM.md", result.wiringDiagram);
+      }
+
+      // Add OpenSCAD if requested
+      if (settings.includeOpenSCAD && result.openscad) {
+        zip.file(`NeonStand_${settings.text.replace(/\s+/g, '_')}.scad`, result.openscad);
+      }
+
+      const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="neon_stand_${settings.text.replace(/\s+/g, '_')}_${Date.now()}.zip"`);
+      res.send(zipBuffer);
+      
+      console.log('[Neon Stand] Successfully sent neon stand');
+    } catch (error) {
+      console.error("Neon stand export error:", error);
+      res.status(500).json({ 
+        error: "Failed to generate neon stand",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Lithophane export endpoint
   app.post("/api/export/lithophane", async (req, res) => {
     try {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,90 +7,154 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Box, Layers, Info, Download, Upload, Plus, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Loader2, Box, Layers, Info, Download, Upload, Plus, Trash2, 
+  Circle, Eye, Zap, Sparkles, Grid3x3, Image as ImageIcon
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const FRAME_STYLES = ["rectangle", "rounded", "arch", "hexagon", "circle"] as const;
-const LAYER_TYPES = ["silhouette", "cutout", "pattern", "text"] as const;
-const LED_POSITIONS = ["perimeter", "back", "sides", "top_bottom"] as const;
+const BOX_SHAPES = ["rectangle", "rounded", "hexagon", "circle", "custom"] as const;
+const DIFFUSER_MOUNT_TYPES = ["snap_fit", "groove_slide", "overlay", "magnetic"] as const;
+const IMAGE_PLACEMENT_MODES = ["under_diffuser", "on_top", "stencil_cutout", "glow_in_dark", "tubular_el_wire"] as const;
+const DIFFUSION_PATTERNS = ["none", "honeycomb", "voronoi", "dots", "lines", "waves", "custom"] as const;
+const EXPORT_MODES = ["complete_zip", "shell_only", "diffuser_only", "image_only", "all_separate"] as const;
 
-interface Layer {
+interface CustomHole {
   id: string;
-  type: typeof LAYER_TYPES[number];
-  depth: number;
-  imageData?: string;
-  svgPath?: string;
-  text?: string;
-  opacity: number;
+  x: number; // Position in mm from left
+  y: number; // Position in mm from bottom
+  diameter: number;
+  purpose: "led" | "wire_routing" | "mounting" | "ventilation";
 }
 
-interface ShadowBoxSettings {
-  // Frame Dimensions
+interface LightBoxSettings {
+  // Box Shell (Single Hollow Print)
   width: number;
   height: number;
-  frameThickness: number;
-  frameDepth: number;
-  
-  // Frame Style
-  frameStyle: typeof FRAME_STYLES[number];
+  depth: number;
+  wallThickness: number;
+  boxShape: typeof BOX_SHAPES[number];
   cornerRadius: number;
   
-  // Layers
-  layers: Layer[];
-  layerSpacing: number;
-  totalDepth: number;
-  
-  // LED System
-  ledPosition: typeof LED_POSITIONS[number];
-  ledChannelWidth: number;
-  ledChannelDepth: number;
+  // Diffuser System
+  diffuserMountType: typeof DIFFUSER_MOUNT_TYPES[number];
   diffuserThickness: number;
+  snapFitTolerance: number; // For snap-fit
+  grooveDepth: number; // For groove slide
   
-  // Mounting
-  includeHangingHardware: boolean;
-  includeStandBase: boolean;
+  // Image/Art Layer
+  imagePlacementMode: typeof IMAGE_PLACEMENT_MODES[number];
+  imageData?: string;
+  stencilThickness: number; // For stencil mode
+  tubularChannelWidth: number; // For EL wire mode
   
-  // Export
+  // Diffusion Pattern
+  diffusionPattern: typeof DIFFUSION_PATTERNS[number];
+  patternDensity: number;
+  patternScale: number;
+  
+  // Custom Holes
+  customHoles: CustomHole[];
+  
+  // Lithophane Integration
+  enableLithophane: boolean;
+  lithophaneThickness: number;
+  lithophaneInvert: boolean;
+  
+  // Live Preview
+  showPreview: boolean;
+  previewMode: "wireframe" | "solid" | "transparent";
+  
+  // Export Options
+  exportMode: typeof EXPORT_MODES[number];
   exportFormat: "stl" | "3mf";
   includeOpenSCAD: boolean;
 }
 
-const defaultSettings: ShadowBoxSettings = {
+const defaultSettings: LightBoxSettings = {
+  // Box Shell
   width: 200,
   height: 300,
-  frameThickness: 15,
-  frameDepth: 40,
-  
-  frameStyle: "rectangle",
+  depth: 40,
+  wallThickness: 2,
+  boxShape: "rounded",
   cornerRadius: 10,
   
-  layers: [
-    { id: "layer1", type: "silhouette", depth: 0, opacity: 1 },
-    { id: "layer2", type: "silhouette", depth: 10, opacity: 0.7 },
-    { id: "layer3", type: "silhouette", depth: 20, opacity: 0.4 },
-  ],
-  layerSpacing: 10,
-  totalDepth: 30,
-  
-  ledPosition: "perimeter",
-  ledChannelWidth: 10,
-  ledChannelDepth: 8,
+  // Diffuser System
+  diffuserMountType: "snap_fit",
   diffuserThickness: 2,
+  snapFitTolerance: 0.2,
+  grooveDepth: 3,
   
-  includeHangingHardware: true,
-  includeStandBase: false,
+  // Image/Art Layer
+  imagePlacementMode: "under_diffuser",
+  stencilThickness: 3,
+  tubularChannelWidth: 6,
   
+  // Diffusion Pattern
+  diffusionPattern: "honeycomb",
+  patternDensity: 50,
+  patternScale: 5,
+  
+  // Custom Holes
+  customHoles: [],
+  
+  // Lithophane
+  enableLithophane: false,
+  lithophaneThickness: 3,
+  lithophaneInvert: false,
+  
+  // Preview
+  showPreview: true,
+  previewMode: "solid",
+  
+  // Export
+  exportMode: "complete_zip",
   exportFormat: "stl",
   includeOpenSCAD: false,
 };
 
 export function ShadowBoxDesigner() {
-  const [settings, setSettings] = useState<ShadowBoxSettings>(defaultSettings);
+  const [settings, setSettings] = useState<LightBoxSettings>(defaultSettings);
+  const [selectedTool, setSelectedTool] = useState<"select" | "add_hole">("select");
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  const updateSettings = (updates: Partial<ShadowBoxSettings>) => {
+  const updateSettings = (updates: Partial<LightBoxSettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));
+  };
+
+  const addHole = (x: number, y: number) => {
+    const newHole: CustomHole = {
+      id: `hole${settings.customHoles.length + 1}`,
+      x,
+      y,
+      diameter: 5,
+      purpose: "led",
+    };
+    updateSettings({ customHoles: [...settings.customHoles, newHole] });
+  };
+
+  const removeHole = (id: string) => {
+    updateSettings({ customHoles: settings.customHoles.filter(h => h.id !== id) });
+  };
+
+  const updateHole = (id: string, updates: Partial<CustomHole>) => {
+    updateSettings({
+      customHoles: settings.customHoles.map(h => h.id === id ? { ...h, ...updates } : h)
+    });
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (selectedTool !== "add_hole" || !canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * settings.width;
+    const y = ((e.clientY - rect.top) / rect.height) * settings.height;
+    
+    addHole(x, y);
   };
 
   const addLayer = () => {

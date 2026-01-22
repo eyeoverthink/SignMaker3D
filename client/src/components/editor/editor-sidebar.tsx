@@ -13,6 +13,8 @@ import {
   Sparkles,
   FileText,
   Wand2,
+  Box,
+  Zap,
 } from "lucide-react";
 import { TextControls } from "./text-controls";
 import { GeometryControls } from "./geometry-controls";
@@ -25,7 +27,8 @@ import { SketchControls } from "./sketch-controls";
 import { LightPanelControls } from "./light-panel-controls";
 import { CustomFontAlphabetControls } from "./custom-font-alphabet-controls";
 import { PhraseDesigner } from "./phrase-designer";
-import { ShadowBoxDesigner } from "./shadow-box-designer";
+import { AdvancedLightBoxDesigner } from "./advanced-light-box-designer";
+import { NeonStandDesigner } from "./neon-stand-designer";
 import { useEditorStore } from "@/lib/editor-store";
 
 export function EditorSidebar() {
@@ -42,7 +45,7 @@ export function EditorSidebar() {
       </div>
 
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-12' : 'grid-cols-10'}`}>
+        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-13' : 'grid-cols-11'}`}>
           <TabsTrigger
             value="text"
             className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
@@ -123,6 +126,14 @@ export function EditorSidebar() {
             <Box className="h-3.5 w-3.5" />
             <span className="text-[9px]">Shadow</span>
           </TabsTrigger>
+          <TabsTrigger
+            value="neonstand"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-neonstand"
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Stand</span>
+          </TabsTrigger>
           {isOutlineMode && (
             <>
               <TabsTrigger
@@ -184,7 +195,11 @@ export function EditorSidebar() {
             </TabsContent>
 
             <TabsContent value="shadowbox" className="mt-0">
-              <ShadowBoxDesigner />
+              <AdvancedLightBoxDesigner />
+            </TabsContent>
+
+            <TabsContent value="neonstand" className="mt-0">
+              <NeonStandDesigner />
             </TabsContent>
 
             {isOutlineMode && (
