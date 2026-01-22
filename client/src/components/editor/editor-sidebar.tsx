@@ -18,6 +18,22 @@ import {
   Lightbulb,
   Film,
   Image,
+  Shield,
+  Atom,
+  Clock,
+  Mountain,
+  Eye,
+  Contrast,
+  CheckCircle,
+  Grid3x3,
+  ImageIcon,
+  Flame,
+  Egg,
+  Shapes,
+  Sparkle,
+  Star,
+  Tag,
+  Gamepad2,
 } from "lucide-react";
 import { TextControls } from "./text-controls";
 import { GeometryControls } from "./geometry-controls";
@@ -36,6 +52,25 @@ import NeonBulbDesigner from "./neon-bulb-designer";
 import HolographicPanelDesigner from "./holographic-panel-designer";
 import AnimationSequenceDesigner from "./animation-sequence-designer";
 import SilhouetteLightBoxDesigner from "./silhouette-lightbox-designer";
+import DeepfakeDetector from "./deepfake-detector";
+import CollisionDemo from "./collision-demo";
+import TemporalPredictionDemo from "./temporal-prediction-demo";
+import { ReliefEditor } from "./relief-editor";
+import CloakingDemo from "./cloaking-demo";
+import { RecognitionDemo } from "./recognition-demo";
+import InvertedContrastDemo from "./inverted-contrast-demo";
+import { ScottProofDemo } from "./scott-proof-demo";
+import LEDGridEditor from "./led-grid-editor";
+import { LithophaneEditor } from "./lithophane-editor";
+import { AnimatedLithophaneEditor } from "./animated-lithophane-editor";
+import EggisonBulbsEditor from "./eggison-bulbs-editor";
+import { CustomShapesEditor } from "./custom-shapes-editor";
+import { RetroNeonEditor } from "./retro-neon-editor";
+import { NeonShapesEditor } from "./neon-shapes-editor";
+import { PetTagEditor } from "./pet-tag-editor";
+import { MazeGameEditor } from "./maze-game-editor";
+import YingYangDesigner from "./ying-yang-designer";
+import { EmbossedTileDesigner } from "./embossed-tile-designer";
 import { useEditorStore } from "@/lib/editor-store";
 
 export function EditorSidebar() {
@@ -52,7 +87,7 @@ export function EditorSidebar() {
       </div>
 
       <Tabs defaultValue="text" className="flex-1 flex flex-col">
-        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-17' : 'grid-cols-15'}`}>
+        <TabsList className={`grid w-full p-1 m-2 bg-muted/50 ${isOutlineMode ? 'grid-cols-10' : 'grid-cols-10'}`} style={{gridTemplateColumns: 'repeat(auto-fit, minmax(50px, 1fr))'}}>
           <TabsTrigger
             value="text"
             className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
@@ -173,6 +208,158 @@ export function EditorSidebar() {
             <Image className="h-3.5 w-3.5" />
             <span className="text-[9px]">Silh</span>
           </TabsTrigger>
+          <TabsTrigger
+            value="deepfake"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-deepfake"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Fake</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="collision"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-collision"
+          >
+            <Atom className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Coll</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="4dpredict"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-4dpredict"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            <span className="text-[9px]">4D</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="relief"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-relief"
+          >
+            <Mountain className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Relief</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="cloak"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-cloak"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Cloak</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="recognize"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-recognize"
+          >
+            <CheckCircle className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Recog</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="contrast"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-contrast"
+          >
+            <Contrast className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Contr</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="scottproof"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-scottproof"
+          >
+            <CheckCircle className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Proof</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="ledgrid"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-ledgrid"
+          >
+            <Grid3x3 className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Grid</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="litho"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-litho"
+          >
+            <ImageIcon className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Litho</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="animlitho"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-animlitho"
+          >
+            <Film className="h-3.5 w-3.5" />
+            <span className="text-[9px]">ALith</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="eggison"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-eggison"
+          >
+            <Egg className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Egg</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="customshapes"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-customshapes"
+          >
+            <Shapes className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Shapes</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="retroneon"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-retroneon"
+          >
+            <Sparkle className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Retro</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="neonshapes"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-neonshapes"
+          >
+            <Star className="h-3.5 w-3.5" />
+            <span className="text-[9px]">NShap</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="pettag"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-pettag"
+          >
+            <Tag className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Tag</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="maze"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-maze"
+          >
+            <Gamepad2 className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Maze</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="yingyang"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-yingyang"
+          >
+            <CircleDot className="h-3.5 w-3.5" />
+            <span className="text-[9px]">YinYg</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="embossedtile"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5"
+            data-testid="tab-embossedtile"
+          >
+            <Lightbulb className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Tile</span>
+          </TabsTrigger>
           {isOutlineMode && (
             <>
               <TabsTrigger
@@ -255,6 +442,82 @@ export function EditorSidebar() {
 
             <TabsContent value="silhouette" className="mt-0">
               <SilhouetteLightBoxDesigner />
+            </TabsContent>
+
+            <TabsContent value="deepfake" className="mt-0">
+              <DeepfakeDetector />
+            </TabsContent>
+
+            <TabsContent value="collision" className="mt-0">
+              <CollisionDemo />
+            </TabsContent>
+
+            <TabsContent value="4dpredict" className="mt-0">
+              <TemporalPredictionDemo />
+            </TabsContent>
+
+            <TabsContent value="relief" className="mt-0">
+              <ReliefEditor />
+            </TabsContent>
+
+            <TabsContent value="cloak" className="mt-0">
+              <CloakingDemo />
+            </TabsContent>
+
+            <TabsContent value="recognize" className="mt-0">
+              <RecognitionDemo />
+            </TabsContent>
+
+            <TabsContent value="contrast" className="mt-0">
+              <InvertedContrastDemo />
+            </TabsContent>
+
+            <TabsContent value="scottproof" className="mt-0">
+              <ScottProofDemo />
+            </TabsContent>
+
+            <TabsContent value="ledgrid" className="mt-0">
+              <LEDGridEditor />
+            </TabsContent>
+
+            <TabsContent value="litho" className="mt-0">
+              <LithophaneEditor />
+            </TabsContent>
+
+            <TabsContent value="animlitho" className="mt-0">
+              <AnimatedLithophaneEditor />
+            </TabsContent>
+
+            <TabsContent value="eggison" className="mt-0">
+              <EggisonBulbsEditor />
+            </TabsContent>
+
+            <TabsContent value="customshapes" className="mt-0">
+              <CustomShapesEditor />
+            </TabsContent>
+
+            <TabsContent value="retroneon" className="mt-0">
+              <RetroNeonEditor />
+            </TabsContent>
+
+            <TabsContent value="neonshapes" className="mt-0">
+              <NeonShapesEditor />
+            </TabsContent>
+
+            <TabsContent value="pettag" className="mt-0">
+              <PetTagEditor />
+            </TabsContent>
+
+            <TabsContent value="maze" className="mt-0">
+              <MazeGameEditor />
+            </TabsContent>
+
+            <TabsContent value="yingyang" className="mt-0">
+              <YingYangDesigner />
+            </TabsContent>
+
+            <TabsContent value="embossedtile" className="mt-0">
+              <EmbossedTileDesigner />
             </TabsContent>
 
             {isOutlineMode && (

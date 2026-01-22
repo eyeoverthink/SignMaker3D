@@ -8,7 +8,7 @@ import math
 # ==============================================================================
 
 class StlGenerator:
-    def __init__(self, filename="Eyeoverthink_Artifact_01.stl"):
+    def __init__(self, filename="Eyeoverthink_Artifact_02.stl"):
         self.filename = filename
         self.facets = []
         self.PHI = 1.6180339887

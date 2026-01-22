@@ -1,0 +1,452 @@
+{
+  "info": {
+    "name": "Sign-Sculptor API",
+    "description": "Complete API collection for Sign-Sculptor 3D LED sign generation platform with 47+ generators",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Core Exports",
+      "item": [
+        {
+          "name": "Export Sign (Basic)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"HELLO\",\n  \"fontId\": \"roboto\",\n  \"ledType\": \"ws2812b\",\n  \"signHeight\": 150,\n  \"wallThickness\": 3,\n  \"baseThickness\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Pet Tag",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/pet-tag",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"petName\": \"MAX\",\n  \"phoneNumber\": \"555-1234\",\n  \"shape\": \"bone\",\n  \"size\": \"medium\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Backing Plate",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/backing-plate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"width\": 200,\n  \"height\": 100,\n  \"thickness\": 3,\n  \"mountingHoles\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Neon Tube",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/neon-tube",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paths\": [[{\"x\": 0, \"y\": 0}, {\"x\": 100, \"y\": 0}]],\n  \"tubeDiameter\": 12,\n  \"tubeStyle\": \"round\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Advanced LED Systems",
+      "item": [
+        {
+          "name": "Neon Bulb",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/neon-bulb",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filamentShape\": \"heart\",\n  \"envelopeType\": \"classic\",\n  \"baseType\": \"e26\",\n  \"bulbHeight\": 120,\n  \"bulbDiameter\": 60,\n  \"includeElectronics\": true,\n  \"batteryType\": \"cr2032\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Holographic Panel",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/holographic-panel",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"layerCount\": 3,\n  \"panelWidth\": 200,\n  \"panelHeight\": 300,\n  \"layerSpacing\": 8,\n  \"patternType\": \"floral\",\n  \"ledType\": \"ws2812b\",\n  \"ledPosition\": \"back\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Animation Sequence",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/animation-sequence",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"animationName\": \"walking_stick_figure\",\n  \"frameCount\": 4,\n  \"frameDelay\": 500,\n  \"ledCount\": 60,\n  \"controllerType\": \"arduino_nano\",\n  \"loopAnimation\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Silhouette Light Box",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/silhouette-lightbox",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"designMode\": \"template\",\n  \"templateId\": \"pacman_chase\",\n  \"width\": 300,\n  \"height\": 200,\n  \"diffuserStyle\": \"clamshell\",\n  \"layers\": [\n    {\"name\": \"pacman\", \"ledType\": \"ws2812b\", \"depth\": 5, \"color\": \"#FFFF00\"},\n    {\"name\": \"ghost\", \"ledType\": \"standard\", \"depth\": 3, \"color\": \"#FF0000\"}\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Animated Lithophane",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/animated-lithophane",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"frameCount\": 8,\n  \"rotationSpeed\": 60,\n  \"frameWidth\": 100,\n  \"frameHeight\": 100,\n  \"maxThickness\": 3,\n  \"minThickness\": 0.8\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phrase & Text Systems",
+      "item": [
+        {
+          "name": "Phrase Sign (Welded Letters)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/phrase-sign",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"HELLO WORLD\",\n  \"fontId\": \"roboto\",\n  \"weldingMode\": \"cursive\",\n  \"borderType\": \"rectangle\",\n  \"borderWidth\": 10,\n  \"ledType\": \"ws2812b\",\n  \"signHeight\": 150\n}"
+            }
+          }
+        },
+        {
+          "name": "Custom Font Alphabet",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/custom-font-alphabet",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fontId\": \"roboto\",\n  \"fontSize\": 100,\n  \"ledType\": \"ws2812b\",\n  \"signHeight\": 120,\n  \"wallThickness\": 3,\n  \"baseThickness\": 2,\n  \"includeNumbers\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Alphabet Factory (Batch)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/alphabet-factory",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fontId\": \"roboto\",\n  \"letterHeight\": 100,\n  \"ledChannelWidth\": 10.5,\n  \"includeNumbers\": true,\n  \"includeSymbols\": false\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shapes & Designs",
+      "item": [
+        {
+          "name": "Neon Shapes",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/neonshapes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shape\": \"heart\",\n  \"size\": 150,\n  \"ledType\": \"ws2812b\",\n  \"baseStyle\": \"edison\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Preset Shape",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/preset-shape",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"presetId\": \"star\",\n  \"size\": 100,\n  \"tubeDiameter\": 12,\n  \"tubeStyle\": \"round\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Retro Neon",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/retro-neon",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"OPEN\",\n  \"style\": \"vintage\",\n  \"ledType\": \"neon_strip\",\n  \"includeFlicker\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Modular Shape",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/modular-shape",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shape\": \"hexagon\",\n  \"size\": 50,\n  \"connectorType\": \"snap_fit\",\n  \"quantity\": 10\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Light Boxes & Panels",
+      "item": [
+        {
+          "name": "Shadow Box",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/shadow-box",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"width\": 300,\n  \"height\": 200,\n  \"depth\": 50,\n  \"layerCount\": 3,\n  \"ledType\": \"ws2812b\",\n  \"frameStyle\": \"modern\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Light Panel",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/light-panel",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"width\": 200,\n  \"height\": 200,\n  \"ledType\": \"backlit\",\n  \"diffuserThickness\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Lithophane",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/lithophane",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"width\": 100,\n  \"height\": 100,\n  \"maxThickness\": 3,\n  \"minThickness\": 0.8,\n  \"imageData\": \"base64_encoded_image_here\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2.5D Relief",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/relief",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"width\": 150,\n    \"height\": 150,\n    \"maxDepth\": 10,\n    \"smoothing\": 0.5\n  },\n  \"imageData\": \"base64_encoded_image_here\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Specialty Items",
+      "item": [
+        {
+          "name": "Neon Stand (Portable)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/neon-stand",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"designMode\": \"shape\",\n  \"shape\": \"heart\",\n  \"size\": 150,\n  \"baseStyle\": \"round\",\n  \"ledType\": \"ws2812b\",\n  \"includeCircuitHousing\": true,\n  \"batteryType\": \"aa\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Eggison Bulbs",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/eggison",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bulbShape\": \"egg\",\n  \"size\": \"medium\",\n  \"patternType\": \"geometric\",\n  \"ledType\": \"single_color\"\n}"
+            }
+          }
+        },
+        {
+          "name": "LED Grid",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/led-grid",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": 8,\n  \"columns\": 8,\n  \"ledSpacing\": 20,\n  \"ledType\": \"ws2812b\",\n  \"includeController\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "LED Holder",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/led-holder",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ledSize\": \"5mm\",\n  \"holderCount\": 10,\n  \"spacing\": 15,\n  \"mountingType\": \"clip\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Maze Game",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/maze-game",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"width\": 20,\n  \"height\": 20,\n  \"difficulty\": \"medium\",\n  \"wallHeight\": 5,\n  \"baseThickness\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "Embossed Light Tile",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/generate-embossed-tile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patternType\": \"egg\",\n  \"tileDiameter\": 100,\n  \"channelWidth\": 10.5,\n  \"diffuserStyle\": \"domed\",\n  \"includeMountingHoles\": true,\n  \"mountingHoleCount\": 4\n}"
+            }
+          }
+        },
+        {
+          "name": "Shoestring Mode (Image Tracer)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/export/shoestring",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paths\": [[{\"x\": 0, \"y\": 0}, {\"x\": 50, \"y\": 50}]],\n  \"tubeDiameter\": 12,\n  \"tubeStyle\": \"round\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scott Algorithm Demos",
+      "item": [
+        {
+          "name": "Universal Recognition",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/scott/recognize",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageData\": \"base64_encoded_image_here\",\n  \"shapeName\": \"circle\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Geometric Cloaking",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/scott/cloak",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageData\": \"base64_encoded_image_here\",\n  \"strategies\": [\"noise\", \"fractal\", \"topology\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "4D Temporal Prediction",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/scott/predict",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageData\": \"base64_encoded_image_here\",\n  \"timeHorizon\": 1.0\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Utility Endpoints",
+      "item": [
+        {
+          "name": "Get Font Stroke Paths",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/fonts/stroke-paths",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"HELLO\",\n  \"fontId\": \"roboto\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Preview Text Path",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/preview/text-path",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"TEST\",\n  \"fontId\": \"roboto\",\n  \"fontSize\": 100\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/projects",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Neon Sign\",\n  \"description\": \"Custom LED sign project\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

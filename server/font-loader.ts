@@ -1,7 +1,7 @@
 import * as opentype from 'opentype.js';
 import * as path from 'path';
 import * as fs from 'fs';
-import { simplifyPathArrayFormat } from '../shared/phi-enhanced-geometry';
+import { douglasPeuckerPhi, type Point2D } from './phi-enhanced-douglas-peucker';
 
 interface StrokePath {
   points: number[][];
@@ -197,8 +197,16 @@ function calculateSignedArea(points: number[][]): number {
 function simplifyPath(points: number[][], tolerance: number, usePhiEnhancement: boolean = true): number[][] {
   if (points.length <= 2) return points;
   
-  // Use phi-enhanced simplification for better natural curve preservation
-  return simplifyPathArrayFormat(points, tolerance, usePhiEnhancement);
+  // Convert to Point2D format for phi-enhanced Douglas-Peucker
+  const point2DArray: Point2D[] = points.map(p => ({ x: p[0], y: p[1] }));
+  
+  // Use error-bounded phi-enhanced simplification
+  // maxHausdorffError = tolerance * 3 ensures quality while allowing phi optimization
+  const maxHausdorffError = tolerance * 3;
+  const simplified = douglasPeuckerPhi(point2DArray, tolerance, usePhiEnhancement, maxHausdorffError);
+  
+  // Convert back to array format
+  return simplified.map(p => [p.x, p.y]);
 }
 
 function pointToLineDistance(point: number[], lineStart: number[], lineEnd: number[]): number {

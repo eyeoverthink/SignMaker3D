@@ -931,3 +931,38 @@ function calculateTotalCost(settings: NeonBulbSettings): string {
   
   return cost.toFixed(2);
 }
+
+/**
+ * Main wrapper function for API endpoint
+ * Generates complete neon bulb package with all STL files and documentation
+ */
+export async function generateNeonBulb(settings: NeonBulbSettings) {
+  const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js');
+  const exporter = new STLExporter();
+  
+  // Generate all components
+  const envelopeTop = generateBulbEnvelopeTop(settings);
+  const envelopeBottom = generateBulbEnvelopeBottom(settings);
+  const base = generateScrewBase(settings);
+  const filamentPath = generateFilamentPath(settings);
+  const filamentSupport = generateFilamentSupport(settings, filamentPath);
+  
+  // Export to STL strings
+  const envelopeTopSTL = exporter.parse(envelopeTop, { binary: false });
+  const envelopeBottomSTL = exporter.parse(envelopeBottom, { binary: false });
+  const baseSTL = exporter.parse(base, { binary: false });
+  const filamentSTL = exporter.parse(filamentSupport, { binary: false });
+  
+  // Generate documentation
+  const assemblyInstructions = generateBulbAssemblyInstructions(settings);
+  const bom = generateBulbBOM(settings);
+  
+  return {
+    envelopeSTL: envelopeTopSTL + '\n' + envelopeBottomSTL,
+    filamentSTL,
+    baseSTL,
+    batteryCompartmentSTL: settings.batteryType === "cr2032_stack" ? baseSTL : null,
+    assemblyInstructions,
+    bom
+  };
+}

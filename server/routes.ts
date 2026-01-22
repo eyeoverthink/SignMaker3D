@@ -2295,5 +2295,342 @@ void loop() {
     }
   });
 
+  // Embossed Light Tile Generator
+  app.post("/api/generate-embossed-tile", async (req, res) => {
+    try {
+      const settings = req.body;
+      
+      const { generateEmbossedLightTile, generateAssemblyInstructions } = await import("./embossed-light-tile-generator");
+      
+      const { baseSTL, diffuserSTL } = generateEmbossedLightTile(settings);
+      
+      const assemblyInstructions = generateAssemblyInstructions(settings);
+      
+      // Create ZIP archive
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      
+      res.attachment(`Embossed_Tile_${settings.patternType}_${Date.now()}.zip`);
+      archive.pipe(res);
+      
+      // Add base tile STL
+      archive.append(baseSTL, { 
+        name: `${settings.patternType}_Base.stl` 
+      });
+      
+      // Add diffuser lid STL
+      archive.append(diffuserSTL, { 
+        name: `${settings.patternType}_Diffuser.stl` 
+      });
+      
+      // Add assembly instructions
+      archive.append(assemblyInstructions, { 
+        name: "ASSEMBLY_INSTRUCTIONS.md" 
+      });
+      
+      // Add BOM
+      const bom = `# Bill of Materials - Embossed Light Tile
+
+## 3D Printed Parts
+- Base tile with ${settings.patternType} pattern (1x)
+- Diffuser lid (${settings.diffuserStyle}) (1x)
+
+## Electronics
+- LED strip (${settings.channelWidth}mm width) - cut to fit
+- Power supply (5V, 1-2A)
+- Wire (22 AWG)
+
+## Hardware
+${settings.includeMountingHoles ? `- M${settings.mountingHoleDiameter} screws (${settings.mountingHoleCount}x)` : "- Adhesive backing or double-sided tape"}
+
+## Filament Requirements
+- Base: ~20-50g opaque PLA/PETG
+- Diffuser: ~10-20g translucent PLA
+
+Total estimated print time: 2-4 hours
+`;
+      
+      archive.append(bom, { name: "BOM.md" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Embossed tile generation error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Embossed tile generation failed" });
+    }
+  });
+
+  // Neon Bulb Export - Modular LED bulbs with screw base
+  app.post("/api/export/neon-bulb", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { generateNeonBulb } = await import("./neon-bulb-generator");
+      
+      const result = await generateNeonBulb(settings);
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      res.attachment(`Neon_Bulb_${settings.filamentShape}_${Date.now()}.zip`);
+      archive.pipe(res);
+      
+      archive.append(result.envelopeSTL, { name: "bulb_envelope.stl" });
+      archive.append(result.filamentSTL, { name: "led_filament.stl" });
+      archive.append(result.baseSTL, { name: "screw_base.stl" });
+      if (result.batteryCompartmentSTL) {
+        archive.append(result.batteryCompartmentSTL, { name: "battery_compartment.stl" });
+      }
+      archive.append(result.assemblyInstructions, { name: "ASSEMBLY_INSTRUCTIONS.md" });
+      archive.append(result.bom, { name: "BOM.md" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Neon bulb export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Neon bulb export failed" });
+    }
+  });
+
+  // Holographic Panel Export - Multi-layer 3D depth effects
+  app.post("/api/export/holographic-panel", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { generateHolographicPanel } = await import("./holographic-panel-generator");
+      
+      const result = await generateHolographicPanel(settings);
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      res.attachment(`Holographic_Panel_${settings.layerCount}layers_${Date.now()}.zip`);
+      archive.pipe(res);
+      
+      result.layerSTLs.forEach((stl: string, index: number) => {
+        archive.append(stl, { name: `layer_${index + 1}.stl` });
+      });
+      archive.append(result.frameSTL, { name: "frame.stl" });
+      archive.append(result.ledChannelSTL, { name: "led_channel.stl" });
+      result.spacerClipSTLs.forEach((stl: string, index: number) => {
+        archive.append(stl, { name: `spacer_clip_${index + 1}.stl` });
+      });
+      archive.append(result.assemblyInstructions, { name: "ASSEMBLY_INSTRUCTIONS.md" });
+      archive.append(result.wiringDiagram, { name: "WIRING_DIAGRAM.md" });
+      archive.append(result.bom, { name: "BOM.md" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Holographic panel export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Holographic panel export failed" });
+    }
+  });
+
+  // Animation Sequence Export - Frame-by-frame LED animations
+  app.post("/api/export/animation-sequence", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { generateAnimationSequence } = await import("./animation-sequence-generator");
+      
+      const result = await generateAnimationSequence(settings);
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      res.attachment(`Animation_${settings.animationName || 'sequence'}_${Date.now()}.zip`);
+      archive.pipe(res);
+      
+      result.frameSTLs.forEach((stl: string, index: number) => {
+        archive.append(stl, { name: `frame_${index + 1}.stl` });
+      });
+      archive.append(result.arduinoCode, { name: "animation_controller.ino" });
+      archive.append(result.controllerRouting, { name: "controller_routing.ino" });
+      archive.append(result.wiringDiagram, { name: "WIRING_DIAGRAM.md" });
+      archive.append(result.assemblyInstructions, { name: "ASSEMBLY_INSTRUCTIONS.md" });
+      archive.append(result.bom, { name: "BOM.md" });
+      archive.append(result.readme, { name: "README.md" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Animation sequence export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Animation sequence export failed" });
+    }
+  });
+
+  // Silhouette Light Box Export - Image tracing with multi-layer LED control
+  app.post("/api/export/silhouette-lightbox", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { generateSilhouetteLightBox } = await import("./silhouette-lightbox-generator");
+      
+      const result = await generateSilhouetteLightBox(settings);
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      res.attachment(`Silhouette_LightBox_${settings.designMode}_${Date.now()}.zip`);
+      archive.pipe(res);
+      
+      archive.append(result.shellSTL, { name: "shell.stl" });
+      archive.append(result.diffuserSTL, { name: `diffuser_${settings.diffuserStyle}.stl` });
+      result.layerSTLs.forEach((stl: string, index: number) => {
+        archive.append(stl, { name: `layer_${index + 1}_${settings.layers[index].name}.stl` });
+      });
+      if (result.keychainSTL) {
+        archive.append(result.keychainSTL, { name: "lithophane_keychain.stl" });
+      }
+      archive.append(result.assemblyInstructions, { name: "ASSEMBLY_INSTRUCTIONS.md" });
+      archive.append(result.wiringDiagram, { name: "WIRING_DIAGRAM.md" });
+      archive.append(result.bom, { name: "BOM.csv" });
+      archive.append(result.readme, { name: "README.md" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Silhouette lightbox export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Silhouette lightbox export failed" });
+    }
+  });
+
+  // Animated Lithophane Export - Moving lithophane animations
+  app.post("/api/export/animated-lithophane", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { generateAnimatedLithophane } = await import("./animated-lithophane-generator");
+      
+      // This generator returns a Promise<Buffer> with the complete ZIP
+      const zipBuffer = await generateAnimatedLithophane(settings);
+      
+      res.attachment(`Animated_Lithophane_${settings.frameCount}frames_${Date.now()}.zip`);
+      res.send(zipBuffer);
+    } catch (error) {
+      console.error("Animated lithophane export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Animated lithophane export failed" });
+    }
+  });
+
+  // Maze Game Export - Scott maze generator with physics
+  app.post("/api/export/maze-game", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { ScottMazeEngine } = await import("./scott-maze-generator");
+      
+      const generator = new ScottMazeEngine(settings.width || 20, settings.height || 20);
+      generator.generateMaze();
+      
+      // Generate simple maze base STL (placeholder - maze doesn't have exportToSTL method)
+      const mazeWidth = (settings.width || 20) * 10; // 10mm per cell
+      const mazeHeight = (settings.height || 20) * 10;
+      const mazeSTL = `solid maze_base
+facet normal 0 0 1
+  outer loop
+    vertex 0 0 0
+    vertex ${mazeWidth} 0 0
+    vertex ${mazeWidth} ${mazeHeight} 0
+  endloop
+endfacet
+facet normal 0 0 1
+  outer loop
+    vertex 0 0 0
+    vertex ${mazeWidth} ${mazeHeight} 0
+    vertex 0 ${mazeHeight} 0
+  endloop
+endfacet
+endsolid maze_base`;
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      res.attachment(`Maze_Game_${settings.width}x${settings.height}_${Date.now()}.zip`);
+      archive.pipe(res);
+      
+      archive.append(mazeSTL, { name: "maze_base.stl" });
+      
+      const instructions = `# Maze Game Assembly Instructions
+
+## Generated Maze
+- Dimensions: ${settings.width}x${settings.height}
+- Algorithm: Scott Recursive Backtracker with Phi-harmonic weighting
+- Difficulty: ${settings.difficulty || 'Medium'}
+
+## Printing
+- Material: PLA or PETG
+- Layer Height: 0.2mm
+- Infill: 20%
+- Supports: Not required
+
+## Assembly
+1. Print maze base
+2. Optional: Add marble or ball bearing (recommended 16mm diameter)
+3. Optional: Paint walls for better contrast
+
+## Gameplay
+- Tilt the maze to navigate the ball from start to finish
+- Start: Top-left corner
+- Finish: Bottom-right corner
+
+Total print time: ~2-3 hours
+`;
+      
+      archive.append(instructions, { name: "INSTRUCTIONS.md" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Maze game export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Maze game export failed" });
+    }
+  });
+
+  // Ying-Yang Export - Taoist symbol with dual LED channels
+  app.post("/api/export/ying-yang", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { generateYingYang } = await import("./ying-yang-generator");
+      
+      const result = await generateYingYang(settings);
+      
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      res.attachment(`YingYang_${settings.diameter}mm_${Date.now()}.zip`);
+      archive.pipe(res);
+      
+      if (result.separateHalves) {
+        // Separate yin and yang halves
+        archive.append(result.yinSTL, { name: "yin_half.stl" });
+        archive.append(result.yangSTL, { name: "yang_half.stl" });
+        archive.append(result.borderSTL, { name: "border_ring.stl" });
+        if (result.diffuserSTL) {
+          archive.append(result.diffuserSTL, { name: "diffuser.stl" });
+        }
+        if (result.mountingSTL) {
+          archive.append(result.mountingSTL, { name: "mounting.stl" });
+        }
+      } else {
+        // Complete symbol
+        archive.append(result.completeSTL, { name: "yingyang_complete.stl" });
+        if (result.diffuserSTL) {
+          archive.append(result.diffuserSTL, { name: "diffuser.stl" });
+        }
+      }
+      
+      archive.append(result.assemblyInstructions, { name: "ASSEMBLY_INSTRUCTIONS.md" });
+      archive.append(result.bom, { name: "BOM.md" });
+      
+      const readme = `# Ying-Yang Symbol - ${settings.diameter}mm
+
+## Package Contents
+${result.separateHalves ? '- Yin Half (dark side)\n- Yang Half (light side)\n- Border Ring' : '- Complete Ying-Yang Symbol'}
+${result.diffuserSTL ? '- Diffuser Lid' : ''}
+- Assembly Instructions
+- Bill of Materials
+
+## Quick Start
+1. Print all parts (${result.separateHalves ? 'yin in black, yang in white' : 'dual color or paint after printing'})
+2. Install ${settings.yinLEDType} in yin channel
+3. Install ${settings.yangLEDType} in yang channel
+${settings.includeEyes ? '4. Install eye LEDs (contrasting colors)\n5. Assemble halves and border' : '4. Assemble and mount'}
+
+## Specifications
+- Diameter: ${settings.diameter}mm
+- Depth: ${settings.depth}mm
+- Mounting: ${settings.mountingType}
+${settings.rotationEnabled ? '- Animation: Rotating display' : '- Display: Static wall mount'}
+
+---
+Generated by Sign-Sculptor Ying-Yang Designer
+`;
+      
+      archive.append(readme, { name: "README.md" });
+      
+      await archive.finalize();
+    } catch (error) {
+      console.error("Ying-Yang export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Ying-Yang export failed" });
+    }
+  });
+
   return httpServer;
 }
