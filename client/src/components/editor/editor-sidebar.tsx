@@ -95,7 +95,7 @@ export function EditorSidebar() {
           >
             <Type className="h-3.5 w-3.5" />
             <span className="text-[9px]">Text</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="geometry"
@@ -136,7 +136,7 @@ export function EditorSidebar() {
           >
             <Download className="h-3.5 w-3.5" />
             <span className="text-[9px]">Export</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="lightpanel"
@@ -145,7 +145,7 @@ export function EditorSidebar() {
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span className="text-[9px]">Panel</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="customfont"
@@ -154,7 +154,7 @@ export function EditorSidebar() {
           >
             <FileText className="h-3.5 w-3.5" />
             <span className="text-[9px]">Font</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="phrase"
@@ -163,7 +163,7 @@ export function EditorSidebar() {
           >
             <Wand2 className="h-3.5 w-3.5" />
             <span className="text-[9px]">Phrase</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="shadowbox"
@@ -172,7 +172,7 @@ export function EditorSidebar() {
           >
             <Box className="h-3.5 w-3.5" />
             <span className="text-[9px]">Shadow</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="neonstand"
@@ -181,7 +181,7 @@ export function EditorSidebar() {
           >
             <Zap className="h-3.5 w-3.5" />
             <span className="text-[9px]">Stand</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="neonbulb"
@@ -190,7 +190,7 @@ export function EditorSidebar() {
           >
             <Lightbulb className="h-3.5 w-3.5" />
             <span className="text-[9px]">Bulb</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-emerald-400 rounded-full border border-emerald-600 shadow-lg" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="holographic"
@@ -199,7 +199,7 @@ export function EditorSidebar() {
           >
             <Layers className="h-3.5 w-3.5" />
             <span className="text-[9px]">Holo</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-emerald-400 rounded-full border border-emerald-600 shadow-lg" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="animation"
@@ -208,7 +208,7 @@ export function EditorSidebar() {
           >
             <Film className="h-3.5 w-3.5" />
             <span className="text-[9px]">Anim</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-emerald-400 rounded-full border border-emerald-600 shadow-lg" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="silhouette"
@@ -217,7 +217,7 @@ export function EditorSidebar() {
           >
             <Image className="h-3.5 w-3.5" />
             <span className="text-[9px]">Silh</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-emerald-400 rounded-full border border-emerald-600 shadow-lg" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="deepfake"
@@ -250,7 +250,7 @@ export function EditorSidebar() {
           >
             <Mountain className="h-3.5 w-3.5" />
             <span className="text-[9px]">Relief</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="cloak"
@@ -259,7 +259,7 @@ export function EditorSidebar() {
           >
             <Eye className="h-3.5 w-3.5" />
             <span className="text-[9px]">Cloak</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="recognize"
@@ -292,7 +292,7 @@ export function EditorSidebar() {
           >
             <Grid3x3 className="h-3.5 w-3.5" />
             <span className="text-[9px]">Grid</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="litho"
@@ -301,7 +301,7 @@ export function EditorSidebar() {
           >
             <ImageIcon className="h-3.5 w-3.5" />
             <span className="text-[9px]">Litho</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="animlitho"
@@ -310,7 +310,7 @@ export function EditorSidebar() {
           >
             <Film className="h-3.5 w-3.5" />
             <span className="text-[9px]">ALith</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-emerald-400 rounded-full border border-emerald-600 shadow-lg" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="eggison"
@@ -319,7 +319,7 @@ export function EditorSidebar() {
           >
             <Egg className="h-3.5 w-3.5" />
             <span className="text-[9px]">Egg</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="customshapes"
@@ -328,7 +328,7 @@ export function EditorSidebar() {
           >
             <Shapes className="h-3.5 w-3.5" />
             <span className="text-[9px]">Shapes</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="retroneon"
@@ -337,7 +337,7 @@ export function EditorSidebar() {
           >
             <Sparkle className="h-3.5 w-3.5" />
             <span className="text-[9px]">Retro</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="neonshapes"
@@ -346,7 +346,7 @@ export function EditorSidebar() {
           >
             <Star className="h-3.5 w-3.5" />
             <span className="text-[9px]">NShap</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="pettag"
@@ -355,7 +355,7 @@ export function EditorSidebar() {
           >
             <Tag className="h-3.5 w-3.5" />
             <span className="text-[9px]">Tag</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="maze"
@@ -364,7 +364,7 @@ export function EditorSidebar() {
           >
             <Gamepad2 className="h-3.5 w-3.5" />
             <span className="text-[9px]">Maze</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full" title="NEW: Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-emerald-400 rounded-full border border-emerald-600 shadow-lg" title="NEW: Exports 3D models"></span>
           </TabsTrigger>
           <TabsTrigger
             value="yingyang"
@@ -373,7 +373,7 @@ export function EditorSidebar() {
           >
             <CircleDot className="h-3.5 w-3.5" />
             <span className="text-[9px]">YinYg</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" title="BRAND NEW: Complete backend created!"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full border-2 border-amber-600 animate-pulse shadow-lg" title="BRAND NEW: Complete backend created!"></span>
           </TabsTrigger>
           <TabsTrigger
             value="embossedtile"
@@ -382,7 +382,7 @@ export function EditorSidebar() {
           >
             <Lightbulb className="h-3.5 w-3.5" />
             <span className="text-[9px]">Tile</span>
-            <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
           </TabsTrigger>
           {isOutlineMode && (
             <>
@@ -393,7 +393,7 @@ export function EditorSidebar() {
               >
                 <Cylinder className="h-3.5 w-3.5" />
                 <span className="text-[9px]">Tube</span>
-                <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-green-500 rounded-full" title="Exports 3D models"></span>
+                <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
               </TabsTrigger>
               <TabsTrigger
                 value="sketch"
