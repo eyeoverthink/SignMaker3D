@@ -2565,6 +2565,24 @@ Total print time: ~2-3 hours
     }
   });
 
+  // Emoji Message Export - Text message emojis with LED channels
+  app.post("/api/export/emoji-message", async (req, res) => {
+    try {
+      const settings = req.body;
+      const { generateEmojiMessage } = await import("./emoji-message-generator");
+      
+      const zipBuffer = await generateEmojiMessage(settings);
+      
+      const emojiList = settings.emojis.join('_');
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="Emoji_Message_${emojiList}_${Date.now()}.zip"`);
+      res.send(zipBuffer);
+    } catch (error) {
+      console.error("Emoji message export error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Emoji message export failed" });
+    }
+  });
+
   // Ying-Yang Export - Taoist symbol with dual LED channels
   app.post("/api/export/ying-yang", async (req, res) => {
     try {

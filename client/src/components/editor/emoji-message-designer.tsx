@@ -6,41 +6,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Smile, Heart, Star, Flame, Sparkles, ThumbsUp, PartyPopper } from "lucide-react";
+import { Download, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
-const EMOJI_CATEGORIES = {
-  faces: {
-    name: "Faces",
-    icon: Smile,
-    emojis: ["😊", "😂", "🥰", "😎", "🤔", "😴", "😭", "😡", "🤯", "🥳"]
-  },
-  hearts: {
-    name: "Hearts",
-    icon: Heart,
-    emojis: ["❤️", "💕", "💖", "💗", "💓", "💝", "💞", "💟", "❣️", "💔"]
-  },
-  symbols: {
-    name: "Symbols",
-    icon: Star,
-    emojis: ["⭐", "✨", "💫", "🌟", "⚡", "🔥", "💥", "✅", "❌", "⚠️"]
-  },
-  gestures: {
-    name: "Gestures",
-    icon: ThumbsUp,
-    emojis: ["👍", "👎", "👏", "🙌", "🤝", "✌️", "🤞", "🤟", "🤘", "👌"]
-  },
-  celebration: {
-    name: "Party",
-    icon: PartyPopper,
-    emojis: ["🎉", "🎊", "🎈", "🎁", "🎂", "🎆", "🎇", "✨", "🎀", "🎗️"]
-  },
-  nature: {
-    name: "Nature",
-    icon: Sparkles,
-    emojis: ["🌸", "🌺", "🌻", "🌹", "🌷", "🌼", "🦋", "🐝", "🌈", "☀️"]
-  }
-};
+// Popular emoji suggestions for quick access
+const SUGGESTED_EMOJIS = [
+  "😂", "❤️", "🔥", "😭", "🙏", "😍", "👍", "💯", "🤔", "💀",
+  "😊", "😁", "😎", "😉", "😘", "😱", "😠", "😢", "😴", "🥳",
+  "🚀", "⭐", "⚡", "🎉", "🎂", "🎁", "🌈", "🌹", "🦋", "☀️"
+];
 
 const LED_TYPES = [
   { value: "6mm", label: "6mm Neon Strip" },
@@ -51,6 +25,7 @@ const LED_TYPES = [
 
 export function EmojiMessageDesigner() {
   const [selectedEmojis, setSelectedEmojis] = useState<string[]>([]);
+  const [emojiInput, setEmojiInput] = useState("");
   const [layout, setLayout] = useState<"grid" | "linear">("grid");
   const [gridColumns, setGridColumns] = useState(3);
   const [spacing, setSpacing] = useState(20);
@@ -65,12 +40,28 @@ export function EmojiMessageDesigner() {
   const [borderPadding, setBorderPadding] = useState(15);
   const [isExporting, setIsExporting] = useState(false);
 
-  const toggleEmoji = (emoji: string) => {
-    setSelectedEmojis(prev =>
-      prev.includes(emoji)
-        ? prev.filter(e => e !== emoji)
-        : [...prev, emoji]
-    );
+  const addEmoji = (emoji: string) => {
+    if (emoji && !selectedEmojis.includes(emoji)) {
+      setSelectedEmojis(prev => [...prev, emoji]);
+      setEmojiInput("");
+    }
+  };
+
+  const removeEmoji = (index: number) => {
+    setSelectedEmojis(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEmojiInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && emojiInput.trim()) {
+      // Extract emojis from input (supports pasting multiple emojis)
+      const emojis = Array.from(emojiInput);
+      emojis.forEach(emoji => {
+        if (emoji.trim() && !selectedEmojis.includes(emoji)) {
+          addEmoji(emoji);
+        }
+      });
+      setEmojiInput("");
+    }
   };
 
   const handleExport = async () => {
@@ -140,56 +131,82 @@ export function EmojiMessageDesigner() {
           </Label>
           <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg min-h-[60px]">
             {selectedEmojis.length === 0 ? (
-              <span className="text-sm text-muted-foreground">Select emojis below...</span>
+              <span className="text-sm text-muted-foreground">Add emojis below...</span>
             ) : (
               selectedEmojis.map((emoji, idx) => (
                 <button
                   key={idx}
-                  onClick={() => toggleEmoji(emoji)}
-                  className="text-3xl hover:scale-110 transition-transform"
+                  onClick={() => removeEmoji(idx)}
+                  className="relative text-3xl p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-all group"
                   title="Click to remove"
                 >
                   {emoji}
+                  <span className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X className="h-4 w-4 text-destructive bg-background rounded-full" />
+                  </span>
                 </button>
               ))
             )}
           </div>
         </div>
 
-        <Tabs defaultValue="faces" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            {Object.entries(EMOJI_CATEGORIES).map(([key, category]) => {
-              const Icon = category.icon;
-              return (
-                <TabsTrigger key={key} value={key} className="flex flex-col gap-1 py-2">
-                  <Icon className="h-4 w-4" />
-                  <span className="text-xs">{category.name}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+        <div className="space-y-2">
+          <Label htmlFor="emojiInput">Add Emoji</Label>
+          <div className="flex gap-2">
+            <Input
+              id="emojiInput"
+              type="text"
+              placeholder="Type or paste emoji (😊❤️🔥) and press Enter"
+              value={emojiInput}
+              onChange={(e) => setEmojiInput(e.target.value)}
+              onKeyDown={handleEmojiInputKeyDown}
+              className="text-2xl"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                if (emojiInput.trim()) {
+                  const emojis = Array.from(emojiInput);
+                  emojis.forEach(emoji => {
+                    if (emoji.trim() && !selectedEmojis.includes(emoji)) {
+                      addEmoji(emoji);
+                    }
+                  });
+                  setEmojiInput("");
+                }
+              }}
+              disabled={!emojiInput.trim()}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            💡 Tip: You can paste multiple emojis at once or use your system's emoji picker (Windows: Win+. | Mac: Cmd+Ctrl+Space)
+          </p>
+        </div>
 
-          {Object.entries(EMOJI_CATEGORIES).map(([key, category]) => (
-            <TabsContent key={key} value={key} className="mt-3">
-              <div className="grid grid-cols-5 gap-2">
-                {category.emojis.map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => toggleEmoji(emoji)}
-                    className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 ${
-                      selectedEmojis.includes(emoji)
-                        ? "bg-primary/20 ring-2 ring-primary"
-                        : "bg-muted/50 hover:bg-muted"
-                    }`}
-                    title={selectedEmojis.includes(emoji) ? "Click to remove" : "Click to add"}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </TabsContent>
-          ))}
-        </Tabs>
+        <div>
+          <Label className="text-sm font-medium mb-2 block">Popular Emojis</Label>
+          <div className="grid grid-cols-10 gap-1">
+            {SUGGESTED_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => addEmoji(emoji)}
+                className={`text-2xl p-1 rounded transition-all hover:scale-110 ${
+                  selectedEmojis.includes(emoji)
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-muted"
+                }`}
+                disabled={selectedEmojis.includes(emoji)}
+                title={selectedEmojis.includes(emoji) ? "Already added" : "Click to add"}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4">

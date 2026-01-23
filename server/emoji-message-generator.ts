@@ -1,20 +1,26 @@
-import * as THREE from 'three';
 import archiver from 'archiver';
-import { Readable } from 'stream';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
+const execAsync = promisify(exec);
 
 interface EmojiMessageSettings {
-  selectedEmojis: string[];
-  emojiSize: number;
+  emojis: string[];
+  layout: 'grid' | 'linear';
+  gridColumns?: number;
   spacing: number;
-  ledType: '6mm' | '8mm' | '10.5mm' | '14mm';
-  diffuserStyle: 'flat' | 'domed';
-  backingPlate: boolean;
-  batteryHolder: '4xAA' | 'USB' | 'CoinCell' | 'none';
-  cableManagement: boolean;
-  mountingHoles: boolean;
-  frameStyle: 'none' | 'rectangle' | 'lightbox' | 'keychain' | 'doorsign';
-  frameThickness: number;
-  framePadding: number;
+  emojiSize: number;
+  ledType: string;
+  signHeight: number;
+  wallThickness: number;
+  baseThickness: number;
+  wireHoleSpacing: number;
+  includeBorder: boolean;
+  borderWidth: number;
+  borderPadding: number;
 }
 
 export async function generateEmojiMessage(settings: EmojiMessageSettings): Promise<Buffer> {
@@ -28,82 +34,72 @@ export async function generateEmojiMessage(settings: EmojiMessageSettings): Prom
     archive.on('error', reject);
   });
 
-  // Import STLExporter dynamically
-  const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js');
-  const exporter = new STLExporter();
+  // Create temporary directory for SCAD files
+  const tempDir = path.join(os.tmpdir(), `emoji-message-${Date.now()}`);
+  fs.mkdirSync(tempDir, { recursive: true });
 
-  const ledChannelWidth = {
-    '6mm': 6,
-    '8mm': 8,
-    '10.5mm': 10.5,
-    '14mm': 14,
-  }[settings.ledType];
+  try {
+    // Map LED type to channel width
+    const ledChannelWidth = parseFloat(settings.ledType.replace('mm', ''));
 
-  // Generate each emoji sign
-  for (let i = 0; i < settings.selectedEmojis.length; i++) {
-    const emoji = settings.selectedEmojis[i];
-    const emojiName = getEmojiName(emoji, i);
+    // Generate each emoji sign
+    for (let i = 0; i < settings.emojis.length; i++) {
+      const emoji = settings.emojis[i];
+      const emojiName = getEmojiName(emoji, i);
 
-    // Generate emoji body with LED channel
-    const bodyGeometry = createEmojiBody(emoji, settings.emojiSize, ledChannelWidth);
-    const bodyMesh = new THREE.Mesh(bodyGeometry);
-    const bodySTL = exporter.parse(bodyMesh, { binary: true }) as DataView;
-    archive.append(Buffer.from(bodySTL.buffer), { name: `Emoji_${emojiName}_Body.stl` });
+      // Generate SCAD file for emoji body
+      const scadContent = generateEmojiSCAD(emoji, emojiName, settings);
+      const scadPath = path.join(tempDir, `Emoji_${emojiName}.scad`);
+      fs.writeFileSync(scadPath, scadContent, 'utf-8');
 
-    // Generate emoji lid/diffuser
-    const lidGeometry = createEmojiLid(emoji, settings.emojiSize, ledChannelWidth, settings.diffuserStyle);
-    const lidMesh = new THREE.Mesh(lidGeometry);
-    const lidSTL = exporter.parse(lidMesh, { binary: true }) as DataView;
-    archive.append(Buffer.from(lidSTL.buffer), { name: `Emoji_${emojiName}_Lid.stl` });
+      // Convert SCAD to STL for body
+      const bodySTLPath = path.join(tempDir, `Emoji_${emojiName}_Body.stl`);
+      await execAsync(`openscad -o "${bodySTLPath}" -D Render_Mode="Body" "${scadPath}"`);
+      if (fs.existsSync(bodySTLPath)) {
+        archive.append(fs.createReadStream(bodySTLPath), { name: `Emoji_${emojiName}_Body.stl` });
+      }
+
+      // Convert SCAD to STL for lid
+      const lidSTLPath = path.join(tempDir, `Emoji_${emojiName}_Lid.stl`);
+      await execAsync(`openscad -o "${lidSTLPath}" -D Render_Mode="Lid" "${scadPath}"`);
+      if (fs.existsSync(lidSTLPath)) {
+        archive.append(fs.createReadStream(lidSTLPath), { name: `Emoji_${emojiName}_Lid.stl` });
+      }
+
+      // Include SCAD source file
+      archive.append(scadContent, { name: `Emoji_${emojiName}.scad` });
+    }
+
+    // Generate border frame if enabled
+    if (settings.includeBorder) {
+      const borderSCAD = generateBorderSCAD(settings);
+      const borderPath = path.join(tempDir, 'Border_Frame.scad');
+      fs.writeFileSync(borderPath, borderSCAD, 'utf-8');
+
+      const borderSTLPath = path.join(tempDir, 'Border_Frame.stl');
+      await execAsync(`openscad -o "${borderSTLPath}" "${borderPath}"`);
+      if (fs.existsSync(borderSTLPath)) {
+        archive.append(fs.createReadStream(borderSTLPath), { name: 'Border_Frame.stl' });
+      }
+      archive.append(borderSCAD, { name: 'Border_Frame.scad' });
+    }
+
+    // Generate assembly instructions
+    const instructions = generateAssemblyInstructions(settings);
+    archive.append(instructions, { name: 'ASSEMBLY_INSTRUCTIONS.md' });
+
+    // Generate BOM
+    const bom = generateBOM(settings);
+    archive.append(bom, { name: 'BOM.md' });
+
+    archive.finalize();
+    return zipPromise;
+  } finally {
+    // Cleanup temp directory
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   }
-
-  // Calculate total message dimensions
-  const totalWidth = settings.selectedEmojis.length * settings.emojiSize + 
-                     (settings.selectedEmojis.length - 1) * settings.spacing;
-  const totalHeight = settings.emojiSize;
-
-  // Generate backing plate if enabled
-  if (settings.backingPlate) {
-    const backingGeometry = createBackingPlate(
-      totalWidth,
-      totalHeight,
-      settings.framePadding,
-      settings.mountingHoles,
-      settings.cableManagement
-    );
-    const backingMesh = new THREE.Mesh(backingGeometry);
-    const backingSTL = exporter.parse(backingMesh, { binary: true }) as DataView;
-    archive.append(Buffer.from(backingSTL.buffer), { name: 'Backing_Plate.stl' });
-  }
-
-  // Generate battery holder if enabled
-  if (settings.batteryHolder !== 'none') {
-    const batteryGeometry = createBatteryHolder(settings.batteryHolder, totalWidth);
-    const batteryMesh = new THREE.Mesh(batteryGeometry);
-    const batterySTL = exporter.parse(batteryMesh, { binary: true }) as DataView;
-    archive.append(Buffer.from(batterySTL.buffer), { name: `Battery_Holder_${settings.batteryHolder}.stl` });
-  }
-
-  // Generate frame if enabled
-  if (settings.frameStyle !== 'none') {
-    const frameGeometry = createFrame(
-      totalWidth,
-      totalHeight,
-      settings.framePadding,
-      settings.frameThickness,
-      settings.frameStyle
-    );
-    const frameMesh = new THREE.Mesh(frameGeometry);
-    const frameSTL = exporter.parse(frameMesh, { binary: true }) as DataView;
-    archive.append(Buffer.from(frameSTL.buffer), { name: `Frame_${settings.frameStyle}.stl` });
-  }
-
-  // Generate assembly instructions
-  const instructions = generateAssemblyInstructions(settings);
-  archive.append(instructions, { name: 'ASSEMBLY_INSTRUCTIONS.md' });
-
-  archive.finalize();
-  return zipPromise;
 }
 
 function getEmojiName(emoji: string, index: number): string {
@@ -137,162 +133,170 @@ function getEmojiName(emoji: string, index: number): string {
   return emojiNames[emoji] || `Emoji_${index + 1}`;
 }
 
-function createEmojiBody(emoji: string, size: number, ledChannelWidth: number): THREE.BufferGeometry {
-  // Create emoji shape using font rendering (simplified - would use actual font in production)
-  const shape = new THREE.Shape();
+function generateEmojiSCAD(emoji: string, emojiName: string, settings: EmojiMessageSettings): string {
+  const ledChannelWidth = parseFloat(settings.ledType.replace('mm', ''));
+  const lightType = `Silicone_Neon_${settings.ledType}`;
   
-  // Create circular base for emoji (simplified representation)
-  const radius = size / 2;
-  shape.absarc(0, 0, radius, 0, Math.PI * 2, false);
+  return `// AUTOMATICALLY GENERATED FILE: Emoji_${emojiName}
+// EMOJI: ${emoji}
+// Generated by Sign-Sculptor Emoji Message Designer
 
-  const extrudeSettings = {
-    depth: 30,
-    bevelEnabled: false,
-  };
+Render_Mode = "Body";  // Change to "Lid" for diffuser
+Emoji = "${emoji}";
+Emoji_Size = ${settings.emojiSize};
+Font_Name = "Segoe UI Emoji";  // Windows system emoji font
+Light_Type = "${lightType}";
 
-  const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+// -- Engineering Constants --
+Sign_Height = ${settings.signHeight};
+Wall_Thickness = ${settings.wallThickness};
+Base_Thickness = ${settings.baseThickness};
+Lid_Tolerance = 0.15;
+Hole_Height = 5.0;
+Hole_Size = 5.0;
+Wire_Hole_Spacing = ${settings.wireHoleSpacing};
 
-  // Create LED channel by subtracting inner volume
-  const channelShape = new THREE.Shape();
-  channelShape.absarc(0, 0, radius - ledChannelWidth / 2 - 2, 0, Math.PI * 2, false);
+// -- Logic Engine --
+CW = ${ledChannelWidth};
+Lip_Overhang = ${ledChannelWidth <= 8 ? '0.4' : '0.0'};
+
+$fn = 60;
+
+module emoji_shape() {
+    text(text=Emoji, size=Emoji_Size, font=Font_Name, halign="center", valign="center");
+}
+
+module body_geometry() {
+    difference() {
+        // Positive Block
+        linear_extrude(Sign_Height)
+            offset(r = CW/2 + Wall_Thickness)
+            emoji_shape();
+
+        // Light Channel
+        translate([0,0, Base_Thickness])
+            linear_extrude(Sign_Height + 1)
+            offset(r = CW/2)
+            emoji_shape();
+
+        // Friction Lip
+        if (Lip_Overhang > 0) {
+            translate([0,0, Sign_Height - 2.0])
+                linear_extrude(3.0)
+                difference() {
+                    offset(r = CW/2 + 5) emoji_shape();
+                    offset(r = CW/2 - Lip_Overhang) emoji_shape();
+                }
+        }
+        
+        // Lid Shelf
+        translate([0,0, Sign_Height - 2.0])
+            linear_extrude(3.0)
+            offset(r = CW/2 + 1.5)
+            emoji_shape();
+
+        // Side Holes for LED wiring
+        translate([-Emoji_Size/1.8, 0, Hole_Height + Base_Thickness])
+            rotate([0, 90, 0]) cylinder(h = Emoji_Size, r = Hole_Size/2);
+            
+        translate([Emoji_Size/1.8, 0, Hole_Height + Base_Thickness])
+            rotate([0, -90, 0]) cylinder(h = Emoji_Size, r = Hole_Size/2);
+    }
+}
+
+module lid_geometry() {
+    color("White")
+        linear_extrude(2.0)
+        offset(r = (CW/2 + 1.5) - Lid_Tolerance)
+        emoji_shape();
+}
+
+if (Render_Mode == "Body") { body_geometry(); }
+else if (Render_Mode == "Lid") { lid_geometry(); }
+`;
+}
+
+function generateBorderSCAD(settings: EmojiMessageSettings): string {
+  const totalWidth = settings.layout === 'grid' 
+    ? (settings.gridColumns || 3) * settings.emojiSize + ((settings.gridColumns || 3) - 1) * settings.spacing
+    : settings.emojis.length * settings.emojiSize + (settings.emojis.length - 1) * settings.spacing;
   
-  const channelGeometry = new THREE.ExtrudeGeometry(channelShape, {
-    depth: 28,
-    bevelEnabled: false,
-  });
-  channelGeometry.translate(0, 0, 2);
+  const rows = settings.layout === 'grid' 
+    ? Math.ceil(settings.emojis.length / (settings.gridColumns || 3))
+    : 1;
+  const totalHeight = rows * settings.emojiSize + (rows - 1) * settings.spacing;
+  
+  const frameWidth = totalWidth + settings.borderPadding * 2;
+  const frameHeight = totalHeight + settings.borderPadding * 2;
+  
+  return `// Border Frame for Emoji Message
+// Generated by Sign-Sculptor
 
-  // Subtract channel from body (CSG operation - simplified)
-  return geometry;
+Frame_Width = ${frameWidth};
+Frame_Height = ${frameHeight};
+Border_Width = ${settings.borderWidth};
+Frame_Thickness = 3;
+
+$fn = 60;
+
+difference() {
+    // Outer frame
+    linear_extrude(Frame_Thickness)
+        square([Frame_Width, Frame_Height], center=true);
+    
+    // Inner cutout
+    translate([0, 0, -1])
+        linear_extrude(Frame_Thickness + 2)
+        square([Frame_Width - Border_Width * 2, Frame_Height - Border_Width * 2], center=true);
+}
+`;
 }
 
-function createEmojiLid(emoji: string, size: number, ledChannelWidth: number, style: 'flat' | 'domed'): THREE.BufferGeometry {
-  const radius = size / 2;
-  const shape = new THREE.Shape();
-  shape.absarc(0, 0, radius - 0.15, 0, Math.PI * 2, false);
+function generateBOM(settings: EmojiMessageSettings): string {
+  const emojiList = settings.emojis.join(' ');
+  
+  return `# Bill of Materials (BOM)
+## Emoji Message Sign: ${emojiList}
 
-  if (style === 'flat') {
-    return new THREE.ExtrudeGeometry(shape, { depth: 2, bevelEnabled: false });
-  } else {
-    // Domed lid
-    const geometry = new THREE.SphereGeometry(radius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-    return geometry;
-  }
+Generated by Sign-Sculptor Emoji Message Designer
+
+### 3D Printed Parts
+${settings.emojis.map((emoji, i) => `- Emoji_${getEmojiName(emoji, i)}_Body.stl (1x) - Main shell with LED channel`).join('\n')}
+${settings.emojis.map((emoji, i) => `- Emoji_${getEmojiName(emoji, i)}_Lid.stl (1x) - Diffuser cover`).join('\n')}
+${settings.includeBorder ? '- Border_Frame.stl (1x) - Decorative frame\n' : ''}
+
+### Electronics
+- ${settings.ledType} Silicone Neon LED Strip: ${settings.emojis.length * settings.emojiSize}mm total length
+- 22 AWG hookup wire: ~${settings.emojis.length * 200}mm
+- Power supply: 5V USB or 4×AA battery holder (6V)
+- Optional: On/off switch
+- Optional: Brightness dimmer (PWM controller)
+
+### Hardware
+- Hot glue gun + glue sticks
+- Soldering iron + solder
+- Wire strippers
+- Flush cutters
+
+### Assembly Time
+Estimated: ${settings.emojis.length * 15} minutes
+
+### Print Settings
+- Material: PLA or PETG
+- Layer Height: 0.2mm
+- Infill: 15-20% (bodies), 100% (lids for diffusion)
+- Supports: None required
+- Print Time: ~${settings.emojis.length * 2} hours total
+
+---
+Generated: ${new Date().toISOString()}
+`;
 }
 
-function createBackingPlate(
-  width: number,
-  height: number,
-  padding: number,
-  mountingHoles: boolean,
-  cableManagement: boolean
-): THREE.BufferGeometry {
-  const plateWidth = width + padding * 2;
-  const plateHeight = height + padding * 2;
-  const plateThickness = 3;
 
-  const shape = new THREE.Shape();
-  shape.moveTo(-plateWidth / 2, -plateHeight / 2);
-  shape.lineTo(plateWidth / 2, -plateHeight / 2);
-  shape.lineTo(plateWidth / 2, plateHeight / 2);
-  shape.lineTo(-plateWidth / 2, plateHeight / 2);
-  shape.lineTo(-plateWidth / 2, -plateHeight / 2);
-
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: plateThickness,
-    bevelEnabled: false,
-  });
-
-  // Add mounting holes if enabled
-  if (mountingHoles) {
-    // Would subtract holes using CSG in production
-  }
-
-  // Add cable management channels if enabled
-  if (cableManagement) {
-    // Would add channels using CSG in production
-  }
-
-  return geometry;
-}
-
-function createBatteryHolder(type: '4xAA' | 'USB' | 'CoinCell', width: number): THREE.BufferGeometry {
-  if (type === '4xAA') {
-    // 4×AA battery holder: 60mm × 58mm × 15mm
-    const holderWidth = 60;
-    const holderHeight = 58;
-    const holderDepth = 15;
-
-    const shape = new THREE.Shape();
-    shape.moveTo(-holderWidth / 2, -holderHeight / 2);
-    shape.lineTo(holderWidth / 2, -holderHeight / 2);
-    shape.lineTo(holderWidth / 2, holderHeight / 2);
-    shape.lineTo(-holderWidth / 2, holderHeight / 2);
-    shape.lineTo(-holderWidth / 2, -holderHeight / 2);
-
-    return new THREE.ExtrudeGeometry(shape, {
-      depth: holderDepth,
-      bevelEnabled: false,
-    });
-  } else if (type === 'USB') {
-    // USB power port housing
-    return new THREE.BoxGeometry(20, 15, 10);
-  } else {
-    // Coin cell holder (CR2032)
-    return new THREE.CylinderGeometry(10, 10, 5, 32);
-  }
-}
-
-function createFrame(
-  width: number,
-  height: number,
-  padding: number,
-  thickness: number,
-  style: 'rectangle' | 'lightbox' | 'keychain' | 'doorsign'
-): THREE.BufferGeometry {
-  const frameWidth = width + padding * 2;
-  const frameHeight = height + padding * 2;
-
-  if (style === 'rectangle') {
-    // Simple rectangular frame
-    const outerShape = new THREE.Shape();
-    outerShape.moveTo(-frameWidth / 2, -frameHeight / 2);
-    outerShape.lineTo(frameWidth / 2, -frameHeight / 2);
-    outerShape.lineTo(frameWidth / 2, frameHeight / 2);
-    outerShape.lineTo(-frameWidth / 2, frameHeight / 2);
-    outerShape.lineTo(-frameWidth / 2, -frameHeight / 2);
-
-    const innerShape = new THREE.Shape();
-    const innerWidth = frameWidth - thickness * 2;
-    const innerHeight = frameHeight - thickness * 2;
-    innerShape.moveTo(-innerWidth / 2, -innerHeight / 2);
-    innerShape.lineTo(innerWidth / 2, -innerHeight / 2);
-    innerShape.lineTo(innerWidth / 2, innerHeight / 2);
-    innerShape.lineTo(-innerWidth / 2, innerHeight / 2);
-    innerShape.lineTo(-innerWidth / 2, -innerHeight / 2);
-
-    outerShape.holes.push(innerShape);
-
-    return new THREE.ExtrudeGeometry(outerShape, {
-      depth: thickness,
-      bevelEnabled: false,
-    });
-  } else if (style === 'lightbox') {
-    // Enclosed light box
-    return new THREE.BoxGeometry(frameWidth, frameHeight, 50);
-  } else if (style === 'keychain') {
-    // Mini keychain with ring attachment
-    const geometry = new THREE.BoxGeometry(frameWidth, frameHeight, 5);
-    return geometry;
-  } else {
-    // Door sign with hanger hole
-    const geometry = new THREE.BoxGeometry(frameWidth, frameHeight, thickness);
-    return geometry;
-  }
-}
 
 function generateAssemblyInstructions(settings: EmojiMessageSettings): string {
-  const emojiList = settings.selectedEmojis.join(' ');
+  const emojiList = settings.emojis.join(' ');
   
   return `# Emoji Message Sign Assembly Instructions
 
@@ -303,21 +307,17 @@ Generated by Sign-Sculptor Emoji Message Designer
 ## Parts Included
 
 ### Emoji Signs
-${settings.selectedEmojis.map((emoji, i) => `- ${emoji} Emoji_${getEmojiName(emoji, i)}_Body.stl (LED channel shell)`).join('\n')}
-${settings.selectedEmojis.map((emoji, i) => `- ${emoji} Emoji_${getEmojiName(emoji, i)}_Lid.stl (${settings.diffuserStyle} diffuser)`).join('\n')}
+${settings.emojis.map((emoji, i) => `- ${emoji} Emoji_${getEmojiName(emoji, i)}_Body.stl (LED channel shell)`).join('\n')}
+${settings.emojis.map((emoji, i) => `- ${emoji} Emoji_${getEmojiName(emoji, i)}_Lid.stl (flat diffuser)`).join('\n')}
 
-${settings.backingPlate ? '### Backing Plate\n- Backing_Plate.stl (auto-sized to message)\n' : ''}
-${settings.batteryHolder !== 'none' ? `### Power System\n- Battery_Holder_${settings.batteryHolder}.stl\n` : ''}
-${settings.frameStyle !== 'none' ? `### Frame\n- Frame_${settings.frameStyle}.stl\n` : ''}
+${settings.includeBorder ? '### Border Frame\n- Border_Frame.stl (decorative frame)\n' : ''}
 
 ## Assembly Steps
 
 ### 1. Print All Parts
 - **Emoji Bodies**: Print with 2-3 perimeters, 15-20% infill
 - **Emoji Lids**: Print with 100% infill for light diffusion (or use white PETG)
-- **Backing Plate**: Print with 3 perimeters, 20% infill
-- **Battery Holder**: Print with 3 perimeters, 30% infill
-- **Frame**: Print with 2-3 perimeters, 15% infill
+${settings.includeBorder ? '- **Border Frame**: Print with 2-3 perimeters, 15% infill\n' : ''}
 
 **Recommended Settings:**
 - Layer Height: 0.2mm
@@ -344,58 +344,43 @@ ${settings.frameStyle !== 'none' ? `### Frame\n- Frame_${settings.frameStyle}.st
 ### 3. Wiring
 
 **LED Connection:**
-${settings.selectedEmojis.length > 1 ? `- Connect emojis in series: ${settings.selectedEmojis.map((e, i) => `${e}${i + 1}`).join(' → ')}` : '- Single emoji - connect directly to power'}
+${settings.emojis.length > 1 ? `- Connect emojis in series: ${settings.emojis.map((e, i) => `${e}${i + 1}`).join(' → ')}` : '- Single emoji - connect directly to power'}
 - Route wires through side holes in emoji bodies
-${settings.cableManagement ? '- Use cable management channels on backing plate' : ''}
-- Connect to ${settings.batteryHolder === '4xAA' ? '4×AA battery holder (6V)' : settings.batteryHolder === 'USB' ? 'USB power (5V)' : settings.batteryHolder === 'CoinCell' ? 'coin cell battery (3V)' : 'external power source'}
+- Connect to 5V USB power or 4×AA battery holder (6V)
 
 **Wiring Diagram:**
 \`\`\`
-[${settings.batteryHolder}] → [Emoji 1] → [Emoji 2] → ... → [Emoji ${settings.selectedEmojis.length}]
+[Power] → [Emoji 1] → [Emoji 2] → ... → [Emoji ${settings.emojis.length}]
 \`\`\`
 
 ### 4. Assembly
 
-1. **Attach Emojis to Backing Plate:**
-   - Position emojis with ${settings.spacing}mm spacing
-   - Use hot glue or double-sided tape
-   - Ensure wires are routed cleanly
-
-2. **Install Battery Holder:**
-   - Attach to back of backing plate
-   - Connect power wires
-   - Test LED illumination
-
-3. **Snap on Diffuser Lids:**
+1. **Snap on Diffuser Lids:**
    - Align lid with emoji body
    - Press firmly until snap-fit engages
    - Check for even light diffusion
 
-4. **Attach Frame (if included):**
-   - Align frame around emoji message
+2. **Arrange Emojis:**
+   - Position emojis with ${settings.spacing}mm spacing
+   - ${settings.layout === 'grid' ? `Arrange in ${settings.gridColumns || 3} column grid` : 'Arrange in linear row'}
+   - Use hot glue or double-sided tape to secure
+
+3. **Attach Border Frame (if included):**
+   - Align frame around emoji arrangement
    - Secure with glue or screws
    - Ensure frame doesn't block light
 
 ### 5. Mounting
 
-${settings.mountingHoles ? `**Wall Mount:**
-- Use mounting holes in backing plate
-- M3 or M4 screws recommended
-- Wall anchors for drywall
-- Or use command strips for damage-free hanging` : ''}
-
-${settings.frameStyle === 'doorsign' ? `**Door Sign:**
-- Use hanger hole at top of frame
-- Hang on door hook or nail` : ''}
-
-${settings.frameStyle === 'keychain' ? `**Keychain:**
-- Attach keyring through mounting hole
-- Ensure battery is secure` : ''}
+**Wall Mount:**
+- Use command strips for damage-free hanging
+- Or use M3/M4 screws with wall anchors
+- Ensure emojis are level
 
 ## LED Specifications
 
 - **Channel Width:** ${settings.ledType}
-- **Voltage:** ${settings.batteryHolder === '4xAA' ? '6V (4×AA)' : settings.batteryHolder === 'CoinCell' ? '3V' : '5V (USB)'}
+- **Voltage:** 5V (USB) or 6V (4×AA batteries)
 - **Current:** Depends on LED strip length (typically 20-60mA per emoji)
 - **Color:** Customizable (order appropriate LED color)
 
