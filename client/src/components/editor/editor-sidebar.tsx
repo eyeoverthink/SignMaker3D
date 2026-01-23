@@ -35,6 +35,7 @@ import {
   Tag,
   Gamepad2,
   Smile,
+  ScanLine,
 } from "lucide-react";
 import { TextControls } from "./text-controls";
 import { GeometryControls } from "./geometry-controls";
@@ -48,6 +49,7 @@ import { LightPanelControls } from "./light-panel-controls";
 import { CustomFontAlphabetControls } from "./custom-font-alphabet-controls";
 import { PhraseDesigner } from "./phrase-designer";
 import { EmojiMessageDesigner } from "./emoji-message-designer";
+import { ImageToSign } from "./image-to-sign";
 import { AdvancedLightBoxDesigner } from "./advanced-light-box-designer";
 import { NeonStandDesigner } from "./neon-stand-designer";
 import NeonBulbDesigner from "./neon-bulb-designer";
@@ -166,6 +168,15 @@ export function EditorSidebar() {
             <Smile className="h-3.5 w-3.5" />
             <span className="text-[9px]">Emoji</span>
             <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full border-2 border-amber-600 animate-pulse shadow-lg" title="BRAND NEW: Emoji Message Designer!"></span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="imagetosign"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
+            data-testid="tab-imagetosign"
+          >
+            <ScanLine className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Scott</span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full border-2 border-amber-600 animate-pulse shadow-lg" title="NEW: Scott Engine - Image to Sign!"></span>
           </TabsTrigger>
           <TabsTrigger
             value="phrase"
@@ -454,6 +465,10 @@ export function EditorSidebar() {
 
             <TabsContent value="emoji" className="mt-0">
               <EmojiMessageDesigner />
+            </TabsContent>
+
+            <TabsContent value="imagetosign" className="mt-0">
+              <ImageToSign />
             </TabsContent>
 
             <TabsContent value="phrase" className="mt-0">
