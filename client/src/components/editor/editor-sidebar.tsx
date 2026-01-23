@@ -34,6 +34,7 @@ import {
   Star,
   Tag,
   Gamepad2,
+  Smile,
 } from "lucide-react";
 import { TextControls } from "./text-controls";
 import { GeometryControls } from "./geometry-controls";
@@ -46,6 +47,7 @@ import { SketchControls } from "./sketch-controls";
 import { LightPanelControls } from "./light-panel-controls";
 import { CustomFontAlphabetControls } from "./custom-font-alphabet-controls";
 import { PhraseDesigner } from "./phrase-designer";
+import { EmojiMessageDesigner } from "./emoji-message-designer";
 import { AdvancedLightBoxDesigner } from "./advanced-light-box-designer";
 import { NeonStandDesigner } from "./neon-stand-designer";
 import NeonBulbDesigner from "./neon-bulb-designer";
@@ -155,6 +157,15 @@ export function EditorSidebar() {
             <FileText className="h-3.5 w-3.5" />
             <span className="text-[9px]">Font</span>
             <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-green-500 rounded-full border border-green-700" title="Exports 3D models"></span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="emoji"
+            className="flex flex-col items-center gap-0.5 py-1.5 px-0.5 relative"
+            data-testid="tab-emoji"
+          >
+            <Smile className="h-3.5 w-3.5" />
+            <span className="text-[9px]">Emoji</span>
+            <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-amber-400 rounded-full border-2 border-amber-600 animate-pulse shadow-lg" title="BRAND NEW: Emoji Message Designer!"></span>
           </TabsTrigger>
           <TabsTrigger
             value="phrase"
@@ -439,6 +450,10 @@ export function EditorSidebar() {
 
             <TabsContent value="customfont" className="mt-0">
               <CustomFontAlphabetControls />
+            </TabsContent>
+
+            <TabsContent value="emoji" className="mt-0">
+              <EmojiMessageDesigner />
             </TabsContent>
 
             <TabsContent value="phrase" className="mt-0">
