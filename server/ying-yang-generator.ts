@@ -92,19 +92,30 @@ export function generateYinHalf(settings: YingYangSettings): THREE.Group {
   yin.name = "Yin_Half";
   
   const radius = settings.diameter / 2;
+  const smallRadius = radius / 2;
   
-  // Main semicircle (left half)
+  // Create Yin shape: left semicircle + top small circle - bottom small circle
   const yinShape = new THREE.Shape();
+  
+  // Start at top of main circle
   yinShape.moveTo(0, radius);
-  yinShape.arc(-radius, 0, radius, Math.PI / 2, -Math.PI / 2, true);
   
-  // Add small circle bump (top)
-  yinShape.arc(0, radius / 2, radius / 2, -Math.PI / 2, Math.PI / 2, false);
+  // Left semicircle arc (counterclockwise from top to bottom)
+  yinShape.absarc(0, 0, radius, Math.PI / 2, -Math.PI / 2, true);
   
-  // Subtract small circle (bottom) - create hole
+  // Bottom small circle (clockwise from left to right)
+  yinShape.absarc(0, -smallRadius, smallRadius, -Math.PI / 2, Math.PI / 2, true);
+  
+  // Top small circle (counterclockwise from right to left)
+  yinShape.absarc(0, smallRadius, smallRadius, Math.PI / 2, -Math.PI / 2, true);
+  
+  // Close path back to start
+  yinShape.lineTo(0, radius);
+  
+  // Add eye hole if enabled
   if (settings.includeEyes) {
     const eyeHole = new THREE.Path();
-    eyeHole.absarc(0, -radius / 2, settings.eyeDiameter / 2, 0, Math.PI * 2, false);
+    eyeHole.absarc(0, smallRadius, settings.eyeDiameter / 2, 0, Math.PI * 2, false);
     yinShape.holes.push(eyeHole);
   }
   
@@ -137,19 +148,30 @@ export function generateYangHalf(settings: YingYangSettings): THREE.Group {
   yang.name = "Yang_Half";
   
   const radius = settings.diameter / 2;
+  const smallRadius = radius / 2;
   
-  // Main semicircle (right half)
+  // Create Yang shape: right semicircle + bottom small circle - top small circle
   const yangShape = new THREE.Shape();
+  
+  // Start at top of main circle
   yangShape.moveTo(0, radius);
-  yangShape.arc(radius, 0, radius, Math.PI / 2, -Math.PI / 2, false);
   
-  // Add small circle bump (bottom)
-  yangShape.arc(0, -radius / 2, radius / 2, Math.PI / 2, -Math.PI / 2, false);
+  // Top small circle (clockwise from left to right)
+  yangShape.absarc(0, smallRadius, smallRadius, Math.PI / 2, -Math.PI / 2, false);
   
-  // Subtract small circle (top) - create hole
+  // Bottom small circle (counterclockwise from right to left)
+  yangShape.absarc(0, -smallRadius, smallRadius, -Math.PI / 2, Math.PI / 2, false);
+  
+  // Right semicircle arc (clockwise from bottom to top)
+  yangShape.absarc(0, 0, radius, -Math.PI / 2, Math.PI / 2, false);
+  
+  // Close path back to start
+  yangShape.lineTo(0, radius);
+  
+  // Add eye hole if enabled
   if (settings.includeEyes) {
     const eyeHole = new THREE.Path();
-    eyeHole.absarc(0, radius / 2, settings.eyeDiameter / 2, 0, Math.PI * 2, false);
+    eyeHole.absarc(0, -smallRadius, settings.eyeDiameter / 2, 0, Math.PI * 2, false);
     yangShape.holes.push(eyeHole);
   }
   

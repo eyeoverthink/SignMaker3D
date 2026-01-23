@@ -8,13 +8,13 @@ from pathlib import Path
 
 # [USER INPUTS]
 # 1. The font file you want to use
-FONT_FILE_PATH = "Dirtyboy-BxYl.ttf" 
+FONT_FILE_PATH = "Segoe-UI-Symbol.ttf" 
 # 2. The internal name of the font (Open file to check, or guess. Usually "Family Name")
 #    If unsure, leave it matching the filename without extension.
-FONT_INTERNAL_NAME = "Dirtyboy" 
+FONT_INTERNAL_NAME = "Segoe-UI-Symbol" 
 
 # [CONFIGURATION]
-OUTPUT_DIR = "Custom_Font_Alphabet-Dirtyboy"
+OUTPUT_DIR = "Custom_Font_Alphabet-Segoe"
 FONT_SIZE = 100
 LIGHT_TYPE = "Silicone_Neon_6mm" 
 
@@ -143,8 +143,24 @@ def generate_custom_alphabet():
 
 if __name__ == "__main__":
     # Check if font exists before running
-    if os.path.exists(FONT_FILE_PATH):
-        generate_custom_alphabet()
-    else:
-        print(f"ERROR: Could not find font file '{FONT_FILE_PATH}'")
-        print("Please place a .ttf or .otf file in this folder and update line 11.")
+    font_path = FONT_FILE_PATH
+    
+    if not os.path.exists(font_path):
+        # Try Windows system fonts
+        system_font = f"C:/Windows/Fonts/{FONT_FILE_PATH}"
+        if os.path.exists(system_font):
+            print(f"Found font in Windows system fonts: {system_font}")
+            font_path = system_font
+        else:
+            print(f"ERROR: Could not find font file '{FONT_FILE_PATH}'")
+            print("Tried:")
+            print(f"  1. Current folder: {FONT_FILE_PATH}")
+            print(f"  2. System fonts: {system_font}")
+            print("\nPlease either:")
+            print("  - Place the .ttf file in the FONTS folder")
+            print("  - Use the exact filename from C:/Windows/Fonts/")
+            exit(1)
+    
+    # Update FONT_FILE_PATH to the found location
+    FONT_FILE_PATH = font_path
+    generate_custom_alphabet()

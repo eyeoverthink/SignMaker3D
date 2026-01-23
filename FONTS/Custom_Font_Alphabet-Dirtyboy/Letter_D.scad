@@ -1,9 +1,9 @@
 
 // AUTOMATICALLY GENERATED FILE: Letter_D
-// FONT SOURCE: Dirtyboy-BxYl.ttf
+// FONT SOURCE: Segoe-UI-Symbol.ttf
 
 // 1. Load the Custom Font
-use <Dirtyboy-BxYl.ttf>;
+use <Segoe-UI-Symbol.ttf>;
 
 Render_Mode = "Body"; 
 Letter = "D";
