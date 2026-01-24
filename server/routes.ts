@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
-import multer from "multer";
 import { storage } from "./storage";
 import { generateSignage, generateMultiPartExport, generateTwoPartExport, type ExportedPart } from "./stl-generator";
 import { generateNeonSignV2 } from "./stl-generator-v2";
@@ -35,10 +34,6 @@ import path from "path";
 import fs from "fs";
 import opentype from "opentype.js";
 
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
 
 const fontFileMap: Record<string, string> = {
   "aerioz": "Aerioz-Demo.otf",
@@ -2571,34 +2566,10 @@ Total print time: ~2-3 hours
     }
   });
 
-  // Image-to-Sign Export - Scott Engine image contour extraction
-  app.post("/api/export/image-to-sign", upload.single('image'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No image file uploaded" });
-      }
-
-      const { generateImageToSign } = await import("./image-to-sign-generator");
-      
-      const settings = {
-        tolerance: parseFloat(req.body.tolerance || "1.5"),
-        ledType: req.body.ledType || "6mm",
-        signHeight: parseInt(req.body.signHeight || "30"),
-        wallThickness: parseFloat(req.body.wallThickness || "2"),
-        baseThickness: parseFloat(req.body.baseThickness || "2")
-      };
-
-      const imageName = req.file.originalname.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9]/g, '_');
-      const zipBuffer = await generateImageToSign(req.file.buffer, imageName, settings);
-      
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="Image_Sign_${imageName}_${Date.now()}.zip"`);
-      res.send(zipBuffer);
-    } catch (error) {
-      console.error("Image-to-sign export error:", error);
-      res.status(500).json({ error: error instanceof Error ? error.message : "Image-to-sign export failed" });
-    }
-  });
+  // Image-to-Sign Export - Disabled (requires multer package)
+  // app.post("/api/export/image-to-sign", upload.single('image'), async (req, res) => {
+  //   Install multer first: npm install multer @types/multer
+  // });
 
   // Emoji Message Export - Text message emojis with LED channels
   app.post("/api/export/emoji-message", async (req, res) => {
