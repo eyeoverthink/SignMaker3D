@@ -1,0 +1,14 @@
+# ==========================================
+#   GEOGRAPHIC SIGN GENERATOR DEPENDENCIES
+#   Install: pip install -r requirements-geo.txt
+# ==========================================
+
+# Core dependencies
+numpy>=1.21.0
+Pillow>=9.0.0
+numpy-stl>=2.16.0
+scipy>=1.7.0
+
+# Optional (for advanced features)
+trimesh>=3.9.0
+matplotlib>=3.5.0
