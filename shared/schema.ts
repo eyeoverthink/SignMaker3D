@@ -126,7 +126,7 @@ export const sketchPathSchema = z.object({
 
 export type SketchPath = z.infer<typeof sketchPathSchema>;
 
-export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes", "presets", "custom", "retro", "ledholder", "eggison", "relief", "lithophane", "scottproof", "mazegame", "animatedlithophane", "recognition", "prediction", "cloaking", "collision", "yinyang", "deepfake", "ledgrid", "customfont"] as const;
+export const inputModes = ["text", "draw", "image", "pettag", "modular", "neontube", "backingplate", "shoestring", "neonshapes", "presets", "custom", "retro", "ledholder", "eggison", "relief", "lithophane", "scottproof", "mazegame", "animatedlithophane", "recognition", "prediction", "cloaking", "collision", "yinyang", "deepfake", "ledgrid", "customfont", "geosign"] as const;
 export type InputMode = typeof inputModes[number];
 
 // Pet Tag specific types
