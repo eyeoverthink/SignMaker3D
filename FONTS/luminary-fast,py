@@ -1,0 +1,197 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox, simpledialog
+from PIL import Image, ImageTk, ImageFont, ImageDraw, ImageOps
+import numpy as np
+import os
+import uuid
+
+# ==========================================
+#   BULB ARCHITECT V27: THE SPEED UPDATE
+#   Logic: Pure 2D Hulling (Instant Render)
+#   Result: No "Speculation" Lag
+# ==========================================
+
+class SignFactoryApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Sign Factory V27 - Speed Protocol")
+        self.root.geometry("700x850")
+        self.root.configure(bg="#1e1e1e")
+
+        self.export_dir = os.path.join(os.path.expanduser("~"), "Desktop", "Sign_Factory_Output")
+        if not os.path.exists(self.export_dir): os.makedirs(self.export_dir)
+
+        self.current_font_path = "seguiemj.ttf" 
+        self.input_text = "👌"
+        self.preview_img = None
+        self.skin_data = []
+        
+        self.setup_ui()
+
+    def setup_ui(self):
+        tk.Label(self.root, text="FACTORY V27 (FAST)", font=("Impact", 28), bg="#1e1e1e", fg="#00E676").pack(pady=20)
+        
+        main = tk.Frame(self.root, bg="#1e1e1e")
+        main.pack(fill=tk.BOTH, padx=40)
+
+        # 1. TOOLING
+        self.lbl(main, "1. TOOLING")
+        btn_frame = tk.Frame(main, bg="#1e1e1e")
+        btn_frame.pack(fill=tk.X, pady=5)
+        tk.Button(btn_frame, text="📂 LOAD FONT", command=self.load_font, bg="#2196F3", fg="white", width=15).pack(side=tk.LEFT)
+        
+        # 2. RAW MATERIAL
+        self.lbl(main, "2. RAW MATERIAL")
+        self.entry = tk.Entry(main, font=("Segoe UI Emoji", 24), justify="center", bg="#333", fg="white")
+        self.entry.insert(0, "👌")
+        self.entry.pack(fill=tk.X, pady=5)
+        self.entry.bind("<KeyRelease>", self.update_preview)
+
+        # 3. SPECS
+        self.lbl(main, "3. SPECIFICATIONS")
+        self.size_scale = self.add_scale(main, "Size (mm)", 150, 50, 400)
+        self.depth_scale = self.add_scale(main, "Depth (mm)", 40, 20, 100)
+
+        self.canvas = tk.Canvas(main, bg="black", height=200, highlightthickness=0)
+        self.canvas.pack(fill=tk.X, pady=20)
+
+        tk.Button(self.root, text="🏭 MANUFACTURE", command=self.generate, 
+                 bg="#00E676", fg="black", font=("Arial", 14, "bold"), height=3).pack(fill=tk.X, padx=40, pady=20)
+        
+        self.update_preview()
+
+    def lbl(self, p, t):
+        tk.Label(p, text=t, bg="#1e1e1e", fg="#03A9F4", font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(20, 5))
+
+    def add_scale(self, p, label, default, min_v, max_v):
+        tk.Label(p, text=label, bg="#1e1e1e", fg="white").pack(anchor="w")
+        var = tk.DoubleVar(value=default)
+        tk.Scale(p, from_=min_v, to=max_v, resolution=5, variable=var, orient=tk.HORIZONTAL, bg="#333", fg="#00E676", highlightthickness=0).pack(fill=tk.X)
+        return var
+
+    def load_font(self):
+        path = filedialog.askopenfilename(filetypes=[("Font Files", "*.ttf;*.otf")])
+        if path:
+            self.current_font_path = path
+            self.update_preview()
+
+    def update_preview(self, event=None):
+        text = self.entry.get()
+        if not text: return
+        self.input_text = text
+        
+        try:
+            res = 400
+            img = Image.new("L", (res, res), 255)
+            draw = ImageDraw.Draw(img)
+            try: font = ImageFont.truetype(self.current_font_path, int(res * 0.7))
+            except: font = ImageFont.load_default()
+
+            bbox = draw.textbbox((0,0), text, font=font)
+            w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            draw.text(((res-w)/2, (res-h)/2 - bbox[1]), text, font=font, fill=0)
+            
+            data = np.array(img)
+            self.skin_data = []
+            step = 4
+            h_pix, w_pix = data.shape
+            
+            for y in range(0, h_pix, step):
+                for x in range(0, w_pix, step):
+                    if data[y, x] < 150: 
+                        norm_x = (x - w_pix/2) / (w_pix/2)
+                        norm_y = ((h_pix - y) - h_pix/2) / (h_pix/2)
+                        self.skin_data.append(f"[{norm_x:.3f},{norm_y:.3f}]")
+
+            disp = ImageOps.invert(img).resize((200, 200))
+            self.preview_img = ImageTk.PhotoImage(disp)
+            self.canvas.delete("all")
+            self.canvas.create_image(100, 100, image=self.preview_img)
+            self.canvas.create_text(100, 180, text=f"{len(self.skin_data)} Vectors", fill="#00E676")
+            
+        except Exception as e: print(e)
+
+    def generate(self):
+        if not self.skin_data: return
+        uid = str(uuid.uuid4())[:4]
+        safe = "".join(x for x in self.input_text if x.isalnum()) or "Emoji"
+        self.write_scad(os.path.join(self.export_dir, f"Factory_V27_{safe}_{uid}.scad"))
+        os.startfile(self.export_dir)
+
+    def write_scad(self, path):
+        points = ",".join(self.skin_data)
+        size = self.size_scale.get()
+        depth = self.depth_scale.get()
+        
+        scad = f"""
+// ==========================================
+//   SIGN FACTORY V27 (SPEED PROTOCOL)
+//   Logic: 2D Hulling -> Extrusion
+// ==========================================
+$fn = 40;
+Sign_Size = {size};
+Depth = {depth};
+Mode = "preview"; 
+
+Pixels = [{points}];
+
+// THE CORE LOGIC: DRAW IN 2D FIRST
+module base_shape_2d(expansion) {{
+    scale = Sign_Size / 2;
+    for(p = Pixels) {{
+        translate([p[0]*scale, p[1]*scale])
+        square([scale/40 + expansion, scale/40 + expansion], center=true);
+    }}
+}}
+
+// 1. SKIN (Detail)
+module part_skin() {{
+    color("Black")
+    linear_extrude(0.6)
+    base_shape_2d(0.2); // No hull needed for pixels, just squares
+}}
+
+// 2. LID (Diffuser)
+module part_lid() {{
+    color("White", 0.5)
+    translate([0,0,-1])
+    linear_extrude(1)
+    offset(r=2) // SMOOTHING HAPPENS HERE IN 2D
+    base_shape_2d(1.5);
+}}
+
+// 3. BOX (Housing)
+module part_box() {{
+    color("#333")
+    difference() {{
+        // Outer Shell
+        translate([0,0,-Depth])
+        linear_extrude(Depth)
+        offset(r=3) base_shape_2d(1.5); // Thicker outer wall
+        
+        // Inner Hollow
+        translate([0,0,-Depth])
+        linear_extrude(Depth+1)
+        offset(r=-1) base_shape_2d(1.5); // Thin inner wall
+        
+        // Wire Hole
+        translate([0, -Sign_Size/2, -Depth/2]) rotate([90,0,0]) cylinder(h=50, d=6);
+    }}
+}}
+
+if (Mode == "preview") {{
+    translate([0,0,0.6]) part_skin();
+    translate([0,0,0]) part_lid();
+    translate([0,0,0]) part_box();
+}}
+if (Mode == "skin") part_skin();
+if (Mode == "lid") part_lid();
+if (Mode == "box") part_box();
+"""
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(scad)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SignFactoryApp(root)
+    root.mainloop()
