@@ -12,8 +12,8 @@ class ScottEmpiricalEngine:
     def __init__(self):
         # The two subjects retrieved for analysis
         self.subjects = {
-            "REAL_ORGANIC": "organic_human.png",
-            "DEEPFAKE_SYNTHETIC": "synthetic_face.png"
+            "REAL_ORGANIC": "vaughn.jpg",
+            "DEEPFAKE_SYNTHETIC": "fake-2.jpg"
         }
 
     def run_validation(self):
